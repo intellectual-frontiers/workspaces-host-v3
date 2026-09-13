@@ -1,8 +1,10 @@
 #!/bin/sh
 # doctor: a slim health check for a workspaces-host-v3 provisioned
-# environment. Prints one PASS/WARN/FAIL line per check; exits non-zero
-# only if something FAILs (a WARN is informational, e.g. "you haven't set
-# your git identity yet" rather than "the environment is broken").
+# environment. Prints one PASS/WARN/FAIL line per check (icon + colored
+# label, color and icons auto-disabled for a non-terminal, NO_COLOR, or
+# TERM=dumb); exits non-zero only if something FAILs (a WARN is
+# informational, e.g. "you haven't set your git identity yet" rather than
+# "the environment is broken").
 #
 # Default output is terse: only the checks that answer "did the install
 # actually work" (Nix, shell, git, credentials, GitHub/GitLab auth,
@@ -15,12 +17,40 @@
 # immediately, in either mode - see fail() below.
 set -u
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM.
+# printf's own \033 octal escape (not a bashism - POSIX printf(1)
+# supports it) puts one real ESC byte in each variable; every one of
+# them is the empty string, and every check below prints identically,
+# when color is off.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_dim="${esc}[2m"
+    c_red="${esc}[31m"
+    c_green="${esc}[32m"
+    c_yellow="${esc}[33m"
+    c_cyan="${esc}[36m"
+    c_magenta="${esc}[35m"
+else
+    c_reset='' c_bold='' c_dim=''
+    c_red='' c_green='' c_yellow='' c_cyan='' c_magenta=''
+fi
+c_bold_red="${c_bold}${c_red}"
+c_bold_green="${c_bold}${c_green}"
+c_bold_yellow="${c_bold}${c_yellow}"
+c_bold_cyan="${c_bold}${c_cyan}"
+c_bold_magenta="${c_bold}${c_magenta}"
+
+RULE='────────────────────────────────────────────────────────'
+
 ALL=0
 case "${1:-}" in
 -a | --all) ALL=1 ;;
 -h | --help)
-    cat <<'EOF'
-Usage: doctor [--all]
+    cat <<EOF
+${c_bold}Usage:${c_reset} doctor [--all]
 
   (no flag)   Show only the essential checks (Nix, shell, git,
               credentials, GitHub/GitLab auth, ws-repos), plus a
@@ -29,7 +59,7 @@ Usage: doctor [--all]
               tooling (compliance, backend, agent-ops, networking).
 
 Every check always runs in either mode - a real FAIL is never hidden,
-even in the terse default output.
+even in the terse default output. Set NO_COLOR=1 to disable color.
 EOF
     exit 0
     ;;
@@ -52,28 +82,27 @@ secrets_env_dir="${XDG_STATE_HOME:-$HOME/.local/state}/workspaces-host/secrets/e
 pass() {
     PASS_N=$((PASS_N + 1))
     [ "$QUIET" = 1 ] && [ "$ALL" != 1 ] && return
-    printf 'PASS  %s\n' "$1"
+    printf '  %s✔ PASS%s  %s\n' "$c_green" "$c_reset" "$1"
 }
 warn() {
     WARN_N=$((WARN_N + 1))
     [ "$QUIET" = 1 ] && [ "$ALL" != 1 ] && return
-    printf 'WARN  %s\n' "$1"
+    printf '  %s⚠ WARN%s  %s\n' "$c_yellow" "$c_reset" "$1"
 }
 fail() {
     FAIL_N=$((FAIL_N + 1))
     FAILED=1
-    printf 'FAIL  %s\n' "$1"
+    printf '  %s✖ FAIL%s  %s\n' "$c_red" "$c_reset" "$1"
 }
 
-# section TITLE QUIET_FLAG: prints a "-- TITLE --" header, unless this
-# section is quiet and we're not in --all mode. Also sets $QUIET for the
-# checks that follow, so pass()/warn() inside this section know whether
-# to print.
+# section TITLE QUIET_FLAG EMOJI: prints a colored "EMOJI TITLE" header,
+# unless this section is quiet and we're not in --all mode. Also sets
+# $QUIET for the checks that follow, so pass()/warn() inside this
+# section know whether to print.
 section() {
     QUIET="$2"
     if [ "$QUIET" != 1 ] || [ "$ALL" = 1 ]; then
-        echo
-        echo "-- $1 --"
+        printf '\n%s%s %s%s\n' "$c_bold_cyan" "${3:-🔹}" "$1" "$c_reset"
     fi
 }
 
@@ -100,10 +129,10 @@ optional_cmd() {
     fi
 }
 
-echo "workspaces-host doctor"
-echo "======================"
+printf '\n%s🩺 workspaces-host doctor%s\n' "$c_bold_magenta" "$c_reset"
+printf '%s%s%s\n' "$c_dim" "$RULE" "$c_reset"
 
-section "Nix" 0
+section "Nix" 0 "❄️ "
 if command -v nix >/dev/null 2>&1; then
     pass "nix is on PATH ($(nix --version 2>/dev/null | head -1))"
     if nix show-config 2>/dev/null | grep -q "experimental-features.*nix-command" && \
@@ -117,7 +146,7 @@ else
 fi
 check_cmd home-manager
 
-section "Shell / prompt / direnv" 0
+section "Shell / prompt / direnv" 0 "🐚"
 check_cmd bash
 check_cmd oh-my-posh
 check_cmd direnv
@@ -150,7 +179,7 @@ if command -v getent >/dev/null 2>&1; then
     fi
 fi
 
-section "Git" 0
+section "Git" 0 "🌿"
 check_cmd git
 if command -v git >/dev/null 2>&1; then
     email=$(git config --get user.email 2>/dev/null || true)
@@ -174,7 +203,7 @@ if command -v git >/dev/null 2>&1; then
     fi
 fi
 
-section "Credentials file (~/.config/workspaces-host/credentials)" 0
+section "Credentials file (~/.config/workspaces-host/credentials)" 0 "🔐"
 credentials_file="${XDG_CONFIG_HOME:-$HOME/.config}/workspaces-host/credentials"
 if [ -f "$credentials_file" ]; then
     cred_perm=$(stat -c '%a' "$credentials_file" 2>/dev/null || stat -f '%Lp' "$credentials_file" 2>/dev/null || echo '?')
@@ -187,7 +216,7 @@ else
     warn "~/.config/workspaces-host/credentials not found - run 'workspaces-host-update' once to create it from a template, then fill it in (see README's 'Setting up your credentials' section)"
 fi
 
-section "GitHub/GitLab authentication" 0
+section "GitHub/GitLab authentication" 0 "🐙"
 check_cmd gh
 if command -v gh >/dev/null 2>&1; then
     if gh auth status >/dev/null 2>&1; then
@@ -212,7 +241,7 @@ if command -v glab >/dev/null 2>&1; then
     fi
 fi
 
-section "Workspace repo management (~/workspaces, ws-repos)" 0
+section "Workspace repo management (~/workspaces, ws-repos)" 0 "📁"
 check_cmd ws-repos
 if [ -d "$HOME/workspaces" ]; then
     pass "~/workspaces exists"
@@ -228,14 +257,14 @@ fi
 # --- Everything below is optional/persona-specific: hidden by default, -
 # --- shown with `doctor --all`. A FAIL still always prints. -----------
 
-section "Advanced: local.nix override (~/.config/workspaces-host/local.nix)" 1
+section "Advanced: local.nix override (~/.config/workspaces-host/local.nix)" 1 "🧩"
 if [ -f "$HOME/.config/workspaces-host/local.nix" ]; then
     pass "~/.config/workspaces-host/local.nix exists (personal Nix-level overrides live outside this repo, safe from every sync)"
 else
     pass "~/.config/workspaces-host/local.nix not present (fine - it's only needed for advanced Nix-level customization; see local.nix.example)"
 fi
 
-section "Common pitfalls (SSH, WSL, disk, locale, plaintext creds)" 1
+section "Common pitfalls (SSH, WSL, disk, locale, plaintext creds)" 1 "🩹"
 
 if [ -d "$HOME/.ssh" ]; then
     ssh_dir_perm=$(stat -c '%a' "$HOME/.ssh" 2>/dev/null || stat -f '%Lp' "$HOME/.ssh" 2>/dev/null || echo '?')
@@ -337,7 +366,7 @@ if command -v docker >/dev/null 2>&1; then
     fi
 fi
 
-section "AI harness CLIs & credentials" 1
+section "AI harness CLIs & credentials" 1 "🤖"
 check_ai_cli() {
     cli="$1"
     label="$2"
@@ -374,17 +403,17 @@ if command -v gh >/dev/null 2>&1; then
     fi
 fi
 
-section "Ported CLI tools (home.packages)" 1
+section "Ported CLI tools (home.packages)" 1 "🧰"
 for c in rg fd jq bat eza gitleaks ws-repos specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook; do
     check_cmd "$c"
 done
 
-section "Agent-ops extras (optional persona)" 1
+section "Agent-ops extras (optional persona)" 1 "🕹️ "
 for c in semtag git-standup git-extras gopass deno llm; do
     optional_cmd "$c" agent-ops
 done
 
-section "Zero-trust networking clients (optional persona)" 1
+section "Zero-trust networking clients (optional persona)" 1 "🌐"
 optional_cmd tailscale networking
 if command -v tailscale >/dev/null 2>&1; then
     pass "run 'sudo tailscale up' to join a tailnet"
@@ -394,7 +423,7 @@ if command -v nebula >/dev/null 2>&1; then
     pass "nebula needs a CA-issued certificate from your mesh's admin to join"
 fi
 
-section "Sandbox sync (workspaces-host-update)" 1
+section "Sandbox sync (workspaces-host-update)" 1 "🔄"
 if [ -n "${WORKSPACES_HOST_REPO:-}" ]; then
     if [ -d "$WORKSPACES_HOST_REPO/.git" ]; then
         pass "\$WORKSPACES_HOST_REPO ($WORKSPACES_HOST_REPO) is a git clone - 'workspaces-host-update' will work"
@@ -405,7 +434,7 @@ else
     warn "\$WORKSPACES_HOST_REPO is not set (did home-manager switch run?)"
 fi
 
-section "Compliance & observability tooling (optional persona)" 1
+section "Compliance & observability tooling (optional persona)" 1 "📊"
 if [ "$(uname -s)" = "Linux" ]; then
     optional_cmd osqueryi compliance
 else
@@ -416,7 +445,7 @@ optional_cmd steampipe compliance
 optional_cmd openobserve compliance
 optional_cmd surveilr compliance
 
-section "PostgreSQL credentials (optional persona: backend)" 1
+section "PostgreSQL credentials (optional persona: backend)" 1 "🐘"
 if command -v pgpass >/dev/null 2>&1; then
     pass "pgpass is on PATH ($(command -v pgpass))"
     if [ -f "$HOME/.pgpass" ]; then
@@ -438,7 +467,7 @@ else
     warn "pgpass is not on PATH (optional - activate the 'backend' persona if you use Postgres)"
 fi
 
-section "Java toolchain (optional persona: backend)" 1
+section "Java toolchain (optional persona: backend)" 1 "☕"
 if command -v java >/dev/null 2>&1; then
     pass "java is on PATH ($(command -v java))"
     pass "java $(java -version 2>&1 | head -1)"
@@ -452,22 +481,25 @@ else
     warn "java is not on PATH (optional - activate the 'backend' persona if you use Java)"
 fi
 
-section "Optional: container tooling (spec 005)" 1
+section "Optional: container tooling (spec 005)" 1 "🐳"
 if command -v docker >/dev/null 2>&1; then
     pass "docker is on PATH (needed to run packages.<system>.oci-image*)"
 else
     warn "docker is not on PATH (only needed to run the OCI images this flake builds, not for the host profile itself)"
 fi
 
-echo
-echo "Summary: $PASS_N passed, $WARN_N warnings, $FAIL_N failed"
+printf '\n%s%s%s\n' "$c_dim" "$RULE" "$c_reset"
+printf '  %s✔ %d passed%s   %s⚠ %d warnings%s   %s✖ %d failed%s\n' \
+    "$c_green" "$PASS_N" "$c_reset" \
+    "$c_yellow" "$WARN_N" "$c_reset" \
+    "$c_red" "$FAIL_N" "$c_reset"
 if [ "$ALL" != 1 ]; then
-    echo "(run 'doctor --all' for the full report, including persona-specific and optional checks)"
+    printf "  %srun 'doctor --all' for the full report, including persona-specific and optional checks%s\n" "$c_dim" "$c_reset"
 fi
 if [ "$FAILED" = "1" ]; then
-    echo "doctor: one or more checks FAILED - see above"
+    printf '\n%s✖ doctor: one or more checks FAILED - see above%s\n' "$c_bold_red" "$c_reset"
     exit 1
 else
-    echo "doctor: all checks passed (WARNs, if any, are informational)"
+    printf '\n%s✔ doctor: all checks passed (WARNs, if any, are informational)%s\n' "$c_bold_green" "$c_reset"
     exit 0
 fi

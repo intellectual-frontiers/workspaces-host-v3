@@ -89,6 +89,12 @@ roll back; confirm the environment matches generation A again.
   group).
 - **FR-002**: `doctor` MUST print one PASS/WARN/FAIL line per check, MUST run every check
   regardless of earlier failures, and MUST exit non-zero if and only if at least one check FAILed.
+- **FR-002a**: `doctor`'s output MUST be colorized and grouped under a labeled header per section
+  for a real terminal, and MUST fall back to identical plain text (no ANSI escapes) when stdout
+  isn't a terminal, `NO_COLOR` is set, or `TERM` is `dumb`, so piped or logged output (CI, a
+  redirected file) never carries escape codes. Every PASS/WARN/FAIL line MUST keep the literal
+  word (not just a color or icon), so the result stays meaningful without color and easy to
+  `grep`.
 - **FR-003**: `doctor` MUST NOT be wrapped with a fixed `PATH` at packaging time — it must observe
   the caller's actual environment.
 - **FR-004**: Rolling back MUST be possible with home-manager's own generation-listing and
