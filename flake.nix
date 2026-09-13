@@ -79,6 +79,42 @@
         (_name: modulePath: mkHomeConfiguration "x86_64-linux" [ modulePath ])
         personaModules;
 
+      # Where `ws-persona activate <name>` records which personas
+      # `current` should combine, so a choice made once keeps applying
+      # on every future `workspaces-host-update` instead of needing
+      # `WORKSPACES_HOST_PROFILE` re-specified by hand each time (spec
+      # 014's "combine and persist personas" follow-up). Same rationale
+      # as `home/default.nix`'s `localConfigPath`: only `current` reads
+      # this, and only impurely, so `nix flake check`'s pure evaluation
+      # never sees it.
+      personasStatePath = /. + (builtins.getEnv "HOME" + "/.config/workspaces-host/personas");
+
+      # One persona name per line; "#" starts a comment (inline or
+      # whole-line) and blank lines are ignored - the same tolerant,
+      # hand-editable-and-forgiving parsing style
+      # `workspaces-host-update` already uses for the credentials file.
+      # An unrecognized name is dropped with a `builtins.trace` warning
+      # rather than a hard eval error, so one typo can't break every
+      # future `current` build.
+      activePersonaModules =
+        if builtins.pathExists personasStatePath then
+          let
+            names = nixpkgs.lib.unique (builtins.filter (n: n != "") (map
+              (line: nixpkgs.lib.trim (builtins.elemAt (nixpkgs.lib.splitString "#" line) 0))
+              (nixpkgs.lib.splitString "\n" (builtins.readFile personasStatePath))));
+          in
+          builtins.concatMap
+            (name:
+              if builtins.hasAttr name personaModules then
+                [ personaModules.${name} ]
+              else
+                builtins.trace
+                  "workspaces-host: ~/.config/workspaces-host/personas names an unknown persona '${name}' - ignoring it (see `ws-persona list` for valid names)"
+                  [ ])
+            names
+        else
+          [ ];
+
       # The identity real installs actually use: `builtins.getEnv`/
       # `builtins.currentSystem` read whoever is actually running the
       # build, instead of the fixed "workspace" identity `default` uses.
@@ -140,9 +176,18 @@
       # identity. Real installs (see README's Installation section) use
       # `current` instead, which needs `--impure` but picks up whoever is
       # actually running the build.
+      #
+      # `current` builds with every persona `ws-persona activate` has
+      # recorded (`activePersonaModules`, empty for anyone who has never
+      # activated one) - this is what makes personas actually combine
+      # (backend and fish and anything else, together) and persist
+      # across every future `workspaces-host-update` with no
+      # `WORKSPACES_HOST_PROFILE` needed. `current-<persona>` below
+      # stays a single-persona, non-persisting build for trying one
+      # persona in isolation without touching your activated list.
       homeConfigurations = homeConfigurationsFor // personaConfigurations // currentPersonaConfigurations // {
         default = homeConfigurationsFor.x86_64-linux;
-        current = mkCurrentUserHomeConfiguration [ ];
+        current = mkCurrentUserHomeConfiguration activePersonaModules;
       };
 
       checks = forAllSystems (system: {

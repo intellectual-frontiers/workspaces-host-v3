@@ -1,24 +1,33 @@
 #!/bin/sh
-# ws-persona: discover workspace personas and check which look active.
-# Activating a persona is already a single command
-# (WORKSPACES_HOST_PROFILE=current-<name> workspaces-host-update, or the
-# plain `nix build .../activate` two-step for anyone who prefers it) -
-# this tool's job is discovery, not activation, so it never runs
-# `nix build`/`home-manager switch` itself.
+# ws-persona: discover, activate, and deactivate workspace personas.
+# `activate`/`deactivate` only edit a small state file
+# (~/.config/workspaces-host/personas) that flake.nix's `current` build
+# reads - this command still never runs `nix build`/`home-manager
+# switch` itself; applying a change is always the caller's own
+# `workspaces-host-update`.
 set -u
+
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+STATE_FILE="$CONFIG_HOME/workspaces-host/personas"
 
 usage() {
     cat <<'EOF'
-Usage: ws-persona <command>
+Usage: ws-persona <command> [persona]
 
 Commands:
-  list       Show every available persona, what it adds, and the exact
-             command to activate it.
-  current    Show which persona(s) look active right now, based on
-             whether each persona's marker tool is on PATH.
+  list                Show every available persona, what it adds, and
+                      the command to activate it.
+  current             Show which personas are activated (recorded for
+                      your next workspaces-host-update) and which look
+                      active right now (detected on PATH).
+  activate <persona>  Record a persona as activated. Combines with any
+                      persona already activated - run
+                      workspaces-host-update afterward to build it in.
+  deactivate <persona> Remove a persona from your activated list. Run
+                      workspaces-host-update afterward to build it out.
 
-Personas are additive: activating one never removes the base profile
-or another already-activated persona.
+Personas combine: activate as many as you want, and every future
+workspaces-host-update builds all of them together automatically.
 EOF
 }
 
@@ -40,34 +49,94 @@ fish:fish:fish shell with matching aliases/prompt (making it your login shell is
 EOF
 }
 
+is_known_persona() {
+    personas | cut -d: -f1 | grep -qxF "$1"
+}
+
 cmd_list() {
     echo "Available personas:"
     echo
     personas | while IFS=: read -r name marker desc; do
         printf '  %-11s %s\n' "$name" "$desc"
-        printf '              WORKSPACES_HOST_PROFILE=current-%s workspaces-host-update\n' "$name"
+        printf '              ws-persona activate %s\n' "$name"
         echo
     done
-    echo "Personas are additive - activating one keeps everything the base profile"
-    echo "(and any other persona you've already activated) already gave you."
+    echo "Personas combine: activate as many as you want, and 'current' builds all"
+    echo "of them together on every future workspaces-host-update - no"
+    echo "WORKSPACES_HOST_PROFILE to remember. Undo with 'ws-persona deactivate <name>'."
+    echo
+    echo "To try one persona once, without touching your activated list:"
+    echo "  WORKSPACES_HOST_PROFILE=current-<name> workspaces-host-update"
 }
 
 cmd_current() {
-    active=$(personas | while IFS=: read -r name marker desc; do
+    declared=""
+    if [ -f "$STATE_FILE" ]; then
+        declared=$(grep -v '^[[:space:]]*#' "$STATE_FILE" 2>/dev/null | grep -v '^[[:space:]]*$' || true)
+    fi
+    if [ -n "$declared" ]; then
+        echo "Activated (recorded in $STATE_FILE):"
+        printf '%s\n' "$declared" | sed 's/^/  /'
+    else
+        echo "No persona activated yet ($STATE_FILE doesn't list any)."
+    fi
+    echo
+    detected=$(personas | while IFS=: read -r name marker desc; do
         if command -v "$marker" >/dev/null 2>&1; then
             printf '%s (detected via %s on PATH)\n' "$name" "$marker"
         fi
     done)
-    if [ -n "$active" ]; then
-        echo "Personas that look active right now:"
-        echo
-        printf '%s\n' "$active" | sed 's/^/  /'
+    if [ -n "$detected" ]; then
+        echo "Detected right now, based on one marker tool per persona on PATH:"
+        printf '%s\n' "$detected" | sed 's/^/  /'
     else
-        echo "No persona-specific marker tool found on PATH - you're likely running the base profile only."
+        echo "No persona-specific marker tool found on PATH right now."
     fi
     echo
-    echo "This is a quick signal (one marker tool per persona), not authoritative - run"
-    echo "'doctor --all' for the full picture, or 'ws-persona list' to see every persona."
+    echo "Activated and detected can disagree right after you run activate or"
+    echo "deactivate, until workspaces-host-update actually rebuilds - that's"
+    echo "expected. Run 'doctor --all' for the full, authoritative picture."
+}
+
+cmd_activate() {
+    name="${1:-}"
+    [ -n "$name" ] || {
+        echo "Usage: ws-persona activate <persona>" >&2
+        exit 1
+    }
+    if ! is_known_persona "$name"; then
+        echo "ws-persona: unknown persona '$name' - run 'ws-persona list' for valid names" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$STATE_FILE")"
+    touch "$STATE_FILE"
+    if grep -qxF "$name" "$STATE_FILE"; then
+        echo "ws-persona: '$name' is already activated"
+    else
+        echo "$name" >>"$STATE_FILE"
+        echo "ws-persona: activated '$name' (recorded in $STATE_FILE)"
+    fi
+    echo
+    echo "Run workspaces-host-update to build it in - it combines with everything"
+    echo "else you've activated, and every future workspaces-host-update keeps it."
+}
+
+cmd_deactivate() {
+    name="${1:-}"
+    [ -n "$name" ] || {
+        echo "Usage: ws-persona deactivate <persona>" >&2
+        exit 1
+    }
+    if [ ! -f "$STATE_FILE" ] || ! grep -qxF "$name" "$STATE_FILE"; then
+        echo "ws-persona: '$name' isn't activated - nothing to do"
+        exit 0
+    fi
+    tmp="$STATE_FILE.tmp.$$"
+    grep -vxF "$name" "$STATE_FILE" >"$tmp"
+    mv "$tmp" "$STATE_FILE"
+    echo "ws-persona: deactivated '$name' (removed from $STATE_FILE)"
+    echo
+    echo "Run workspaces-host-update to rebuild without it."
 }
 
 [ $# -ge 1 ] || {
@@ -79,6 +148,8 @@ shift
 case "$cmd" in
 list) cmd_list "$@" ;;
 current) cmd_current "$@" ;;
+activate) cmd_activate "$@" ;;
+deactivate) cmd_deactivate "$@" ;;
 -h | --help) usage ;;
 *)
     echo "ws-persona: unknown command: $cmd" >&2

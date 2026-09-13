@@ -49,6 +49,33 @@ for anyone who wants to keep bash. For anyone who wants the real thing instead, 
 (FR-012) offers fish's own native line editor, written in Rust as of fish 4.x - additive, like
 every other persona, and never a change to anyone else's shell.
 
+### Follow-up: combining and persisting personas (2026)
+
+An engineer activated `fish` (`WORKSPACES_HOST_PROFILE=current-fish workspaces-host-update`),
+ran `chsh` to make it their login shell, then later ran a plain `workspaces-host-update` (no
+`WORKSPACES_HOST_PROFILE`) in response to the daily "you're behind origin/main" nudge.
+`WORKSPACES_HOST_PROFILE` was never persisted anywhere - it only affects the one invocation that
+sets it - so that plain run silently rebuilt the base `current` profile, which doesn't include
+`programs.fish`, and `fish` disappeared from `~/.nix-profile/bin`. Their login shell in
+`/etc/passwd` still named that now-empty path; `doctor`'s login-shell check only ever compared
+that path as a string, so it kept reporting PASS even though the shell it named no longer
+existed. Separately, and worse: `homeConfigurations.current-<persona>` (FR-001) was always base
+plus exactly *one* persona module, so there was never a way to combine two personas (e.g.
+`backend` and `fish` together) through the documented activation path at all, despite the docs
+site's own "activate more than one and you get all of them together" claim - `home-manager
+switch` fully replaces the active generation's module set on every call; it does not layer one
+switch on top of a previous one.
+
+Both problems shared one root cause (persona choice was a one-shot environment variable, never
+declared state) and one fix: `~/.config/workspaces-host/personas`, a small file listing every
+persona an engineer has activated, that `homeConfigurations.current` (not `current-<persona>`)
+reads and folds into the same build alongside `./home` - so personas actually stack, and the
+choice survives every future `workspaces-host-update` with no environment variable to remember.
+`ws-persona activate`/`deactivate` (extending FR-011) edit that file; they still never run `nix
+build`/`home-manager switch` themselves. `doctor`'s login-shell check (spec 004 FR-001) was
+hardened at the same time to verify the shell binary the path names still actually exists, not
+just that the string matches, closing the false-PASS hole directly.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Activate a specialized profile for my role (Priority: P2)
@@ -58,7 +85,10 @@ needs, on top of everything the base profile already gives them, without those t
 forced on every engineer who doesn't need them.
 
 **Independent Test**: Build and activate `homeConfigurations.current-data`; confirm `uv`/`duckdb`
-are present in addition to everything the base profile installs.
+are present in addition to everything the base profile installs. Separately: `ws-persona
+activate fish`, `ws-persona activate backend`, then build `homeConfigurations.current`; confirm
+both persona's tools (`fish` and `mvn`/`redis-cli`/`docker-compose`) are present together in one
+build.
 
 **Acceptance Scenarios**:
 
@@ -68,6 +98,13 @@ are present in addition to everything the base profile installs.
 2. **Given** an engineer who activates only the base profile (`current`), **When** they check
    their environment, **Then** no persona-specific package is present — personas are strictly
    additive and opt-in, never assumed.
+3. **Given** an engineer has run `ws-persona activate` for two different personas, **When** they
+   run `workspaces-host-update` (plain `current`, no `WORKSPACES_HOST_PROFILE`), **Then** both
+   personas' tools are present together, and every base-profile tool is still present too.
+4. **Given** an engineer activated a persona and ran `workspaces-host-update` at least once,
+   **When** they run `workspaces-host-update` again later with no `WORKSPACES_HOST_PROFILE` set
+   (e.g. from the daily update nudge), **Then** that persona's tools are still present - the
+   choice persists without needing to be repeated.
 
 ### User Story 2 - Find out what personas exist, and what's already active (Priority: P2)
 
@@ -81,17 +118,25 @@ repository targets; discovering what's available shouldn't require reading `flak
 
 **Independent Test**: Run `ws-persona list` with no persona active; confirm every persona from
 FR-003 through FR-009 (backend, data, mobile, agent-ops, compliance, networking) is named with a
-one-line description and the exact command to activate it. Activate `backend`; run `ws-persona
-current`; confirm it's reported active.
+one-line description and the exact command to activate it. Run `ws-persona activate backend`;
+confirm `ws-persona current` reports it activated even before rebuilding. Rebuild; confirm it's
+also reported detected. Run `ws-persona deactivate backend`; confirm it's no longer reported
+activated.
 
 **Acceptance Scenarios**:
 
 1. **Given** any environment, **When** an engineer runs `ws-persona list`, **Then** every persona
    is named with what it adds and the exact one-line command to turn it on.
 2. **Given** a persona whose marker tool (e.g. `mvn` for `backend`) is on `PATH`, **When** an
-   engineer runs `ws-persona current`, **Then** that persona is reported as active; the output
+   engineer runs `ws-persona current`, **Then** that persona is reported as detected; the output
    also states this is a quick signal, not authoritative, and points to `doctor --all` for the
    full picture.
+3. **Given** an engineer runs `ws-persona activate <persona>` for a valid persona name, **When**
+   they run `ws-persona current` before rebuilding anything, **Then** that persona is reported as
+   activated (recorded, pending a rebuild) even though it may not yet be detected on `PATH`.
+4. **Given** an engineer runs `ws-persona activate` with a name that isn't a real persona,
+   **When** the command runs, **Then** it fails with a clear error naming `ws-persona list` as
+   the way to see valid names, and nothing is recorded.
 
 ### Edge Cases
 
@@ -107,6 +152,20 @@ current`; confirm it's reported active.
   doesn't, and can't: home-manager has no way to write `/etc/passwd`. Both `ws-persona list` and
   the docs site name the separate, manual `chsh -s $(which fish)` step explicitly, rather than
   leaving "why didn't my shell change" to be discovered the hard way.
+- What happens when `~/.config/workspaces-host/personas` names a persona that doesn't exist (a
+  typo, or one removed from a later version of this repository)? `flake.nix` drops it with a
+  `builtins.trace` warning during evaluation rather than failing the whole `current` build - one
+  bad line can't take down every persona an engineer has correctly activated.
+- What happens to a login shell that was `chsh`'d to a persona's shell (e.g. `fish`) after that
+  persona is later deactivated or falls out of the active generation some other way? The shell
+  binary at that path disappears, but `/etc/passwd` still names it - `doctor` (spec 004 FR-001)
+  checks that the binary still actually exists there, not just that the path string matches, and
+  WARNs with the exact `ws-persona activate`/`workspaces-host-update` fix rather than reporting a
+  false PASS.
+- What happens when an engineer wants to try a persona once without committing to it? The
+  existing `WORKSPACES_HOST_PROFILE=current-<persona> workspaces-host-update` path (FR-001) still
+  works exactly as before: that one build is always exactly that one persona, ignores
+  `~/.config/workspaces-host/personas` entirely, and never modifies it.
 
 ---
 
@@ -138,6 +197,9 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
 - **FR-001**: The flake MUST expose one `homeConfigurations.<persona>` (fixed test identity,
   pinned to `x86_64-linux`, for `nix flake check`) and one `homeConfigurations.current-<persona>`
   (impure, real identity) per persona module, in addition to `default`/`current`.
+  `current-<persona>` MUST always build with exactly that one persona module, regardless of
+  anything recorded by FR-013, so an engineer can try one persona in isolation without touching
+  what they've activated.
 - **FR-002**: Every persona module MUST import the shared `./home` module set and add only its
   own extra `home.packages` — it MUST NOT redefine or override anything the base profile already
   configures.
@@ -152,6 +214,9 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
   and `llm`.
 - **FR-007**: Activating no persona (`default`/`current`) MUST be completely unaffected by this
   feature's existence — personas are additive, opt-in profiles, never a change to the base.
+  Activating more than one (FR-013) MUST combine every activated persona's packages together in
+  the same `current` build, alongside the base profile, since FR-002 already guarantees no
+  persona module can conflict with another.
 - **FR-008**: The `compliance` persona MUST add the compliance/observability tooling from spec
   006: `cnquery`, `steampipe`, `openobserve`, `osquery` (Linux), and `surveilr` (`x86_64-linux`/
   `x86_64-darwin`).
@@ -161,13 +226,19 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
   an informational WARN (not FAIL) when its persona isn't active, and MUST default to a terse
   report covering only the base profile's essentials (Nix, shell, git, credentials, GitHub/GitLab
   auth, `ws-repos`) unless run with `doctor --all` — a real FAIL is never hidden in either mode.
-- **FR-011**: A `ws-persona` command MUST be installed on `PATH` by the base profile, with two
+- **FR-011**: A `ws-persona` command MUST be installed on `PATH` by the base profile, with four
   subcommands: `list` (every persona, a one-line description of what it adds, and the exact
-  command to activate it) and `current` (which persona(s) look active, based on one marker tool
-  per persona being on `PATH`, explicitly labeled a heuristic rather than an authoritative
-  check). `ws-persona` MUST NOT itself run `nix build`/`home-manager switch` — activation stays a
-  single documented command (`WORKSPACES_HOST_PROFILE=current-<persona> workspaces-host-update`,
-  or the plain `nix build .../activate` two-step) that this command only prints, never runs.
+  command to activate it); `current` (which personas are activated per FR-013's state file,
+  versus which look active right now based on one marker tool per persona being on `PATH`,
+  explicitly labeled a heuristic rather than an authoritative check, and explicitly allowed to
+  disagree until the next rebuild); `activate <persona>` (record a valid persona name in FR-013's
+  state file, or fail with a clear error for an unrecognized name); and `deactivate <persona>`
+  (remove one). `ws-persona` MUST NOT itself run `nix build`/`home-manager switch` — applying a
+  change is always the caller's own subsequent `workspaces-host-update` (plain, no
+  `WORKSPACES_HOST_PROFILE` needed once FR-013 exists), which this command only names, never
+  runs. The one-off `WORKSPACES_HOST_PROFILE=current-<persona> workspaces-host-update` path (or
+  the plain `nix build .../activate` two-step) MUST remain available and documented for trying a
+  single persona without touching the activated list.
 - **FR-012**: The `fish` persona MUST enable fish as an additional shell (`programs.fish`) with
   the same aliases home/shell.nix gives bash (`ll`, `ls`, `cat`, `g`, `deno-run`, `deno-test`,
   `cdp`), and MUST preserve the same daily-update-nudge and SSH-agent-auto-start behavior bash
@@ -178,13 +249,25 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
   isn't - verified directly against a real non-root user, not assumed), then `chsh` itself - never
   implied as the one command it isn't. The environment health check (spec 004 FR-001) MUST treat
   fish as a correct login shell choice, not just bash, once this persona exists.
+- **FR-013**: `homeConfigurations.current` MUST read `~/.config/workspaces-host/personas` (one
+  persona name per line, `#` starting a whole-line or inline comment, blank lines ignored) if it
+  exists, and include every named persona's module in the same build alongside `./home` -
+  combining, not replacing, so activating `backend` and `fish` both means both are present
+  together. An unrecognized name in that file MUST be dropped (a `builtins.trace` warning during
+  evaluation, no hard failure) rather than breaking the whole build. This file MUST live outside
+  the repository (same rationale as spec 013's `local.nix`) and MUST only be read by `current` -
+  `nix flake check`'s pure evaluation MUST NOT see it, and `current-<persona>` (FR-001) MUST
+  continue to ignore it entirely.
 
 ### Key Entities
 
 - **Persona module**: one `home/profiles/<name>.nix` file — a small, focused package set on top
   of the shared base.
-- **`ws-persona`**: a discovery-only command (`list`/`current`) for personas, distinct from
-  activation itself.
+- **`ws-persona`**: a `list`/`current`/`activate`/`deactivate` command for personas. `activate`/
+  `deactivate` edit the personas state file (FR-013); none of the four subcommands ever run `nix
+  build`/`home-manager switch` themselves.
+- **Personas state file** (`~/.config/workspaces-host/personas`): the declared, persistent record
+  of which personas an engineer has activated - what FR-013's `current` build actually reads.
 
 ## Success Criteria *(mandatory)*
 
@@ -197,6 +280,13 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
   personas exist or are documented — adding a new persona never grows the terse report.
 - **SC-004**: An engineer who has never read `flake.nix` can name every available persona, what
   each adds, and the exact command to activate one, from `ws-persona list` alone.
+- **SC-005**: `ws-persona activate` for two different personas, followed by one plain
+  `workspaces-host-update` (no `WORKSPACES_HOST_PROFILE`), produces a single build containing
+  both personas' tools together with the base profile - verified against a real scratch-`$HOME`
+  activation, not just evaluation.
+- **SC-006**: A persona activated once stays present across a second, later, plain
+  `workspaces-host-update` run with no `WORKSPACES_HOST_PROFILE` set - the choice is never lost
+  to an ordinary update.
 
 ## Assumptions
 

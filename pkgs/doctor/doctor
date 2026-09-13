@@ -177,10 +177,24 @@ if command -v getent >/dev/null 2>&1; then
     # real answer - fish is an equally supported, deliberate choice
     # (see doctor's own "Alternative shell" section below), not
     # something to warn about just for not being bash.
+    # A matching path string isn't proof the shell is actually there:
+    # `chsh` writes a fixed path into /etc/passwd and never revisits
+    # it, so if you later rebuild without the persona that provides it
+    # (e.g. deactivated fish, or just never re-activated it after a
+    # plain workspaces-host-update), the path stays but the binary
+    # doesn't - a real problem this used to silently report as PASS.
     if [ "$login_shell" = "$bash_path" ]; then
-        pass "this flake's own pinned bash ($bash_path) is your login shell"
+        if [ -x "$bash_path" ]; then
+            pass "this flake's own pinned bash ($bash_path) is your login shell"
+        else
+            warn "your login shell is set to this flake's pinned bash ($bash_path), but nothing is there right now - your active generation looks stale or broken; run workspaces-host-update to rebuild it"
+        fi
     elif [ "$login_shell" = "$fish_path" ]; then
-        pass "this flake's own pinned fish ($fish_path, the 'fish' persona) is your login shell"
+        if [ -x "$fish_path" ]; then
+            pass "this flake's own pinned fish ($fish_path, the 'fish' persona) is your login shell"
+        else
+            warn "your login shell is set to this flake's pinned fish ($fish_path), but nothing is there right now - you likely rebuilt without the 'fish' persona activated; run 'ws-persona activate fish' then workspaces-host-update to restore it"
+        fi
     else
         warn "your login shell is $login_shell, not this flake's pinned bash ($bash_path) or fish ($fish_path) - install.sh tries to set bash automatically and may have failed (a locked-down /etc, no sudo); fix it yourself with 'chsh -s $bash_path', or for fish (if you've activated that persona) first run 'echo \"$fish_path\" | sudo tee -a /etc/shells' (chsh refuses a shell that isn't listed there) then 'chsh -s $fish_path' - if you want a shell this setup actually provisions"
     fi

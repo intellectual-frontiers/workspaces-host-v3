@@ -73,8 +73,13 @@ roll back; confirm the environment matches generation A again.
   minimum: Nix and flakes enabled; home-manager on `PATH`; the shell, prompt, and direnv
   integration from spec 001; whether the caller's actual login shell (via the real `/etc/passwd`
   entry, not `$SHELL`) is one of this flake's own pinned shells - bash, or fish if the `fish`
-  persona (spec 014) is active - not just installed, and WARN (not FAIL) only when it's neither;
-  git on `PATH` and
+  persona (spec 014) is active - not just installed, and WARN (not FAIL) only when it's neither.
+  A login-shell path matching one of these two exactly is necessary but not sufficient: this
+  check MUST also confirm the binary named there still actually exists and is executable (`chsh`
+  writes a fixed path into `/etc/passwd` and never revisits it, so a persona deactivated or
+  rebuilt away after `chsh` leaves a dangling path that a plain string comparison would wrongly
+  report as PASS - verified directly against that exact scenario, not assumed) and WARN, naming
+  `ws-persona activate`/`workspaces-host-update` as the fix, when it doesn't; git on `PATH` and
   identity configured (WARN, not FAIL, if unset); every tool this repository installs; `ws-repos` and
   the workspace layout from spec 003; the credentials file's existence and permissions from spec
   002; GitHub/GitLab authentication for `gh`/`glab` (spec 002 FR-008), counting either an existing

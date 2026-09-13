@@ -618,7 +618,7 @@ $ ./result/activate</code></pre>
         <tr><td><code>networking</code></td><td>Tailscale, Nebula</td></tr>
         <tr><td><code>fish</code></td><td>fish shell, with the same aliases and prompt bash gets</td></tr>
       </table>
-      <p>Personas are additive: everything the base profile gives you is still there, plus that persona's extras. Skip all of them and nothing changes. Activate more than one and you get all of them together.</p>
+      <p>Personas are additive and they combine: everything the base profile gives you is still there, plus every persona's extras, plus each other's. Activate none and nothing changes. Activate <code>backend</code> and <code>fish</code> both, and every future <code>workspaces-host-update</code> builds both together, automatically, for as long as you keep them activated.</p>
       <div class="callout">
         <p>The <code>fish</code> persona only makes <code>fish</code> and its config available. It never changes your login shell, the same way activating <code>networking</code> never joins a Tailscale mesh for you. To actually use it day to day, run these two commands (the same way on Linux generally, WSL included, and macOS - anywhere <code>chsh</code> validates against <code>/etc/shells</code>):</p>
         <pre><code>$ echo "$(which fish)" | sudo tee -a /etc/shells
@@ -631,15 +631,22 @@ $ chsh -s $(which fish)</code></pre>
       <pre><code>$ ws-persona list</code></pre>
       <p>Not sure what you already have active?</p>
       <pre><code>$ ws-persona current</code></pre>
+      <p>This shows two things, and they can briefly disagree: what's <strong>activated</strong> (recorded in <code>~/.config/workspaces-host/personas</code>, applied on your next <code>workspaces-host-update</code>) and what's <strong>detected</strong> (one marker tool per persona, like <code>mvn</code> for <code>backend</code>, actually on your <code>PATH</code> right now). Activate a persona and it shows as activated immediately, but not detected until you actually rebuild.</p>
       <div class="callout">
-        <p><code>ws-persona current</code> is a quick signal, not a certainty: it checks whether one marker tool per persona (like <code>mvn</code> for <code>backend</code>) is on your <code>PATH</code>, which can occasionally miss or over-report if you've installed something similar yourself, outside this flake. Run <code>doctor --all</code> for the full, authoritative picture.</p>
+        <p>Detection is a quick signal, not a certainty - it can occasionally miss or over-report if you've installed something similar yourself, outside this flake. Run <code>doctor --all</code> for the full, authoritative picture.</p>
       </div>
 
-      <h3 id="personas-activate">Activating one</h3>
-      <p>The same command you already use to update everything else, pointed at a persona instead of the base profile:</p>
+      <h3 id="personas-activate">Activating one (or several)</h3>
+      <p>Record it, then update:</p>
+      <pre><code>$ ws-persona activate backend
+$ workspaces-host-update</code></pre>
+      <p><code>workspaces-host-update</code> runs <code>doctor</code> right after, so you see immediately whether it worked. Activate as many as you want the same way; each one adds to the others rather than replacing them, and the choice sticks - no environment variable to remember on your next update, next week or next year.</p>
+      <p>Changed your mind about one?</p>
+      <pre><code>$ ws-persona deactivate backend
+$ workspaces-host-update</code></pre>
+      <p>Want to try a persona once without committing to it - build it in isolation, see if you like it, without touching your activated list?</p>
       <pre><code>$ WORKSPACES_HOST_PROFILE=current-backend workspaces-host-update</code></pre>
-      <p>That applies the <code>backend</code> persona and runs <code>doctor</code> right after, so you see immediately whether it worked. Swap <code>backend</code> for any name from <code>ws-persona list</code>.</p>
-      <p>Prefer the plain Nix commands instead of <code>workspaces-host-update</code>?</p>
+      <p>That one-off build ignores your activated list entirely (it's just <code>backend</code>, nothing else), and doesn't change it either. Prefer the plain Nix commands instead of <code>workspaces-host-update</code> for that one-off?</p>
       <pre><code>$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure
 $ ./result/activate</code></pre>
 
@@ -880,7 +887,8 @@ specs/&lt;NNN-name&gt;/               # one spec.md + plan.md per feature
   writing-style.md                 # the prose voice every doc follows</code></pre>
 
       <h2 id="personas-arch">How personas work</h2>
-      <p>Every persona is a small home-manager module under <code>home/profiles/</code> that adds its own <code>home.packages</code> (and sometimes imports a shared module the base profile doesn't, like <code>backend</code> importing <code>home/java.nix</code>). <code>flake.nix</code> maps each entry in <code>personaModules</code> to a <code>homeConfigurations.&lt;persona&gt;</code> and a <code>homeConfigurations.current-&lt;persona&gt;</code>, built from the same base <code>home/</code> module set plus that one extra module. Personas are purely additive: nothing a persona module does can remove or override what the base profile already configures.</p>
+      <p>Every persona is a small home-manager module under <code>home/profiles/</code> that adds its own <code>home.packages</code> (and sometimes imports a shared module the base profile doesn't, like <code>backend</code> importing <code>home/java.nix</code>). <code>flake.nix</code> maps each entry in <code>personaModules</code> to a <code>homeConfigurations.&lt;persona&gt;</code> (fixed test identity, for CI) and a <code>homeConfigurations.current-&lt;persona&gt;</code> (real identity, that one persona only, ignoring anything activated) - both built from the same base <code>home/</code> module set plus that one extra module. Personas are purely additive: nothing a persona module does can remove or override what the base profile already configures, which is exactly what lets several of them stack safely in one build.</p>
+      <p><code>homeConfigurations.current</code> is where that stacking actually happens: it reads <code>~/.config/workspaces-host/personas</code> (one name per line, <code>#</code> comments allowed, an unrecognized name dropped with a <code>builtins.trace</code> warning rather than failing the whole build) and folds every named persona's module into the same build alongside <code>./home</code> - <code>ws-persona activate</code>/<code>deactivate</code> just add or remove a line in that file, nothing more; they never run <code>nix build</code> or <code>home-manager switch</code> themselves. Since this state lives outside the repository and is only read impurely, it's invisible to <code>nix flake check</code>'s pure evaluation, same as <code>local.nix</code>.</p>
       <p>Deciding where a new tool belongs is a single question: does every engineer need this on day one, or only someone doing a specific kind of work? The base profile answers the first question; a persona (existing or new) answers the second. See <a href="#why-personas">Why the base profile stays small</a> for the full reasoning.</p>
 
       <h2 id="speckit">The spec-driven workflow</h2>

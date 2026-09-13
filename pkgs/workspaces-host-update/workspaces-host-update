@@ -116,7 +116,24 @@ if [ -n "$git_name" ] || [ -n "$git_email" ]; then
     chmod 600 "$GIT_IDENTITY_FILE"
 fi
 
-echo "workspaces-host-update: switching to $PROFILE ..." >&2
+# For plain "current" (the common case), name which personas
+# `ws-persona activate` has recorded - flake.nix's `current` build
+# combines all of them, so it's worth being explicit about what's
+# about to happen rather than leaving it implicit.
+if [ "$PROFILE" = "current" ]; then
+    personas_file="${XDG_CONFIG_HOME:-$HOME/.config}/workspaces-host/personas"
+    active_personas=""
+    if [ -f "$personas_file" ]; then
+        active_personas=$(grep -v '^[[:space:]]*#' "$personas_file" 2>/dev/null | grep -v '^[[:space:]]*$' | tr '\n' ' ')
+    fi
+    if [ -n "$active_personas" ]; then
+        echo "workspaces-host-update: switching to $PROFILE (personas: $active_personas)..." >&2
+    else
+        echo "workspaces-host-update: switching to $PROFILE (no personas activated - see 'ws-persona list') ..." >&2
+    fi
+else
+    echo "workspaces-host-update: switching to $PROFILE ..." >&2
+fi
 home-manager switch --flake "$REPO#$PROFILE" --impure
 
 echo >&2
