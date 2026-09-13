@@ -55,6 +55,31 @@ in
     # collision rather than failing the build - every other git-extras
     # subcommand is unaffected.
     (lib.lowPrio git-extras)
+
+    # Additional ported utilities (spec 015) - small, general-purpose
+    # tools a v1-vs-v2-vs-v3 parity audit found missing: general secrets
+    # management, a plain HTTP fetcher, a directly-runnable `rclone`
+    # (previously only vendored inside pkgs/sensitivectl's own wrapped
+    # PATH), changelog generation, and the Deno runtime v1 called "a core
+    # requirement" (this repo's own tooling no longer needs it - mgit/
+    # doctor are POSIX sh - but that's a separate question from whether
+    # engineers should have it available, per spec 015's background).
+    gopass
+    wget
+    rclone
+    git-chglog
+    deno
+
+    # Lefthook git hooks manager (spec 016) - fulfills a v1 roadmap item
+    # that v1 itself never built. See templates/lefthook.yml.example.
+    lefthook
+
+    # Zero-trust networking clients (spec 017) - fulfills another v1
+    # roadmap item v1 never built. Clients only: no service module, no
+    # auto-start, no key material - joining a tailnet/mesh is always an
+    # explicit, engineer-initiated action (README documents the steps).
+    tailscale
+    nebula
   ] ++ [ cnquery' ])
   # osquery is nixpkgs-packaged Linux-only (meta.platforms = platforms.linux
   # at pkgs/tools/system/osquery) - unlike cnquery/steampipe/openobserve

@@ -16,6 +16,12 @@
       ls = "eza";
       cat = "bat --paging=never";
       g = "git";
+      # Deno aliases (spec 015) - "-A" grants every permission, the same
+      # blanket default v1 used for its own `deno-run`/`deno-test`.
+      deno-run = "deno run -A";
+      deno-test = "deno test -A";
+      # cd to the current git repo's top-level directory (spec 015).
+      cdp = "cd $(git rev-parse --show-toplevel)";
     };
 
     # Fish's own signature interactive niceties - syntax highlighting,
@@ -55,6 +61,36 @@
               fi
             ) &
             disown
+          fi
+        fi
+      ''
+
+      ''
+        # SSH agent auto-start (spec 015): once per login shell (never a
+        # plain interactive subshell/terminal tab, which would otherwise
+        # spawn a redundant agent on every new window), start an agent
+        # and load the first private key found if none is loaded yet.
+        # `ssh-add -l` exits 0 (has keys), 1 (agent running, no keys), or
+        # 2 (no agent reachable) - distinguishing "nothing to do" from
+        # "start one" from "just load the key" without parsing output.
+        if shopt -q login_shell; then
+          ssh_key=""
+          for candidate in "$HOME/.ssh/id_ed25519" "$HOME/.ssh/id_rsa"; do
+            if [ -f "$candidate" ]; then
+              ssh_key="$candidate"
+              break
+            fi
+          done
+          if [ -n "$ssh_key" ]; then
+            ssh-add -l >/dev/null 2>&1
+            agent_status=$?
+            if [ "$agent_status" = "2" ]; then
+              eval "$(ssh-agent -s)" >/dev/null
+              agent_status=1
+            fi
+            if [ "$agent_status" = "1" ]; then
+              ssh-add "$ssh_key" >/dev/null 2>&1
+            fi
           fi
         fi
       ''

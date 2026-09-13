@@ -1,0 +1,22 @@
+# Copy this file to your project's root as `lefthook.yml`, then run
+# `lefthook install` once to wire it into that repo's git hooks (spec 016).
+# `lefthook` itself is already on PATH - nothing else to install.
+#
+# See https://lefthook.dev/configuration/ for the full option set; this
+# is a starter covering the two hooks most projects want, with
+# placeholder commands to replace with your project's own.
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.{js,ts,py,sh,nix}"
+      run: echo "replace with your project's linter, e.g.: eslint {staged_files}"
+    format-check:
+      glob: "*"
+      run: echo "replace with your project's formatter check"
+
+pre-push:
+  commands:
+    test:
+      run: echo "replace with your project's fast test command"

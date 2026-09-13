@@ -309,9 +309,22 @@ fi
 
 echo
 echo "-- Ported CLI tools (home.packages) --"
-for c in rg fd jq bat eza gitleaks semtag git-standup mgit specify backlog scaffold-agent-harness sensitivectl pgpass git-xargs workspaces-host-update git-extras; do
+for c in rg fd jq bat eza gitleaks semtag git-standup mgit specify backlog scaffold-agent-harness sensitivectl pgpass git-xargs workspaces-host-update git-extras gopass wget rclone git-chglog deno lefthook llm; do
     check_cmd "$c"
 done
+
+echo
+echo "-- Zero-trust networking clients (optional, spec 017) --"
+if command -v tailscale >/dev/null 2>&1; then
+    pass "tailscale is on PATH ($(command -v tailscale)) - run 'sudo tailscale up' to join a tailnet"
+else
+    warn "tailscale is not on PATH (optional - only needed if you use Tailscale)"
+fi
+if command -v nebula >/dev/null 2>&1; then
+    pass "nebula is on PATH ($(command -v nebula)) - needs a CA-issued certificate from your mesh's admin to join"
+else
+    warn "nebula is not on PATH (optional - only needed if you use Nebula)"
+fi
 
 echo
 echo "-- Sandbox sync (workspaces-host-update) --"

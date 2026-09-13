@@ -22,14 +22,18 @@ see the constitution's "Simplicity Over Completeness" principle.
 
 ## What's implemented
 
-Every spec under [`specs/`](specs/) (001 through 013) is implemented — the
-full feature set workspaces-host-v2 had, rebuilt fresh: the flake/shell
-base, credentials (including GitHub/GitLab tokens), `mgit`, `doctor`/
-rollback, container parity, compliance/observability tooling, the Java/
-Postgres toolchain, AI coding agent harness credentials, Nerd Font/prompt
-polish, agent-harness project scaffolding, bulk git tooling, secrets
-backup/restore, and advanced `local.nix` overrides. See each spec's
-`spec.md` for its exact requirements.
+Every spec under [`specs/`](specs/) (001 through 017) is implemented. Specs 001-013 are the full
+feature set workspaces-host-v2 had, rebuilt fresh: the flake/shell base, credentials (including
+GitHub/GitLab tokens), `mgit`, `doctor`/rollback, container parity, compliance/observability
+tooling, the Java/Postgres toolchain, AI coding agent harness credentials, Nerd Font/prompt
+polish, agent-harness project scaffolding, bulk git tooling, secrets backup/restore, and advanced
+`local.nix` overrides. Specs 014-017 came from a further audit against
+[workspaces-host-v1](https://github.com/strategy-coach/workspaces-host) (the chezmoi-based
+original both v2 and v3 descend from): the per-persona workspace profiles v2 had but v3's initial
+rebuild dropped, a handful of everyday utilities neither v2 nor v3 had ever ported
+(`gopass`/`wget`/a directly-runnable `rclone`/`git-chglog`/the Deno runtime/SSH agent
+auto-start), and two items straight off v1's own unfinished roadmap (Lefthook, Tailscale/Nebula).
+See each spec's `spec.md` for its exact requirements.
 
 ## Installation
 
@@ -273,11 +277,13 @@ simple file. See `home/secrets.nix` for the exact option shape.
 
 ### Setting up AI harness credentials
 
-Every profile installs `nodejs` (needed by every AI CLI below) and
-`aider-chat` (provider-agnostic, so it works with whichever API key you
-have — already on `PATH`, nothing to install). The fast-moving hosted
-CLIs below aren't packaged in this flake's pinned nixpkgs — install them
-with their own `npm install -g`, same as upstream documents:
+Every profile installs `nodejs` (needed by every AI CLI below), `aider-chat` (provider-agnostic,
+so it works with whichever API key you have), and [`llm`](https://llm.datasette.io/) (Simon
+Willison's CLI-based LLM tool — one of v1's own unfinished roadmap items) — all already on
+`PATH`, nothing to install. `llm` manages its own provider keys directly (`llm keys set
+anthropic`), independent of the credentials file below. The fast-moving hosted CLIs below aren't
+packaged in this flake's pinned nixpkgs — install them with their own `npm install -g`, same as
+upstream documents:
 
 ```console
 $ npm install -g @anthropic-ai/claude-code   # provides: claude
@@ -459,6 +465,65 @@ never runs the update for you:
 ```text
 workspaces-host-v3: 3 commit(s) behind origin/main - run workspaces-host-update to pick up new features
 ```
+
+## Workspace profiles (personas)
+
+The base profile (`current`/`default`) is deliberately general-purpose. For a specialized set of
+extra tools on top of it, activate a persona instead (spec 014):
+
+```console
+$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure   # postgresql, redis, docker-compose, httpie
+$ nix build ".#homeConfigurations.current-data.activationPackage" --impure      # python3, uv, duckdb
+$ nix build ".#homeConfigurations.current-mobile.activationPackage" --impure    # android-tools (adb/fastboot), watchman
+$ nix build ".#homeConfigurations.current-agent-ops.activationPackage" --impure # act (gh is already in the base)
+$ ./result/activate
+```
+
+Personas are strictly additive — everything the base profile gives you is still there, plus that
+persona's extra packages. Activating none of them (the default) is completely unaffected.
+
+## More everyday tools
+
+A handful of small, general-purpose utilities round out the base profile (spec 015):
+
+- **`gopass`** — general secrets management, for anything you'd rather not put in the plain
+  credentials file (see "Setting up your credentials" above).
+- **`wget`**, **`rclone`** — a plain HTTP fetcher, and a directly-runnable `rclone` (not just the
+  copy `sensitivectl` uses internally — see "Backing up sensitive local directories" below).
+- **`git-chglog`** — generate a `CHANGELOG.md` from your commit history.
+- **`deno`** — a general-purpose scripting runtime, with `deno-run`/`deno-test` aliases
+  (`deno run -A`/`deno test -A`).
+- **SSH agent auto-start** — a new login shell automatically starts an SSH agent and loads
+  `~/.ssh/id_ed25519` or `~/.ssh/id_rsa` (whichever exists) if nothing's loaded yet — no more
+  manual `ssh-agent`/`ssh-add` per session.
+- **`cdp`** — an alias that `cd`s to the current git repository's top-level directory.
+
+## Git hooks (`lefthook`)
+
+Every profile installs [Lefthook](https://lefthook.dev/). Adopt it in any project with two
+commands:
+
+```console
+$ cp ~/.workspaces-host-v3/templates/lefthook.yml.example ./lefthook.yml   # then edit the placeholder commands
+$ lefthook install
+```
+
+See [`templates/lefthook.yml.example`](templates/lefthook.yml.example) for a starter covering
+`pre-commit` and `pre-push`.
+
+## Zero-trust networking (optional)
+
+Every profile installs the [Tailscale](https://tailscale.com/) and [Nebula](https://github.com/slackhq/nebula)
+mesh VPN clients — no service, no auto-start, no key material provisioned; joining either is
+always an explicit step you take yourself:
+
+```console
+$ sudo tailscale up      # interactive login against your own Tailscale account
+$ nebula -config nebula.yml   # needs a certificate issued by your mesh's own CA/admin first
+```
+
+`doctor` reports both clients as present, informationally — neither is required for anything
+else in this repository.
 
 ## Container & cloud-harness parity
 

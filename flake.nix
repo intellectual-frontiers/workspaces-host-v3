@@ -26,6 +26,16 @@
         config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "cnquery" ];
       };
 
+      # Per-persona profiles (spec 014): each adds a small, focused package
+      # set on top of the shared base (home/) - composable slices rather
+      # than one global package list.
+      personaModules = {
+        backend = ./home/profiles/backend.nix;
+        data = ./home/profiles/data.nix;
+        mobile = ./home/profiles/mobile.nix;
+        agent-ops = ./home/profiles/agent-ops.nix;
+      };
+
       mkHomeConfiguration = system: extraModules:
         home-manager.lib.homeManagerConfiguration {
           pkgs = pkgsFor system;
@@ -54,6 +64,15 @@
       # Principle IV: host and container share one closure).
       homeConfigurationsFor = forAllSystems (system: mkHomeConfiguration system [ ]);
 
+      # Persona configurations are pinned to x86_64-linux, same rationale
+      # as `default` below: engineers on another platform substitute that
+      # system's own attribute (or fork a persona module for their
+      # platform) rather than this flake enumerating every
+      # persona x system combination up front.
+      personaConfigurations = nixpkgs.lib.mapAttrs
+        (_name: modulePath: mkHomeConfiguration "x86_64-linux" [ modulePath ])
+        personaModules;
+
       # The identity real installs actually use: `builtins.getEnv`/
       # `builtins.currentSystem` read whoever is actually running the
       # build, instead of the fixed "workspace" identity `default` uses.
@@ -72,6 +91,18 @@
             }
           ];
         };
+
+      # One "current-<persona>" per persona module, same relationship
+      # `current` has to `default`: the real-identity counterpart to
+      # `personaConfigurations` above, so a persona profile also works
+      # for whoever is actually running it, not just an engineer whose
+      # real username happens to be "workspace".
+      currentPersonaConfigurations = nixpkgs.lib.mapAttrs'
+        (name: modulePath: {
+          name = "current-${name}";
+          value = mkCurrentUserHomeConfiguration [ modulePath ];
+        })
+        personaModules;
     in
     {
       packages = forAllSystems (system:
@@ -103,7 +134,7 @@
       # identity. Real installs (see README's Installation section) use
       # `current` instead, which needs `--impure` but picks up whoever is
       # actually running the build.
-      homeConfigurations = homeConfigurationsFor // {
+      homeConfigurations = homeConfigurationsFor // personaConfigurations // currentPersonaConfigurations // {
         default = homeConfigurationsFor.x86_64-linux;
         current = mkCurrentUserHomeConfiguration [ ];
       };

@@ -51,6 +51,16 @@ inspect a plain interactive shell's environment and confirm the key is absent.
   the CLI's own login flow is an equally valid alternative.
 - **FR-004**: Documentation MUST describe the per-invocation-scoped behavior precisely, so an
   engineer understands why the credential does not appear in a plain `env`.
+- **FR-005**: The base profile MUST install [`llm`](https://llm.datasette.io/) (Simon Willison's
+  CLI-based LLM tool, part of v1's own unfinished roadmap of "CLI-based LLM tools and utilities").
+  `llm` manages its own provider keys via `llm keys set <provider>`, storing them outside this
+  repository's credential mechanism entirely — it is installed directly, not wrapped by FR-002's
+  per-invocation mechanism, since it has no ambient-env-var credential to scope in the first
+  place.
+
+### Key Entities
+
+- **`llm`**: a provider-agnostic CLI for prompting LLMs, with its own independent key storage.
 
 ## Success Criteria *(mandatory)*
 
