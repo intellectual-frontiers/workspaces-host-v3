@@ -35,19 +35,20 @@ as_root() {
 }
 
 # --- 1. Prerequisites (curl, git, xz) - auto-sensed per distro family --
+if [ -f /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+else
+    ID=""
+    ID_LIKE=""
+fi
+family=" ${ID:-} ${ID_LIKE:-} "
+
 install_prereqs_linux() {
     if command -v curl >/dev/null 2>&1 && command -v git >/dev/null 2>&1 && command -v xz >/dev/null 2>&1; then
         log "curl, git, and xz already present"
         return
     fi
-    if [ -f /etc/os-release ]; then
-        # shellcheck disable=SC1091
-        . /etc/os-release
-    else
-        ID=""
-        ID_LIKE=""
-    fi
-    family=" ${ID:-} ${ID_LIKE:-} "
     case "$family" in
     *" debian "* | *" ubuntu "*)
         log "installing curl/git/xz via apt (Debian/Ubuntu family)"
@@ -68,10 +69,30 @@ install_prereqs_linux() {
     esac
 }
 
+# A fresh Debian/WSL image commonly ships LANG=en_US.UTF-8 as the OS
+# default without ever generating that locale, which prints a
+# "setlocale: cannot change locale" warning on every single shell -
+# before this script, before Nix, before anything of ours runs. C.UTF-8
+# is a special locale glibc always has built in (no locale-gen needed),
+# so switching the OS default to it fixes this permanently. Separate
+# from install_prereqs_linux and always run (not skipped by its
+# curl/git/xz-already-present early return) since a re-run should still
+# fix this if it was never fixed before.
+fix_locale_linux() {
+    case "$family" in
+    *" debian "* | *" ubuntu "*)
+        command -v update-locale >/dev/null 2>&1 || return 0
+        log "setting the default locale to C.UTF-8 (avoids the 'setlocale: cannot change locale' warning a fresh Debian/WSL image prints on every shell)"
+        as_root update-locale LANG=C.UTF-8 LC_ALL=C.UTF-8
+        ;;
+    esac
+}
+
 os=$(uname -s)
 case "$os" in
 Linux)
     install_prereqs_linux
+    fix_locale_linux
     ;;
 Darwin)
     command -v curl >/dev/null 2>&1 || die "curl not found - install the Xcode Command Line Tools (xcode-select --install) and re-run"

@@ -87,6 +87,13 @@ cleanup step.
 - How does the system behave on an architecture/OS combination the flake does not target (e.g.
   32-bit)? The flake evaluation must fail clearly at build time rather than producing a broken
   partial activation.
+- What happens when a fresh account's pre-existing `~/.profile` set `PATH` to include the Nix
+  installer's own profile script, and FR-011's backup-and-replace then swaps in home-manager's own
+  `~/.profile`? The new shell must still resolve every tool on `PATH`; PATH-setting must not
+  silently depend on content that existed only in the backed-up, no-longer-read file.
+- What happens when a new terminal window opens a non-login interactive shell instead of a login
+  one (observed on some WSL/Windows Terminal configurations)? Every tool must still be on `PATH` -
+  see FR-012.
 
 ## Requirements *(mandatory)*
 
@@ -123,6 +130,15 @@ cleanup step.
 - **FR-011**: Activation MUST set `HOME_MANAGER_BACKUP_EXT` (or an equivalent mechanism) so a
   fresh account's pre-existing, non-symlink dotfiles are backed up automatically rather than
   blocking activation.
+- **FR-012**: Every tool this profile installs MUST be on `PATH` in a brand-new interactive shell
+  regardless of whether that shell counts as a login shell or not - the home-manager-generated
+  `~/.profile` MUST NOT be the only place PATH gets set, since it is not guaranteed to run (a
+  non-login interactive shell, common on some WSL/Windows Terminal configurations, reads only
+  `~/.bashrc`). This MUST hold even when a fresh account's pre-existing `~/.profile` had its own
+  PATH-setting content (e.g. from the Nix installer itself) before FR-011's backup-and-replace ran.
+- **FR-013**: The home-manager configuration MUST set `LANG`/`LC_ALL` to a locale glibc always has
+  built in (`C.UTF-8`), so a shell never depends on a locale actually being generated on the host
+  to avoid a `setlocale: cannot change locale` warning.
 
 ### Key Entities
 

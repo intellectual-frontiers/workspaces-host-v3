@@ -37,4 +37,31 @@ in
   home.enableNixpkgsReleaseCheck = false;
 
   programs.home-manager.enable = true;
+
+  # `~/.nix-profile/bin` (every tool this profile installs) has to be on
+  # PATH for a plain new shell to find `doctor`/`ws-repos`/anything else
+  # here. It's tempting to assume the Nix installer's own `nix.sh`
+  # already guarantees this via `~/.profile` - but install.sh's own
+  # HOME_MANAGER_BACKUP_EXT step backs up and replaces a pre-existing
+  # `~/.profile` (the common case on a brand-new WSL/Debian account,
+  # exactly the audience most likely to hit this) with home-manager's
+  # own managed one, which doesn't re-source that installer-added line.
+  # Declaring it here means `hm-session-vars.sh` sets PATH itself,
+  # independent of whatever the raw Nix installer did or didn't leave
+  # behind - see home/shell.nix for the second half of this fix (sourcing
+  # it from `.bashrc` too, not just `.profile`).
+  home.sessionPath = [ "$HOME/.nix-profile/bin" ];
+
+  # A fresh Debian/WSL image commonly has `LANG=en_US.UTF-8` configured
+  # as the OS default without that locale actually being generated,
+  # which prints a `setlocale: cannot change locale` warning on every
+  # single shell startup - install.sh fixes the OS-level default on
+  # Debian/Ubuntu directly, but this is a second, tool-independent
+  # backstop: C.UTF-8 is a special locale glibc always has built in, no
+  # `locale-gen` required, so this is correct everywhere this profile
+  # runs, not just WSL.
+  home.sessionVariables = {
+    LANG = "C.UTF-8";
+    LC_ALL = "C.UTF-8";
+  };
 }

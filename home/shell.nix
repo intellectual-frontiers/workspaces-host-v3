@@ -34,6 +34,23 @@
     # zoxide, fzf below), with `ble-attach` itself deferred to the very
     # end - printing to stdout after attaching corrupts the prompt.
     initExtra = lib.mkMerge [
+      (lib.mkOrder 5 ''
+        # home-manager's own PATH/session-variable exports
+        # (~/.nix-profile/etc/profile.d/hm-session-vars.sh, sourced from
+        # ~/.profile) only take effect in a *login* shell - some
+        # terminals (including, inconsistently, some WSL/Windows
+        # Terminal configurations) start a new window as a non-login
+        # interactive shell instead, which reads only this file and
+        # never touches ~/.profile. Sourcing it here too, guarded by its
+        # own $__HM_SESS_VARS_SOURCED check (so this is a no-op if a
+        # login shell already ran it), means `doctor`/`ws-repos`/every
+        # other tool this profile installs is on PATH in *any* new
+        # shell, not just ones that happen to count as "login."
+        if [ -f "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh" ]; then
+          . "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
+        fi
+      '')
+
       (lib.mkOrder 10 ''
         source ${pkgs.blesh}/share/blesh/ble.sh --attach=none
       '')
