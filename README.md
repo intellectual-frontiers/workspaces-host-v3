@@ -18,41 +18,53 @@ the principles behind these design choices, and [`specs/`](specs/) for the
 requirements each feature implements.
 
 <details>
-<summary><strong>Why does this repository exist, and why a full rewrite?</strong></summary>
+<summary><strong>Why this exists</strong></summary>
 
-This is a from-scratch rewrite of
-[workspaces-host-v2](https://github.com/intellectual-frontiers/workspaces-host-v2),
-which was itself a Nix-based rewrite of the original
-[workspaces-host](https://github.com/strategy-coach/workspaces-host) (chezmoi-based) and its
-companion [`workspaces`](https://github.com/strategy-coach/workspaces) repo (the "mGit" multi-repo
-pattern). Each generation kept the same purpose — the same environment for a human, a teammate,
-CI, and an AI coding agent, regardless of whose machine it's on — while replacing whatever the
-previous generation's toolchain got wrong: chezmoi's templating for home-manager's actual module
-system, and Homebrew/pkgx/eget/mise (four different package managers with four different
-reproducibility stories) for one - Nix - that pins everything by lockfile.
+The point isn't just "a nice shell" — it's that a human engineer, a teammate who's new to Linux, a
+CI/CD pipeline, and an AI coding agent (Claude Code, Codex, an autonomous CI bot, ...) can all open
+a terminal on completely different machines and find the *exact same* structure: the same place
+repos get cloned to (`~/workspaces`, managed by `ws-repos`), the same command to check the
+environment (`doctor`), the same command to update it (`workspaces-host-update`), the same shell,
+the same tools, at the same versions. When everyone and everything working on a project — across
+engineering, DevOps, and an AI agent doing a chunk of the work overnight — shares one predictable
+layout, nobody (human or machine) has to re-learn "how this particular person's/pipeline's machine
+happens to be set up" before they can be useful on it.
 
-v3 specifically starts with fresh specs and the simplest implementation that satisfies them,
-rather than carrying forward v2's incidental implementation choices — see the constitution's
-"Simplicity Over Completeness" principle. Where v3 turned out to be missing something real from
-an earlier generation, that gap was closed via a deliberate audit (specs 006-017), not by porting
-code wholesale.
+That matters more, not less, now that AI has put a real command line within reach of people who
+never expected to need one. Effectively everyone is an engineer now, at least some of the time —
+and everyone doing that work deserves the same consistent, good-looking, fully capable Linux
+environment, not a stripped-down or inconsistent one just because they're newer to it. On Windows,
+WSL already gives you the Windows desktop, files, and apps you know; `workspaces-host` is what
+gives the Linux side of that the same consistent, ready-to-go engineering setup everyone else on
+the team has — so the "new to Linux" part is the only unfamiliar piece, not the tooling itself.
+
+This is also why AI CLIs are provisioned as part of the standard environment (see "Setting up AI
+harness credentials" below): once an engineer — technical or not — has an API key configured the
+safe way this repo documents, they can point an AI harness at their own sandbox and ask it to help
+configure or improve their setup, the same way it would help with application code. That's a
+deliberate design goal, not an accident: lowering the barrier to actually using and improving a
+real engineering environment is the whole point.
+
+But that consistency is the thing to protect. If an AI harness (or a person) comes up with a
+genuinely good improvement while working in one sandbox — a new tool, a better default, an extra
+`doctor` check, a smarter install step — the right place for it is **this repository, via a pull
+request**, not just that one person's credentials file or a one-off tweak that only exists on
+their machine. Your credentials file (see "Setting up your credentials" below) exists for things
+that are genuinely personal — your name, your API keys — precisely so that everything else stays
+shared and in sync across the whole team. A good idea that only lives in one sandbox helps one
+person; the same idea merged back here helps everyone (and every CI run, and every agent) who uses
+this setup after that.
 
 </details>
 
-## What's implemented
-
-Every spec under [`specs/`](specs/) (001 through 017) is implemented. Specs 001-013 are the full
-feature set workspaces-host-v2 had, rebuilt fresh: the flake/shell base, credentials (including
-GitHub/GitLab tokens), `ws-repos`, `doctor`/rollback, container parity, compliance/observability
-tooling, the Java/Postgres toolchain, AI coding agent harness credentials, Nerd Font/prompt
-polish, agent-harness project scaffolding, bulk git tooling, secrets backup/restore, and advanced
-`local.nix` overrides. Specs 014-017 came from a further audit against
-[workspaces-host-v1](https://github.com/strategy-coach/workspaces-host) (the chezmoi-based
-original): the per-persona workspace profiles v2 had but v3's initial rebuild dropped, a handful
-of everyday utilities neither v2 nor v3 had ever ported (`gopass`/`wget`/a directly-runnable
-`rclone`/`git-chglog`/the Deno runtime/SSH agent auto-start), and two items straight off v1's own
-unfinished roadmap (Lefthook, Tailscale/Nebula). See each spec's `spec.md` for its exact
-requirements.
+Every spec under [`specs/`](specs/) (001 through 017) is implemented: the flake/shell base,
+credentials (including GitHub/GitLab tokens), `ws-repos`, `doctor`/rollback, container parity,
+compliance/observability tooling, the Java/Postgres toolchain, AI coding agent harness
+credentials, Nerd Font/prompt polish, agent-harness project scaffolding, bulk git tooling, secrets
+backup/restore, advanced `local.nix` overrides, per-persona workspace profiles, a handful of
+everyday utilities (`gopass`/`wget`/a directly-runnable `rclone`/`git-chglog`/the Deno
+runtime/SSH agent auto-start), and Git hooks and zero-trust networking clients (Lefthook,
+Tailscale/Nebula). See each spec's `spec.md` for its exact requirements.
 
 ## Installation
 
