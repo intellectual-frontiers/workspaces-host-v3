@@ -173,6 +173,30 @@ and find the same historical detail without needing it for anything else on the 
    separate multi-repo tool, and a second version) named, linked, and framed as inspiration this
    repository builds on rather than a strict port of.
 
+---
+
+### User Story 7 - Find and activate a specialized toolset without reading Nix (Priority: P2)
+
+A reader who just finished Getting Started wants a specialized toolset (Java, Python, Postgres,
+Tailscale, and so on) and wants to know what's available and how to turn it on, without reading
+`flake.nix` or learning the `nix build`/flake-attribute syntax first.
+
+**Why this priority**: Personas exist specifically to serve engineers who aren't Nix-literate;
+burying "how do I get one" in "Using Your Sandbox," several sections after Getting Started, works
+against that goal.
+
+**Independent Test**: From the top navigation, reach "Personas" in one click, immediately after
+"Getting Started"; from there, name every available persona and the exact command to activate one
+without reading any other section.
+
+**Acceptance Scenarios**:
+
+1. **Given** the top navigation, **When** a reader looks for personas, **Then** "Personas" appears
+   immediately after "Getting Started," before "Using Your Sandbox."
+2. **Given** the "Personas" section, **When** a reader wants to know what's available or what's
+   already active, **Then** they find `ws-persona list`/`ws-persona current` and the exact
+   activation command, with no need to construct a flake attribute by hand.
+
 ### Edge Cases
 
 - What happens when a reader's browser has JavaScript disabled? Section routing itself MUST still
@@ -267,13 +291,19 @@ and find the same historical detail without needing it for anything else on the 
   entirely on its own, present-tense terms, with no reader needing to know any of that history to
   install, use, or understand it; a section whose reasoning traces back to that history MUST link
   to "Inspiration" (directly, or via "Why?") rather than restate the history itself.
+- **FR-015**: The site MUST have a "Personas" section, reachable from the top navigation
+  immediately after "Getting Started," giving: every persona and what it adds (the same table
+  spec 014 requires), how to discover and check personas (`ws-persona list`/`ws-persona current`),
+  and the exact command to activate one. "Using Your Sandbox" MUST keep only a short pointer to
+  this section (not a second copy of the table or the activation command), consistent with
+  FR-012's one-canonical-answer rule.
 
 ### Key Entities
 
 - **`docs/index.html`**: the entire site - one self-contained file GitHub Pages serves directly.
-- **Getting Started / Using Your Sandbox / Try with AI / Technical Reference / Why? / Inspiration**:
-  the six sections this spec requires, each targeting a different reader intent, implemented as
-  CSS-routed regions of the same document rather than separate pages.
+- **Getting Started / Personas / Using Your Sandbox / Try with AI / Technical Reference / Why? /
+  Inspiration**: the seven sections this spec requires, each targeting a different reader intent,
+  implemented as CSS-routed regions of the same document rather than separate pages.
 
 ## Success Criteria *(mandatory)*
 

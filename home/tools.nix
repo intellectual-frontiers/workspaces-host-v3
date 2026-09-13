@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 let
-  # ws-repos, doctor, workspaces-host-update, sensitivectl, specify-cli,
+  # ws-repos, ws-persona, doctor, workspaces-host-update, sensitivectl, specify-cli,
   # backlog-md, scaffold-agent-harness, git-xargs (pkgs/default.nix) -
   # built as flake packages, but only actually land on PATH once they're
   # also listed in home.packages like every other tool here. Persona-
@@ -14,6 +14,7 @@ in
 {
   home.packages = (with ported; [
     ws-repos
+    ws-persona
     workspaces-host-update
     doctor
     sensitivectl

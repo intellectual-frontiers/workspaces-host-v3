@@ -1,0 +1,87 @@
+#!/bin/sh
+# ws-persona: discover workspace personas and check which look active.
+# Activating a persona is already a single command
+# (WORKSPACES_HOST_PROFILE=current-<name> workspaces-host-update, or the
+# plain `nix build .../activate` two-step for anyone who prefers it) -
+# this tool's job is discovery, not activation, so it never runs
+# `nix build`/`home-manager switch` itself.
+set -u
+
+usage() {
+    cat <<'EOF'
+Usage: ws-persona <command>
+
+Commands:
+  list       Show every available persona, what it adds, and the exact
+             command to activate it.
+  current    Show which persona(s) look active right now, based on
+             whether each persona's marker tool is on PATH.
+
+Personas are additive: activating one never removes the base profile
+or another already-activated persona.
+EOF
+}
+
+# name:marker:description, one per persona. This table is the one
+# place that has to stay in sync with home/profiles/*.nix and
+# flake.nix's personaModules by hand - there's no machine-readable way
+# to pull a persona's description or a good "is this active" marker
+# command out of a .nix file without a Nix eval, and this command is
+# meant to answer instantly with no flake evaluation at all.
+personas() {
+    cat <<'EOF'
+backend:mvn:Java+Maven, PostgreSQL client, Redis, docker-compose, httpie
+data:duckdb:python3, uv, duckdb
+mobile:adb:android-tools (adb/fastboot), watchman
+agent-ops:act:act, semtag/git-standup/git-extras, gopass, deno, llm
+compliance:cnquery:osquery, cnquery, steampipe, openobserve, surveilr
+networking:tailscale:Tailscale, Nebula
+EOF
+}
+
+cmd_list() {
+    echo "Available personas:"
+    echo
+    personas | while IFS=: read -r name marker desc; do
+        printf '  %-11s %s\n' "$name" "$desc"
+        printf '              WORKSPACES_HOST_PROFILE=current-%s workspaces-host-update\n' "$name"
+        echo
+    done
+    echo "Personas are additive - activating one keeps everything the base profile"
+    echo "(and any other persona you've already activated) already gave you."
+}
+
+cmd_current() {
+    active=$(personas | while IFS=: read -r name marker desc; do
+        if command -v "$marker" >/dev/null 2>&1; then
+            printf '%s (detected via %s on PATH)\n' "$name" "$marker"
+        fi
+    done)
+    if [ -n "$active" ]; then
+        echo "Personas that look active right now:"
+        echo
+        printf '%s\n' "$active" | sed 's/^/  /'
+    else
+        echo "No persona-specific marker tool found on PATH - you're likely running the base profile only."
+    fi
+    echo
+    echo "This is a quick signal (one marker tool per persona), not authoritative - run"
+    echo "'doctor --all' for the full picture, or 'ws-persona list' to see every persona."
+}
+
+[ $# -ge 1 ] || {
+    usage >&2
+    exit 1
+}
+cmd="$1"
+shift
+case "$cmd" in
+list) cmd_list "$@" ;;
+current) cmd_current "$@" ;;
+-h | --help) usage ;;
+*)
+    echo "ws-persona: unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

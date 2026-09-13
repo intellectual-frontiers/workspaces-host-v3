@@ -53,12 +53,40 @@ are present in addition to everything the base profile installs.
    their environment, **Then** no persona-specific package is present — personas are strictly
    additive and opt-in, never assumed.
 
+### User Story 2 - Find out what personas exist, and what's already active (Priority: P2)
+
+An engineer, especially one new to Nix, knows they want a specialized tool but doesn't want to
+memorize six persona names or the flake-attribute syntax to activate one, and doesn't know
+whether a persona is already active on their machine.
+
+**Why this priority**: Activating a persona (a `nix build`/`home-manager switch` invocation
+naming a specific flake attribute) is a small but real barrier for exactly the audience this
+repository targets; discovering what's available shouldn't require reading `flake.nix`.
+
+**Independent Test**: Run `ws-persona list` with no persona active; confirm every persona from
+FR-003 through FR-009 (backend, data, mobile, agent-ops, compliance, networking) is named with a
+one-line description and the exact command to activate it. Activate `backend`; run `ws-persona
+current`; confirm it's reported active.
+
+**Acceptance Scenarios**:
+
+1. **Given** any environment, **When** an engineer runs `ws-persona list`, **Then** every persona
+   is named with what it adds and the exact one-line command to turn it on.
+2. **Given** a persona whose marker tool (e.g. `mvn` for `backend`) is on `PATH`, **When** an
+   engineer runs `ws-persona current`, **Then** that persona is reported as active; the output
+   also states this is a quick signal, not authoritative, and points to `doctor --all` for the
+   full picture.
+
 ### Edge Cases
 
 - What happens when a persona needs a package only available on some platforms (e.g. mobile's
   `android-tools`)? The persona module itself may be platform-restricted the same way core specs
   handle this (spec 005/006's Linux/Darwin conditionals); this spec's four personas all happen to
   use packages available on Linux and Darwin alike.
+- What happens when `ws-persona current`'s marker-tool check gives a false signal (the marker
+  tool happens to be installed some other way, or a persona's own package failed to build)? It's
+  documented as a heuristic, not a guarantee, in the command's own output - `doctor --all` remains
+  the authoritative check, since it verifies each persona's own set of tools directly.
 
 ## Requirements *(mandatory)*
 
@@ -90,11 +118,20 @@ are present in addition to everything the base profile installs.
   an informational WARN (not FAIL) when its persona isn't active, and MUST default to a terse
   report covering only the base profile's essentials (Nix, shell, git, credentials, GitHub/GitLab
   auth, `ws-repos`) unless run with `doctor --all` — a real FAIL is never hidden in either mode.
+- **FR-011**: A `ws-persona` command MUST be installed on `PATH` by the base profile, with two
+  subcommands: `list` (every persona, a one-line description of what it adds, and the exact
+  command to activate it) and `current` (which persona(s) look active, based on one marker tool
+  per persona being on `PATH`, explicitly labeled a heuristic rather than an authoritative
+  check). `ws-persona` MUST NOT itself run `nix build`/`home-manager switch` — activation stays a
+  single documented command (`WORKSPACES_HOST_PROFILE=current-<persona> workspaces-host-update`,
+  or the plain `nix build .../activate` two-step) that this command only prints, never runs.
 
 ### Key Entities
 
 - **Persona module**: one `home/profiles/<name>.nix` file — a small, focused package set on top
   of the shared base.
+- **`ws-persona`**: a discovery-only command (`list`/`current`) for personas, distinct from
+  activation itself.
 
 ## Success Criteria *(mandatory)*
 
@@ -105,6 +142,8 @@ are present in addition to everything the base profile installs.
   full package set and that persona's own additions.
 - **SC-003**: `doctor`'s default output covers only base-profile essentials, regardless of which
   personas exist or are documented — adding a new persona never grows the terse report.
+- **SC-004**: An engineer who has never read `flake.nix` can name every available persona, what
+  each adds, and the exact command to activate one, from `ws-persona list` alone.
 
 ## Assumptions
 

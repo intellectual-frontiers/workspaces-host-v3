@@ -243,6 +243,7 @@ fi
 
 section "Workspace repo management (~/workspaces, ws-repos)" 0 "📁"
 check_cmd ws-repos
+check_cmd ws-persona
 if [ -d "$HOME/workspaces" ]; then
     pass "~/workspaces exists"
     if [ -f "$HOME/workspaces/ws-repos.json" ]; then
@@ -404,7 +405,7 @@ if command -v gh >/dev/null 2>&1; then
 fi
 
 section "Ported CLI tools (home.packages)" 1 "🧰"
-for c in rg fd jq bat eza gitleaks ws-repos specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook; do
+for c in rg fd jq bat eza gitleaks ws-repos ws-persona specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook; do
     check_cmd "$c"
 done
 

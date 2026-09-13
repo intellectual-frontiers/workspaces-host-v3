@@ -68,6 +68,10 @@ kbd {
 #getting-started:has(:target) {
   display: block;
 }
+#personas:target,
+#personas:has(:target) {
+  display: block;
+}
 #usage:target,
 #usage:has(:target) {
   display: block;
@@ -486,6 +490,7 @@ footer.site-footer a {
 <nav class="site-nav">
   <a class="brand" href="#getting-started"><code>workspaces-host-v3</code></a>
   <a class="nav-link" data-nav="getting-started" href="#getting-started">Getting Started</a>
+  <a class="nav-link" data-nav="personas" href="#personas">Personas</a>
   <a class="nav-link" data-nav="usage" href="#usage">Using Your Sandbox</a>
   <a class="nav-link" data-nav="try-ai" href="#try-ai">Try with AI</a>
   <a class="nav-link" data-nav="technical" href="#technical">Technical Reference</a>
@@ -588,7 +593,60 @@ $ ./result/activate</code></pre>
       <p>One <code>PASS</code>/<code>WARN</code>/<code>FAIL</code> line per check. Exits non-zero only if something's actually broken. A <code>WARN</code> for anything you haven't configured yet (like a blank credential) is normal.</p>
 
       <h2 id="next">What's next</h2>
-      <p>Head to <a href="#usage">Using Your Sandbox</a> for credentials, your shell, managing repos, and everything else you'll touch day to day. New to the command line? <a href="#try-ai">Try with AI</a> has copy/paste prompts that hand the typing to an AI agent instead. Want to understand how this is built, or point an AI agent at the repository? Go to <a href="#technical">Technical Reference</a>. Curious why any of this is built the way it is? See <a href="#why">Why?</a></p>
+      <p>Head to <a href="#usage">Using Your Sandbox</a> for credentials, your shell, managing repos, and everything else you'll touch day to day. Need a specialized toolset (Java, Python, Postgres, and so on)? See <a href="#personas">Personas</a>. New to the command line? <a href="#try-ai">Try with AI</a> has copy/paste prompts that hand the typing to an AI agent instead. Want to understand how this is built, or point an AI agent at the repository? Go to <a href="#technical">Technical Reference</a>. Curious why any of this is built the way it is? See <a href="#why">Why?</a></p>
+
+    </main>
+  </div>
+</section>
+
+<!-- ============================== Personas ============================== -->
+<section id="personas" class="page-section">
+  <header class="page-hero">
+    <h1>Personas</h1>
+    <p class="lede">The base profile stays small. A persona adds a specialized set of tools on top, when you actually need them.</p>
+  </header>
+
+  <div class="page">
+    <aside class="sidebar">
+      <p class="eyebrow">On this page</p>
+      <ul>
+        <li><a href="#personas-list">What's available</a></li>
+        <li><a href="#personas-discover">Finding and checking personas</a></li>
+        <li><a href="#personas-activate">Activating one</a></li>
+      </ul>
+    </aside>
+
+    <main class="content">
+
+      <h2 id="personas-list">What's available</h2>
+      <p>Every profile already has the base essentials: your shell, git, credentials, <code>ws-repos</code>, and the AI coding agent tooling. A persona adds one more specialized set of tools on top. (Curious why the base profile stays small instead of including all of this? See <a href="#why-personas">Why the base profile stays small</a>.)</p>
+      <table>
+        <tr><th>Persona</th><th>Adds</th></tr>
+        <tr><td><code>backend</code></td><td>Java+Maven, PostgreSQL client/<code>pgpass</code>, Redis, docker-compose, httpie</td></tr>
+        <tr><td><code>data</code></td><td>python3, uv, duckdb</td></tr>
+        <tr><td><code>mobile</code></td><td>android-tools (adb/fastboot), watchman</td></tr>
+        <tr><td><code>agent-ops</code></td><td>act, semtag/git-standup/git-extras, gopass, deno, llm</td></tr>
+        <tr><td><code>compliance</code></td><td>osquery, cnquery, steampipe, openobserve, surveilr</td></tr>
+        <tr><td><code>networking</code></td><td>Tailscale, Nebula</td></tr>
+      </table>
+      <p>Personas are additive: everything the base profile gives you is still there, plus that persona's extras. Skip all of them and nothing changes. Activate more than one and you get all of them together.</p>
+
+      <h2 id="personas-discover">Finding and checking personas</h2>
+      <p>Don't want to remember the table above? <code>ws-persona</code> prints it for you, along with the exact command to turn each one on:</p>
+      <pre><code>$ ws-persona list</code></pre>
+      <p>Not sure what you already have active?</p>
+      <pre><code>$ ws-persona current</code></pre>
+      <div class="callout">
+        <p><code>ws-persona current</code> is a quick signal, not a certainty: it checks whether one marker tool per persona (like <code>mvn</code> for <code>backend</code>) is on your <code>PATH</code>, which can occasionally miss or over-report if you've installed something similar yourself, outside this flake. Run <code>doctor --all</code> for the full, authoritative picture.</p>
+      </div>
+
+      <h2 id="personas-activate">Activating one</h2>
+      <p>The same command you already use to update everything else, pointed at a persona instead of the base profile:</p>
+      <pre><code>$ WORKSPACES_HOST_PROFILE=current-backend workspaces-host-update</code></pre>
+      <p>That applies the <code>backend</code> persona and runs <code>doctor</code> right after, so you see immediately whether it worked. Swap <code>backend</code> for any name from <code>ws-persona list</code>.</p>
+      <p>Prefer the plain Nix commands instead of <code>workspaces-host-update</code>?</p>
+      <pre><code>$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure
+$ ./result/activate</code></pre>
 
     </main>
   </div>
@@ -606,11 +664,12 @@ $ ./result/activate</code></pre>
       <p class="eyebrow">On this page</p>
       <ul>
         <li><a href="#credentials">Setting up credentials</a></li>
+        <li class="sub"><a href="#gh-glab-auth">Authenticating gh/glab</a></li>
         <li><a href="#shell">Your shell</a></li>
         <li><a href="#repos">Managing your repos</a></li>
         <li><a href="#doctor">Checking your environment</a></li>
         <li><a href="#sync">Keeping in sync</a></li>
-        <li><a href="#personas">Workspace profiles</a></li>
+        <li><a href="#personas-summary">Workspace profiles</a></li>
         <li><a href="#ai">AI coding agents</a></li>
         <li><a href="#more">Everyday tools</a></li>
       </ul>
@@ -637,6 +696,16 @@ ANTHROPIC_API_KEY=sk-ant-yourRealKey</code></pre>
 
       <p>Before committing anything, check what's staged (<code>git diff --staged</code>) and scan for secrets with the tool that's already installed:</p>
       <pre><code>$ gitleaks detect --source . -v</code></pre>
+
+      <h3 id="gh-glab-auth">Authenticating gh and glab</h3>
+      <p>A <code>GITHUB_TOKEN</code>/<code>GITLAB_TOKEN</code> in your credentials file is enough for <code>gh</code>/<code>glab</code> commands themselves, but cloning a private repo (what <code>ws-repos ensure</code> does under the hood) needs git's own credentials set up too. Do that once, per host:</p>
+      <pre><code>$ gh auth login       # answer yes when it asks to authenticate git
+$ glab auth login     # same prompt, for gitlab.com</code></pre>
+      <p>Using a private, self-hosted GitLab instead of gitlab.com? Point <code>glab</code> at it by hostname:</p>
+      <pre><code>$ glab auth login --hostname gitlab.mycompany.com</code></pre>
+      <p>Add that host's repos to <code>ws-repos.json</code> the same way, using the hostname instead of <code>gitlab.com</code>:</p>
+      <pre><code>{ "repo": "gitlab.mycompany.com/team/project" }</code></pre>
+      <p><code>doctor</code> reports whether <code>gh</code>/<code>glab</code> are authenticated (see <a href="#doctor">Checking your environment</a>).</p>
 
       <h2 id="shell">Your shell</h2>
       <p>Bash, on purpose. It's what every tutorial already assumes. A few things are added on top:</p>
@@ -674,20 +743,8 @@ $ /nix/store/7fa31...-home-manager-generation/activate</code></pre>
 $ workspaces-host-update</code></pre>
       <p>Every shell also checks once a day, in the background, whether <code>origin/main</code> has moved, and nudges you if so. It never runs the update itself.</p>
 
-      <h2 id="personas">Workspace profiles (personas)</h2>
-      <p>The base profile stays small on purpose: just what everyone needs on day one. Want a specialized set of extra tools? Activate a persona. (See <a href="#why-personas">Why the base profile stays small</a> for the reasoning.)</p>
-      <table>
-        <tr><th>Persona</th><th>Adds</th></tr>
-        <tr><td><code>backend</code></td><td>Java+Maven, PostgreSQL client/<code>pgpass</code>, Redis, docker-compose, httpie</td></tr>
-        <tr><td><code>data</code></td><td>python3, uv, duckdb</td></tr>
-        <tr><td><code>mobile</code></td><td>android-tools (adb/fastboot), watchman</td></tr>
-        <tr><td><code>agent-ops</code></td><td>act, semtag/git-standup/git-extras, gopass, deno, llm</td></tr>
-        <tr><td><code>compliance</code></td><td>osquery, cnquery, steampipe, openobserve, surveilr</td></tr>
-        <tr><td><code>networking</code></td><td>Tailscale, Nebula</td></tr>
-      </table>
-      <pre><code>$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure
-$ ./result/activate</code></pre>
-      <p>Personas are additive: everything the base profile gives you is still there, plus that persona's extras. Skip all of them and nothing changes.</p>
+      <h2 id="personas-summary">Workspace profiles (personas)</h2>
+      <p>Need a specialized set of extra tools (Java, Python, Postgres, Tailscale, and so on)? See the dedicated <a href="#personas">Personas</a> section: the full list, <code>ws-persona list</code>/<code>ws-persona current</code> to find and check them, and the exact command to turn one on.</p>
 
       <h2 id="ai">Setting up AI coding agents</h2>
       <p>Every profile installs <code>nodejs</code> and <code>aider-chat</code>, ready to go. The fast-moving hosted CLIs install with their own <code>npm install -g</code>:</p>
@@ -1011,6 +1068,7 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
 (function () {
   var SECTIONS = {
     "getting-started": "Getting Started",
+    personas: "Personas",
     usage: "Using Your Sandbox",
     "try-ai": "Try with AI",
     technical: "Technical Reference",

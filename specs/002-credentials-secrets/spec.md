@@ -116,6 +116,11 @@ it successfully.
   profile MUST install `gh`/`glab`, each wrapped so a configured token is exported only for that
   CLI's own invocation (the same per-invocation mechanism FR-005 requires) — needed for spec 003's
   `ws-repos` to be practically usable against private repositories, not a separate concern.
+- **FR-008a**: Documentation (this site, `~/workspaces/README.md`) MUST explain that a
+  `GITHUB_TOKEN`/`GITLAB_TOKEN` credential alone authenticates `gh`/`glab` commands but not git
+  itself, and MUST give the one-time command that also authenticates git (`gh auth login`, `glab
+  auth login`), including the `--hostname` form for a private, self-hosted GitLab instance, since
+  `ws-repos ensure`'s plain `git clone` depends on that separate step for a private repository.
 - **FR-009**: The base profile MUST install `gitleaks`, so an engineer can scan a repository for
   accidentally-staged secrets before committing, as a concrete backstop alongside a project's own
   `.gitignore` and reviewing `git diff --staged`.

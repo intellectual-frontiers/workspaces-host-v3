@@ -2,6 +2,7 @@
 
 {
   ws-repos = import ./ws-repos { inherit pkgs; };
+  ws-persona = import ./ws-persona { inherit pkgs; };
   workspaces-host-update = import ./workspaces-host-update { inherit pkgs; };
   doctor = import ./doctor { inherit pkgs; };
   pgpass = import ./pgpass { inherit pkgs; };
