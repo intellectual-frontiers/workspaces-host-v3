@@ -91,6 +91,29 @@ distinct hosts and full set of repo paths.
 1. **Given** a populated config, **When** the engineer runs the inspect command, **Then** the
    distinct git hosts and repo paths referenced are listed.
 
+### User Story 4 - A quick reference lives right where the repos do (Priority: P2)
+
+An engineer already inside `~/workspaces`, or an AI agent operating there on their behalf, wants
+the exact commands for adding a repo, checking status, or authenticating against a private GitLab
+instance without leaving that directory or opening a browser.
+
+**Why this priority**: Daily `ws-repos`/`doctor` use is common enough, and specific enough (exact
+commands, exact flags), that it deserves a reference next to the repos themselves, not just a
+mention on the documentation site.
+
+**Independent Test**: With network access to nothing but the commands themselves, read only
+`~/workspaces/README.md` and successfully add a new repo, check its status, and diagnose an
+authentication problem, for each of GitHub, GitLab, and a self-hosted GitLab instance.
+
+**Acceptance Scenarios**:
+
+1. **Given** a fresh activation, **When** an engineer opens `~/workspaces/README.md`, **Then** it
+   exists and documents `ws-repos`/`doctor` daily use without requiring any other file to be read
+   first.
+2. **Given** `~/workspaces/README.md`, **When** an engineer wants to clone a private repo from a
+   self-hosted GitLab instance (e.g. `gitlab.mycompany.com`), **Then** the file gives the exact
+   one-time authentication command and the exact workspace-config entry format for that host.
+
 ### Edge Cases
 
 - What happens when two repos in the config reference each other (e.g. via a shared workspace
@@ -106,6 +129,11 @@ distinct hosts and full set of repo paths.
   allows there, and upstream's JSONC parser tolerates)? Common comment forms (a whole line
   starting with `//`, a `/* ... */` block) must not break parsing; see FR-008's Assumptions for
   the one blind spot this leaves.
+- What happens to `~/workspaces/README.md` on an activation after the first one? It must be
+  rewritten every time, unlike the workspace config, since it documents current `ws-repos`/
+  `doctor` behavior rather than holding any per-user state of its own; an engineer's local edit to
+  it is expected to be overwritten on the next activation, the same as any other home-manager-
+  managed file.
 
 ## Requirements *(mandatory)*
 
@@ -130,6 +158,14 @@ distinct hosts and full set of repo paths.
   `"path": "."` entry to the repo the workspace file itself lives in.
 - **FR-006**: The base profile MUST create `~/workspaces` and an empty workspace config on first
   activation, without ever overwriting an existing config.
+- **FR-006a**: The base profile MUST write `~/workspaces/README.md` on every activation (not just
+  the first), covering, at minimum: the `<git-host>/<org>/.../<repo>` directory convention, the
+  workspace config format, `ws-repos ensure`/`status`/`inspect`, cloning a public and a private
+  repo from GitHub, cloning a public and a private repo from GitLab (including a self-hosted
+  instance at a custom hostname), `doctor`/`doctor --all`, a concise reminder of how credentials
+  and secrets are handled (spec 002), and a link to the full documentation site (spec 018). It
+  MUST describe this repository's own present-day behavior only, with no reference to any earlier
+  repository or tool this project's own history includes.
 - **FR-007**: The environment health check (spec 004) MUST report whether `ws-repos` is on `PATH`
   and whether `~/workspaces` and its config exist.
 - **FR-008**: Parsing a `*.mgit.code-workspace` file MUST tolerate the comment forms VS Code
@@ -142,6 +178,9 @@ distinct hosts and full set of repo paths.
 - **Workspace config**: `~/workspaces/ws-repos.json`, the list of repos to manage.
 - **Repo entry**: one config entry — at minimum a remote URL and a target path, optionally marked
   for fresh-reclone-only behavior.
+- **Workspace README**: `~/workspaces/README.md`, a generated quick reference for `ws-repos` and
+  `doctor` daily use, regenerated on every activation, distinct from the workspace config it lives
+  beside.
 
 ## Success Criteria *(mandatory)*
 
@@ -153,6 +192,8 @@ distinct hosts and full set of repo paths.
   local changes.
 - **SC-003**: The status command surfaces every dirty, untracked, locked, or stashed repo under
   `~/workspaces` in one invocation, with no repo silently skipped.
+- **SC-004**: `~/workspaces/README.md` exists after every activation and reflects the current
+  `ws-repos`/`doctor` behavior, since it is rewritten, not created once and left to drift.
 
 ## Assumptions
 
