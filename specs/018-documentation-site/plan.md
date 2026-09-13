@@ -8,20 +8,27 @@
 
 `docs/index.html` is the entire site: one self-contained file with HTML, CSS, and JavaScript all
 inlined, no separate asset files, no external CDN, no build step, no static-site generator, and no
-client-side routing library (HTMx explicitly considered and rejected in favor of plain CSS). Seven
-sections (Getting Started, Personas, Using Your Sandbox, Try with AI, Technical Reference, Why?,
-Inspiration) live in the same document; `:target`/`:has()` CSS selectors show exactly one at a
-time based on the URL fragment, including correctly resolving a deep link to a sub-heading back to
-its containing section. A small amount of JavaScript adds purely cosmetic enhancements
-(active-nav-link highlight, tab-title update, copy-to-clipboard buttons) and is never required for
-navigation or reading. GitHub Pages serves `docs/` directly once a repository owner points Pages'
-source at `main` / `docs` (a one-time settings action - see spec's Assumptions). The README stays
-a short pointer at this site rather than a second copy of the same content. Every real design
-decision's rationale lives in "Why?"; every reference to an earlier repository or tool this
-project's own lineage includes lives only in "Inspiration," so no other section requires that
-history to be useful. Personas get their own top-level section (not buried in "Using Your
-Sandbox") since discovering and activating one is common enough, and Nix-unfamiliar enough, to
-deserve first-class placement right after "Getting Started."
+client-side routing library (HTMx explicitly considered and rejected in favor of plain CSS). Five
+top-level sections (Getting Started, Using Your Sandbox, Try with AI, Contributing, FAQ) live in
+the same document; `:target`/`:has()` CSS selectors show exactly one at a time based on the URL
+fragment, including correctly resolving a deep link to a sub-heading back to its containing
+section. A small amount of JavaScript adds purely cosmetic enhancements (active-nav-link
+highlight, tab-title update, copy-to-clipboard buttons) and is never required for navigation or
+reading. GitHub Pages serves `docs/` directly once a repository owner points Pages' source at
+`main` / `docs` (a one-time settings action - see spec's Assumptions). The README stays a short
+pointer at this site rather than a second copy of the same content.
+
+Two sections that once stood on their own now live inside another: "Personas" is a subsection of
+Getting Started (right after verifying the install worked), since discovering and activating one
+is squarely a Getting-Started-era task, and its own top-nav entry overstated how separate a topic
+it really was. "Why?" and "Inspiration" merged into one "FAQ" section, since both are
+curiosity-driven reading no task on the site depends on; every real design decision's rationale
+lives in "FAQ," and every reference to an earlier repository or tool this project's own lineage
+includes lives only in "FAQ"'s own "Inspiration" sidebar group, visually set apart from the
+design-rationale entries above it, so no other section requires that history to be useful.
+"Technical Reference" is renamed "Contributing," matching what its content actually is: guidance
+for someone about to change this repository or point an agent at it, not general background
+reading.
 
 ## Technical Context
 
@@ -50,7 +57,8 @@ browser supporting CSS `:has()` (universal in actively updated Chrome, Edge, Saf
 follows `.specify/memory/writing-style.md` (Constitution Principle VI); the README, not this site,
 is the one that must stay short (spec FR-012).
 
-**Scale/Scope**: One HTML file, seven sections.
+**Scale/Scope**: One HTML file, five top-level sections (two of which nest a former top-level
+section: Personas inside Getting Started, Inspiration inside FAQ).
 
 ## Constitution Check
 

@@ -68,10 +68,6 @@ kbd {
 #getting-started:has(:target) {
   display: block;
 }
-#personas:target,
-#personas:has(:target) {
-  display: block;
-}
 #usage:target,
 #usage:has(:target) {
   display: block;
@@ -80,16 +76,12 @@ kbd {
 #technical:has(:target) {
   display: block;
 }
-#why:target,
-#why:has(:target) {
-  display: block;
-}
 #try-ai:target,
 #try-ai:has(:target) {
   display: block;
 }
-#inspiration:target,
-#inspiration:has(:target) {
+#faq:target,
+#faq:has(:target) {
   display: block;
 }
 
@@ -213,6 +205,10 @@ body:not(:has(:target)) #getting-started {
   font-weight: 700;
   color: var(--text-soft);
   margin: 0 0 10px;
+}
+
+.sidebar .eyebrow:not(:first-child) {
+  margin-top: 20px;
 }
 
 .sidebar ul {
@@ -490,12 +486,10 @@ footer.site-footer a {
 <nav class="site-nav">
   <a class="brand" href="#getting-started"><code>workspaces-host-v3</code></a>
   <a class="nav-link" data-nav="getting-started" href="#getting-started">Getting Started</a>
-  <a class="nav-link" data-nav="personas" href="#personas">Personas</a>
   <a class="nav-link" data-nav="usage" href="#usage">Using Your Sandbox</a>
   <a class="nav-link" data-nav="try-ai" href="#try-ai">Try with AI</a>
-  <a class="nav-link" data-nav="technical" href="#technical">Technical Reference</a>
-  <a class="nav-link" data-nav="why" href="#why">Why?</a>
-  <a class="nav-link" data-nav="inspiration" href="#inspiration">Inspiration</a>
+  <a class="nav-link" data-nav="technical" href="#technical">Contributing</a>
+  <a class="nav-link" data-nav="faq" href="#faq">FAQ</a>
   <span class="spacer"></span>
   <a class="gh-link" href="https://github.com/intellectual-frontiers/workspaces-host-v3">GitHub &#8599;</a>
 </nav>
@@ -517,6 +511,9 @@ footer.site-footer a {
         <li><a href="#macos">macOS</a></li>
         <li><a href="#manual">Manual, step by step</a></li>
         <li><a href="#verify">Verify it worked</a></li>
+        <li><a href="#personas">Personas</a></li>
+        <li class="sub"><a href="#personas-discover">Finding and checking personas</a></li>
+        <li class="sub"><a href="#personas-activate">Activating one</a></li>
         <li><a href="#next">What's next</a></li>
       </ul>
     </aside>
@@ -592,34 +589,8 @@ $ ./result/activate</code></pre>
       <pre><code>$ doctor</code></pre>
       <p>One <code>PASS</code>/<code>WARN</code>/<code>FAIL</code> line per check. Exits non-zero only if something's actually broken. A <code>WARN</code> for anything you haven't configured yet (like a blank credential) is normal.</p>
 
-      <h2 id="next">What's next</h2>
-      <p>Head to <a href="#usage">Using Your Sandbox</a> for credentials, your shell, managing repos, and everything else you'll touch day to day. Need a specialized toolset (Java, Python, Postgres, and so on)? See <a href="#personas">Personas</a>. New to the command line? <a href="#try-ai">Try with AI</a> has copy/paste prompts that hand the typing to an AI agent instead. Want to understand how this is built, or point an AI agent at the repository? Go to <a href="#technical">Technical Reference</a>. Curious why any of this is built the way it is? See <a href="#why">Why?</a></p>
-
-    </main>
-  </div>
-</section>
-
-<!-- ============================== Personas ============================== -->
-<section id="personas" class="page-section">
-  <header class="page-hero">
-    <h1>Personas</h1>
-    <p class="lede">The base profile stays small. A persona adds a specialized set of tools on top, when you actually need them.</p>
-  </header>
-
-  <div class="page">
-    <aside class="sidebar">
-      <p class="eyebrow">On this page</p>
-      <ul>
-        <li><a href="#personas-list">What's available</a></li>
-        <li><a href="#personas-discover">Finding and checking personas</a></li>
-        <li><a href="#personas-activate">Activating one</a></li>
-      </ul>
-    </aside>
-
-    <main class="content">
-
-      <h2 id="personas-list">What's available</h2>
-      <p>Every profile already has the base essentials: your shell, git, credentials, <code>ws-repos</code>, and the AI coding agent tooling. A persona adds one more specialized set of tools on top. (Curious why the base profile stays small instead of including all of this? See <a href="#why-personas">Why the base profile stays small</a>.)</p>
+      <h2 id="personas">Personas</h2>
+      <p>The base profile stays small: your shell, git, credentials, <code>ws-repos</code>, and AI coding agent tooling. A persona adds one more specialized set of tools on top, when you actually need it. (Curious why the base profile stays small instead of including all of this? See <a href="#why-personas">Why the base profile stays small</a>.)</p>
       <table>
         <tr><th>Persona</th><th>Adds</th></tr>
         <tr><td><code>backend</code></td><td>Java+Maven, PostgreSQL client/<code>pgpass</code>, Redis, docker-compose, httpie</td></tr>
@@ -631,7 +602,7 @@ $ ./result/activate</code></pre>
       </table>
       <p>Personas are additive: everything the base profile gives you is still there, plus that persona's extras. Skip all of them and nothing changes. Activate more than one and you get all of them together.</p>
 
-      <h2 id="personas-discover">Finding and checking personas</h2>
+      <h3 id="personas-discover">Finding and checking personas</h3>
       <p>Don't want to remember the table above? <code>ws-persona</code> prints it for you, along with the exact command to turn each one on:</p>
       <pre><code>$ ws-persona list</code></pre>
       <p>Not sure what you already have active?</p>
@@ -640,13 +611,16 @@ $ ./result/activate</code></pre>
         <p><code>ws-persona current</code> is a quick signal, not a certainty: it checks whether one marker tool per persona (like <code>mvn</code> for <code>backend</code>) is on your <code>PATH</code>, which can occasionally miss or over-report if you've installed something similar yourself, outside this flake. Run <code>doctor --all</code> for the full, authoritative picture.</p>
       </div>
 
-      <h2 id="personas-activate">Activating one</h2>
+      <h3 id="personas-activate">Activating one</h3>
       <p>The same command you already use to update everything else, pointed at a persona instead of the base profile:</p>
       <pre><code>$ WORKSPACES_HOST_PROFILE=current-backend workspaces-host-update</code></pre>
       <p>That applies the <code>backend</code> persona and runs <code>doctor</code> right after, so you see immediately whether it worked. Swap <code>backend</code> for any name from <code>ws-persona list</code>.</p>
       <p>Prefer the plain Nix commands instead of <code>workspaces-host-update</code>?</p>
       <pre><code>$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure
 $ ./result/activate</code></pre>
+
+      <h2 id="next">What's next</h2>
+      <p>Head to <a href="#usage">Using Your Sandbox</a> for credentials, your shell, managing repos, and everything else you'll touch day to day. New to the command line? <a href="#try-ai">Try with AI</a> has copy/paste prompts that hand the typing to an AI agent instead. Want to understand how this is built, or point an AI agent at the repository? Go to <a href="#technical">Contributing</a>. Curious why any of this is built the way it is, or what it grew out of? See <a href="#faq">FAQ</a>.</p>
 
     </main>
   </div>
@@ -744,7 +718,7 @@ $ workspaces-host-update</code></pre>
       <p>Every shell also checks once a day, in the background, whether <code>origin/main</code> has moved, and nudges you if so. It never runs the update itself.</p>
 
       <h2 id="personas-summary">Workspace profiles (personas)</h2>
-      <p>Need a specialized set of extra tools (Java, Python, Postgres, Tailscale, and so on)? See the dedicated <a href="#personas">Personas</a> section: the full list, <code>ws-persona list</code>/<code>ws-persona current</code> to find and check them, and the exact command to turn one on.</p>
+      <p>Need a specialized set of extra tools (Java, Python, Postgres, Tailscale, and so on)? See <a href="#personas">Personas</a> in Getting Started: the full list, <code>ws-persona list</code>/<code>ws-persona current</code> to find and check them, and the exact command to turn one on.</p>
 
       <h2 id="ai">Setting up AI coding agents</h2>
       <p>Every profile installs <code>nodejs</code> and <code>aider-chat</code>, ready to go. The fast-moving hosted CLIs install with their own <code>npm install -g</code>:</p>
@@ -821,11 +795,11 @@ $ npm install -g @google/gemini-cli          # provides: gemini</code></pre>
   </div>
 </section>
 
-<!-- ============================== Technical Reference ============================== -->
+<!-- ============================== Contributing ============================== -->
 <section id="technical" class="page-section">
   <header class="page-hero">
-    <h1>Technical Reference</h1>
-    <p class="lede">How this thing is actually built, and how to hand it to an AI agent without it making a mess.</p>
+    <h1>Contributing</h1>
+    <p class="lede">How this thing is actually built, and what to know before you change it or point an AI agent at it.</p>
   </header>
 
   <div class="page">
@@ -930,19 +904,18 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
       <ul>
         <li><a href="https://github.com/intellectual-frontiers/workspaces-host-v3/blob/main/.specify/memory/constitution.md">The constitution</a>: every non-negotiable principle, in full.</li>
         <li><a href="https://github.com/intellectual-frontiers/workspaces-host-v3/tree/main/specs">Every spec</a>: the exact requirements behind every feature, core and backlog.</li>
-        <li><a href="#why">The Why? section</a>: every design decision on this page, explained.</li>
-        <li><a href="#inspiration">Inspiration</a>: the earlier repositories this one grew out of.</li>
+        <li><a href="#faq">FAQ</a>: every design decision explained, and the earlier repositories this one grew out of.</li>
       </ul>
 
     </main>
   </div>
 </section>
 
-<!-- ============================== Why? ============================== -->
-<section id="why" class="page-section">
+<!-- ============================== FAQ ============================== -->
+<section id="faq" class="page-section">
   <header class="page-hero">
-    <h1>Why?</h1>
-    <p class="lede">Every real design decision in this repository, and the reasoning behind it.</p>
+    <h1>FAQ</h1>
+    <p class="lede">Why this repository works the way it does, and what it grew out of.</p>
   </header>
 
   <div class="page">
@@ -961,6 +934,13 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
         <li><a href="#why-java">Why not a Java version manager</a></li>
         <li><a href="#why-specs">Why a spec for everything</a></li>
         <li><a href="#why-docs-architecture">Why the docs live here, not in the README</a></li>
+      </ul>
+      <p class="eyebrow">Inspiration</p>
+      <ul>
+        <li><a href="#insp-v1">v1: workspaces-host</a></li>
+        <li><a href="#insp-mgit">mgit</a></li>
+        <li><a href="#insp-v2">v2: workspaces-host-v2</a></li>
+        <li><a href="#insp-v3">This repository</a></li>
       </ul>
     </aside>
 
@@ -995,12 +975,12 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
       <p>The base profile stays small on purpose: just what every engineer needs on day one. Compliance tooling, the Java/Postgres toolchain, bulk git tooling, and zero-trust networking clients all live in personas instead, since only some engineers use any given one of them, and a base-profile install is what every other engineer carries around unused. Deciding where a new tool belongs is a single question: does every engineer need this, or only someone doing a specific kind of work? That question is Constitution Principle V, simplicity over completeness, applied directly.</p>
 
       <h2 id="why-ws-repos">Why <code>ws-repos</code>, not <code>mgit</code>, and why the file suffix still says <code>.mgit</code></h2>
-      <p>Other, unrelated tools are also named <code>mgit</code>. Naming this repository's tool <code>ws-repos</code> instead avoids that collision entirely; the directory convention and file matching it implements aren't affected by the rename. (Curious about the tool this one was inspired by? See <a href="#inspiration">Inspiration</a>.)</p>
+      <p>Other, unrelated tools are also named <code>mgit</code>. Naming this repository's tool <code>ws-repos</code> instead avoids that collision entirely; the directory convention and file matching it implements aren't affected by the rename. (Curious about the tool this one was inspired by? See <a href="#insp-v1">Inspiration</a>.)</p>
       <p>The workspace file suffix stays <code>*.mgit.code-workspace</code> on purpose: keeping that exact string means a <code>*.mgit.code-workspace</code> file written by any tool that recognizes that suffix keeps working here, unchanged.</p>
       <p><code>ws-repos status</code> reports a stuck <code>index.lock</code> ("locked") and stash count, and separates "untracked" from "dirty." Parsing a <code>*.mgit.code-workspace</code> file tolerates the comments VS Code itself allows there, a best-effort filter for <code>//</code> and <code>/* */</code>, not a full JSONC parser (spec 003's Assumptions document the one edge case that misses).</p>
 
       <h2 id="why-roadmap">Why Deno, Lefthook, and Tailscale/Nebula are scoped the way they are</h2>
-      <p>These three tools trace back to questions the repositories in this project's own lineage raised (see <a href="#inspiration">Inspiration</a>); here's how this repository answers each on its own terms.</p>
+      <p>These three tools trace back to questions the repositories in this project's own lineage raised (see <a href="#insp-v1">Inspiration</a>); here's how this repository answers each on its own terms.</p>
       <p>Deno is provisioned as a plain scripting runtime, available to anyone who wants <code>deno</code>+<code>dax</code> over <code>make</code> for custom project tasks, independent of what <code>ws-repos</code>/<code>doctor</code> happen to be written in. It lives in the <code>agent-ops</code> persona, not the base profile, since it's a specialized enough choice that most engineers won't reach for it on day one.</p>
       <p>Lefthook and the zero-trust networking clients (Tailscale, Nebula) are each installed declaratively via Nix, and nothing more. For Lefthook, that means a documented, copy-in example config instead of forcing hooks on every repo. For Tailscale/Nebula, it means installing the client and stopping there: joining an actual mesh (a Tailscale account and its login flow, or a Nebula certificate a network admin issues) is unavoidably a human, out-of-band action, the same category as a git identity or an API key. Constitution Principle III's "provisioning a key is a deliberate, separate, human action" applies just as much to network trust material. Running a server-side control plane is infrastructure someone chooses to operate separately; it's not part of one engineer's sandbox.</p>
 
@@ -1016,30 +996,6 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
       <h2 id="why-docs-architecture">Why the docs live here, not in the README</h2>
       <p>Two documents claiming to explain the same thing drift apart. One of them updates when a feature changes; the other one, inevitably, doesn't, and now there are two contradictory answers to "how do I set up credentials." Rather than accept that as a cost of having a README <em>and</em> a docs site, the README stays a short pointer: what this is, the core concepts, and a link here. This page is the one place installation steps, day-to-day usage, the technical architecture, and every "why" get written down, kept current in the same commit as the change that makes them true. One canonical answer, not two that can disagree.</p>
 
-    </main>
-  </div>
-</section>
-
-<!-- ============================== Inspiration ============================== -->
-<section id="inspiration" class="page-section">
-  <header class="page-hero">
-    <h1>Inspiration</h1>
-    <p class="lede">The repositories this one grew out of, and what changed along the way.</p>
-  </header>
-
-  <div class="page">
-    <aside class="sidebar">
-      <p class="eyebrow">On this page</p>
-      <ul>
-        <li><a href="#insp-v1">v1: workspaces-host</a></li>
-        <li><a href="#insp-mgit">mgit</a></li>
-        <li><a href="#insp-v2">v2: workspaces-host-v2</a></li>
-        <li><a href="#insp-v3">This repository</a></li>
-      </ul>
-    </aside>
-
-    <main class="content">
-
       <h2 id="insp-v1">v1: <a href="https://github.com/strategy-coach/workspaces-host/">strategy-coach/workspaces-host</a></h2>
       <p>The first version of this idea: a chezmoi-based dotfiles repository that called Deno "a core requirement" and carried an unfinished roadmap of its own, including lines for a Git hooks manager and zero-trust networking clients that never got built there. This repository doesn't reuse its code or its chezmoi templates; it takes the idea that a whole engineering sandbox deserves to be one reproducible artifact, and rebuilds it on Nix and home-manager instead.</p>
 
@@ -1050,7 +1006,7 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
       <p>A second iteration that continued refining the same goal. This repository builds on what v2 established, on its own foundation, rather than carrying its implementation forward line by line.</p>
 
       <h2 id="insp-v3">This repository: a spiritual successor, not a port</h2>
-      <p>workspaces-host-v3 is written from its own spec-driven foundation (see <a href="#speckit">The spec-driven workflow</a>), on Nix and home-manager, with its own constitution governing every decision. It carries forward the goal its predecessors were reaching for, one reproducible sandbox, everywhere, without carrying forward their code, their naming, or an obligation to behave identically to any of them. Using this repository never requires knowing any of the above; every real design decision it makes has its own answer in <a href="#why">Why?</a>, on its own terms.</p>
+      <p>workspaces-host-v3 is written from its own spec-driven foundation (see <a href="#speckit">The spec-driven workflow</a>), on Nix and home-manager, with its own constitution governing every decision. It carries forward the goal its predecessors were reaching for, one reproducible sandbox, everywhere, without carrying forward their code, their naming, or an obligation to behave identically to any of them. Using this repository never requires knowing any of the above; every real design decision it makes has its own answer elsewhere in this FAQ, on its own terms.</p>
 
     </main>
   </div>
@@ -1068,12 +1024,10 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
 (function () {
   var SECTIONS = {
     "getting-started": "Getting Started",
-    personas: "Personas",
     usage: "Using Your Sandbox",
     "try-ai": "Try with AI",
-    technical: "Technical Reference",
-    why: "Why?",
-    inspiration: "Inspiration",
+    technical: "Contributing",
+    faq: "FAQ",
   };
 
   function currentSectionId() {
