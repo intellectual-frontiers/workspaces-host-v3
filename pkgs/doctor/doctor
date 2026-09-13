@@ -3,18 +3,79 @@
 # environment. Prints one PASS/WARN/FAIL line per check; exits non-zero
 # only if something FAILs (a WARN is informational, e.g. "you haven't set
 # your git identity yet" rather than "the environment is broken").
+#
+# Default output is terse: only the checks that answer "did the install
+# actually work" (Nix, shell, git, credentials, GitHub/GitLab auth,
+# ws-repos). Everything else - common pitfalls, AI harness CLIs, every
+# ported tool, and every persona-specific check (compliance, backend,
+# agent-ops, networking) - is still *run* (so a real problem is never
+# silently skipped) but only *printed* under `doctor --all`, since a
+# freshly-installed base profile has none of those tools by design and
+# doesn't need to be told so a dozen times. A FAIL is always printed
+# immediately, in either mode - see fail() below.
 set -u
 
+ALL=0
+case "${1:-}" in
+-a | --all) ALL=1 ;;
+-h | --help)
+    cat <<'EOF'
+Usage: doctor [--all]
+
+  (no flag)   Show only the essential checks (Nix, shell, git,
+              credentials, GitHub/GitLab auth, ws-repos), plus a
+              pass/warn/fail summary.
+  --all, -a   Show every check, including optional and persona-specific
+              tooling (compliance, backend, agent-ops, networking).
+
+Every check always runs in either mode - a real FAIL is never hidden,
+even in the terse default output.
+EOF
+    exit 0
+    ;;
+esac
+
 FAILED=0
+PASS_N=0
+WARN_N=0
+FAIL_N=0
+# Set to 1 for a section that's only interesting once you've opted into
+# something (a persona, an optional tool) - its PASS/WARN lines are
+# hidden unless $ALL=1. A FAIL is never hidden, regardless.
+QUIET=0
 
 # Where a credential ends up as a plain file named after its own
 # variable - see home/ai-harness.nix and workspaces-host-update. Used by
 # both the GitHub/GitLab and AI-harness sections below.
 secrets_env_dir="${XDG_STATE_HOME:-$HOME/.local/state}/workspaces-host/secrets/env"
 
-pass() { printf 'PASS  %s\n' "$1"; }
-warn() { printf 'WARN  %s\n' "$1"; }
-fail() { printf 'FAIL  %s\n' "$1"; FAILED=1; }
+pass() {
+    PASS_N=$((PASS_N + 1))
+    [ "$QUIET" = 1 ] && [ "$ALL" != 1 ] && return
+    printf 'PASS  %s\n' "$1"
+}
+warn() {
+    WARN_N=$((WARN_N + 1))
+    [ "$QUIET" = 1 ] && [ "$ALL" != 1 ] && return
+    printf 'WARN  %s\n' "$1"
+}
+fail() {
+    FAIL_N=$((FAIL_N + 1))
+    FAILED=1
+    printf 'FAIL  %s\n' "$1"
+}
+
+# section TITLE QUIET_FLAG: prints a "-- TITLE --" header, unless this
+# section is quiet and we're not in --all mode. Also sets $QUIET for the
+# checks that follow, so pass()/warn() inside this section know whether
+# to print.
+section() {
+    QUIET="$2"
+    if [ "$QUIET" != 1 ] || [ "$ALL" = 1 ]; then
+        echo
+        echo "-- $1 --"
+    fi
+}
 
 check_cmd() {
     name="$1"
@@ -26,11 +87,23 @@ check_cmd() {
     fi
 }
 
+# optional_cmd NAME PERSONA: like check_cmd, but a missing command is a
+# WARN pointing at the persona that provides it, never a FAIL - for tools
+# this profile only installs when a persona is active.
+optional_cmd() {
+    name="$1"
+    persona="$2"
+    if command -v "$name" >/dev/null 2>&1; then
+        pass "$name is on PATH ($(command -v "$name"))"
+    else
+        warn "$name is not on PATH (optional - activate the '$persona' persona if you want it)"
+    fi
+}
+
 echo "workspaces-host doctor"
 echo "======================"
 
-echo
-echo "-- Nix --"
+section "Nix" 0
 if command -v nix >/dev/null 2>&1; then
     pass "nix is on PATH ($(nix --version 2>/dev/null | head -1))"
     if nix show-config 2>/dev/null | grep -q "experimental-features.*nix-command" && \
@@ -42,11 +115,9 @@ if command -v nix >/dev/null 2>&1; then
 else
     fail "nix is NOT on PATH - none of the checks below can work without it"
 fi
-
 check_cmd home-manager
 
-echo
-echo "-- Shell / prompt / direnv --"
+section "Shell / prompt / direnv" 0
 check_cmd bash
 check_cmd oh-my-posh
 check_cmd direnv
@@ -79,8 +150,7 @@ if command -v getent >/dev/null 2>&1; then
     fi
 fi
 
-echo
-echo "-- Git --"
+section "Git" 0
 check_cmd git
 if command -v git >/dev/null 2>&1; then
     email=$(git config --get user.email 2>/dev/null || true)
@@ -104,8 +174,7 @@ if command -v git >/dev/null 2>&1; then
     fi
 fi
 
-echo
-echo "-- Credentials file (~/.config/workspaces-host/credentials) --"
+section "Credentials file (~/.config/workspaces-host/credentials)" 0
 credentials_file="${XDG_CONFIG_HOME:-$HOME/.config}/workspaces-host/credentials"
 if [ -f "$credentials_file" ]; then
     cred_perm=$(stat -c '%a' "$credentials_file" 2>/dev/null || stat -f '%Lp' "$credentials_file" 2>/dev/null || echo '?')
@@ -118,16 +187,7 @@ else
     warn "~/.config/workspaces-host/credentials not found - run 'workspaces-host-update' once to create it from a template, then fill it in (see README's 'Setting up your credentials' section)"
 fi
 
-echo
-echo "-- Advanced: local.nix override (~/.config/workspaces-host/local.nix) --"
-if [ -f "$HOME/.config/workspaces-host/local.nix" ]; then
-    pass "~/.config/workspaces-host/local.nix exists (personal Nix-level overrides live outside this repo, safe from every sync)"
-else
-    pass "~/.config/workspaces-host/local.nix not present (fine - it's only needed for advanced Nix-level customization; see local.nix.example)"
-fi
-
-echo
-echo "-- GitHub/GitLab authentication --"
+section "GitHub/GitLab authentication" 0
 check_cmd gh
 if command -v gh >/dev/null 2>&1; then
     if gh auth status >/dev/null 2>&1; then
@@ -152,8 +212,30 @@ if command -v glab >/dev/null 2>&1; then
     fi
 fi
 
-echo
-echo "-- Common pitfalls (SSH, WSL, disk, locale, plaintext creds) --"
+section "Workspace repo management (~/workspaces, ws-repos)" 0
+check_cmd ws-repos
+if [ -d "$HOME/workspaces" ]; then
+    pass "~/workspaces exists"
+    if [ -f "$HOME/workspaces/ws-repos.json" ]; then
+        pass "~/workspaces/ws-repos.json exists (edit it to declare repos, then run 'ws-repos ensure')"
+    else
+        warn "~/workspaces/ws-repos.json not found (did home-manager switch run?)"
+    fi
+else
+    warn "~/workspaces does not exist yet (did home-manager switch run?)"
+fi
+
+# --- Everything below is optional/persona-specific: hidden by default, -
+# --- shown with `doctor --all`. A FAIL still always prints. -----------
+
+section "Advanced: local.nix override (~/.config/workspaces-host/local.nix)" 1
+if [ -f "$HOME/.config/workspaces-host/local.nix" ]; then
+    pass "~/.config/workspaces-host/local.nix exists (personal Nix-level overrides live outside this repo, safe from every sync)"
+else
+    pass "~/.config/workspaces-host/local.nix not present (fine - it's only needed for advanced Nix-level customization; see local.nix.example)"
+fi
+
+section "Common pitfalls (SSH, WSL, disk, locale, plaintext creds)" 1
 
 if [ -d "$HOME/.ssh" ]; then
     ssh_dir_perm=$(stat -c '%a' "$HOME/.ssh" 2>/dev/null || stat -f '%Lp' "$HOME/.ssh" 2>/dev/null || echo '?')
@@ -255,8 +337,7 @@ if command -v docker >/dev/null 2>&1; then
     fi
 fi
 
-echo
-echo "-- AI harness CLIs & credentials --"
+section "AI harness CLIs & credentials" 1
 check_ai_cli() {
     cli="$1"
     label="$2"
@@ -293,41 +374,27 @@ if command -v gh >/dev/null 2>&1; then
     fi
 fi
 
-echo
-echo "-- Workspace repo management (~/workspaces, ws-repos) --"
-check_cmd ws-repos
-if [ -d "$HOME/workspaces" ]; then
-    pass "~/workspaces exists"
-    if [ -f "$HOME/workspaces/ws-repos.json" ]; then
-        pass "~/workspaces/ws-repos.json exists (edit it to declare repos, then run 'ws-repos ensure')"
-    else
-        warn "~/workspaces/ws-repos.json not found (did home-manager switch run?)"
-    fi
-else
-    warn "~/workspaces does not exist yet (did home-manager switch run?)"
-fi
-
-echo
-echo "-- Ported CLI tools (home.packages) --"
-for c in rg fd jq bat eza gitleaks semtag git-standup ws-repos specify backlog scaffold-agent-harness sensitivectl pgpass git-xargs workspaces-host-update git-extras gopass wget rclone git-chglog deno lefthook llm; do
+section "Ported CLI tools (home.packages)" 1
+for c in rg fd jq bat eza gitleaks ws-repos specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook; do
     check_cmd "$c"
 done
 
-echo
-echo "-- Zero-trust networking clients (optional, spec 017) --"
+section "Agent-ops extras (optional persona)" 1
+for c in semtag git-standup git-extras gopass deno llm; do
+    optional_cmd "$c" agent-ops
+done
+
+section "Zero-trust networking clients (optional persona)" 1
+optional_cmd tailscale networking
 if command -v tailscale >/dev/null 2>&1; then
-    pass "tailscale is on PATH ($(command -v tailscale)) - run 'sudo tailscale up' to join a tailnet"
-else
-    warn "tailscale is not on PATH (optional - only needed if you use Tailscale)"
+    pass "run 'sudo tailscale up' to join a tailnet"
 fi
+optional_cmd nebula networking
 if command -v nebula >/dev/null 2>&1; then
-    pass "nebula is on PATH ($(command -v nebula)) - needs a CA-issued certificate from your mesh's admin to join"
-else
-    warn "nebula is not on PATH (optional - only needed if you use Nebula)"
+    pass "nebula needs a CA-issued certificate from your mesh's admin to join"
 fi
 
-echo
-echo "-- Sandbox sync (workspaces-host-update) --"
+section "Sandbox sync (workspaces-host-update)" 1
 if [ -n "${WORKSPACES_HOST_REPO:-}" ]; then
     if [ -d "$WORKSPACES_HOST_REPO/.git" ]; then
         pass "\$WORKSPACES_HOST_REPO ($WORKSPACES_HOST_REPO) is a git clone - 'workspaces-host-update' will work"
@@ -338,55 +405,54 @@ else
     warn "\$WORKSPACES_HOST_REPO is not set (did home-manager switch run?)"
 fi
 
-echo
-echo "-- Compliance & observability tooling --"
+section "Compliance & observability tooling (optional persona)" 1
 if [ "$(uname -s)" = "Linux" ]; then
-    check_cmd osqueryi "osquery (osqueryi)"
+    optional_cmd osqueryi compliance
 else
     warn "osquery is Linux-only (nixpkgs meta.platforms) - not installed on $(uname -s)"
 fi
-check_cmd cnquery
-check_cmd steampipe
-check_cmd openobserve
-if command -v surveilr >/dev/null 2>&1; then
-    pass "surveilr is on PATH ($(command -v surveilr))"
-else
-    warn "surveilr is not on PATH (upstream only publishes x86_64-linux/x86_64-darwin release binaries - see pkgs/surveilr)"
-fi
+optional_cmd cnquery compliance
+optional_cmd steampipe compliance
+optional_cmd openobserve compliance
+optional_cmd surveilr compliance
 
-echo
-echo "-- PostgreSQL credentials (~/.pgpass, ~/.psqlrc) --"
-if [ -f "$HOME/.pgpass" ]; then
-    perm=$(stat -c '%a' "$HOME/.pgpass" 2>/dev/null || stat -f '%Lp' "$HOME/.pgpass" 2>/dev/null || echo '?')
-    if [ "$perm" = "600" ]; then
-        pass "~/.pgpass exists with mode 600 (edit it to add connections, then use 'pgpass')"
+section "PostgreSQL credentials (optional persona: backend)" 1
+if command -v pgpass >/dev/null 2>&1; then
+    pass "pgpass is on PATH ($(command -v pgpass))"
+    if [ -f "$HOME/.pgpass" ]; then
+        perm=$(stat -c '%a' "$HOME/.pgpass" 2>/dev/null || stat -f '%Lp' "$HOME/.pgpass" 2>/dev/null || echo '?')
+        if [ "$perm" = "600" ]; then
+            pass "~/.pgpass exists with mode 600 (edit it to add connections, then use 'pgpass')"
+        else
+            warn "~/.pgpass exists but mode is $perm, not 600 (libpq/psql may ignore it - chmod 600 ~/.pgpass)"
+        fi
     else
-        warn "~/.pgpass exists but mode is $perm, not 600 (libpq/psql may ignore it - chmod 600 ~/.pgpass)"
+        warn "~/.pgpass not found (did home-manager switch run?)"
+    fi
+    if [ -f "$HOME/.psqlrc" ]; then
+        pass "~/.psqlrc exists"
+    else
+        warn "~/.psqlrc not found (did home-manager switch run?)"
     fi
 else
-    warn "~/.pgpass not found (did home-manager switch run?)"
-fi
-if [ -f "$HOME/.psqlrc" ]; then
-    pass "~/.psqlrc exists"
-else
-    warn "~/.psqlrc not found (did home-manager switch run?)"
+    warn "pgpass is not on PATH (optional - activate the 'backend' persona if you use Postgres)"
 fi
 
-echo
-echo "-- Java toolchain --"
-check_cmd java
-check_cmd mvn
+section "Java toolchain (optional persona: backend)" 1
 if command -v java >/dev/null 2>&1; then
+    pass "java is on PATH ($(command -v java))"
     pass "java $(java -version 2>&1 | head -1)"
-fi
-if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-    pass "JAVA_HOME is set and valid ($JAVA_HOME)"
+    check_cmd mvn
+    if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+        pass "JAVA_HOME is set and valid ($JAVA_HOME)"
+    else
+        warn "JAVA_HOME is not set or not valid (did home-manager switch run?)"
+    fi
 else
-    warn "JAVA_HOME is not set or not valid (did home-manager switch run?)"
+    warn "java is not on PATH (optional - activate the 'backend' persona if you use Java)"
 fi
 
-echo
-echo "-- Optional: container tooling (spec 005) --"
+section "Optional: container tooling (spec 005)" 1
 if command -v docker >/dev/null 2>&1; then
     pass "docker is on PATH (needed to run packages.<system>.oci-image*)"
 else
@@ -394,6 +460,10 @@ else
 fi
 
 echo
+echo "Summary: $PASS_N passed, $WARN_N warnings, $FAIL_N failed"
+if [ "$ALL" != 1 ]; then
+    echo "(run 'doctor --all' for the full report, including persona-specific and optional checks)"
+fi
 if [ "$FAILED" = "1" ]; then
     echo "doctor: one or more checks FAILED - see above"
     exit 1

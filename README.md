@@ -17,56 +17,20 @@ See [`.specify/memory/constitution.md`](.specify/memory/constitution.md) for
 the principles behind these design choices, and [`specs/`](specs/) for the
 requirements each feature implements.
 
+## Installation
+
 <details>
-<summary><strong>Why this exists</strong></summary>
+<summary><strong>New to Nix? Three sentences on what's actually happening</strong></summary>
 
-The point isn't just "a nice shell" — it's that a human engineer, a teammate who's new to Linux, a
-CI/CD pipeline, and an AI coding agent (Claude Code, Codex, an autonomous CI bot, ...) can all open
-a terminal on completely different machines and find the *exact same* structure: the same place
-repos get cloned to (`~/workspaces`, managed by `ws-repos`), the same command to check the
-environment (`doctor`), the same command to update it (`workspaces-host-update`), the same shell,
-the same tools, at the same versions. When everyone and everything working on a project — across
-engineering, DevOps, and an AI agent doing a chunk of the work overnight — shares one predictable
-layout, nobody (human or machine) has to re-learn "how this particular person's/pipeline's machine
-happens to be set up" before they can be useful on it.
-
-That matters more, not less, now that AI has put a real command line within reach of people who
-never expected to need one. Effectively everyone is an engineer now, at least some of the time —
-and everyone doing that work deserves the same consistent, good-looking, fully capable Linux
-environment, not a stripped-down or inconsistent one just because they're newer to it. On Windows,
-WSL already gives you the Windows desktop, files, and apps you know; `workspaces-host` is what
-gives the Linux side of that the same consistent, ready-to-go engineering setup everyone else on
-the team has — so the "new to Linux" part is the only unfamiliar piece, not the tooling itself.
-
-This is also why AI CLIs are provisioned as part of the standard environment (see "Setting up AI
-harness credentials" below): once an engineer — technical or not — has an API key configured the
-safe way this repo documents, they can point an AI harness at their own sandbox and ask it to help
-configure or improve their setup, the same way it would help with application code. That's a
-deliberate design goal, not an accident: lowering the barrier to actually using and improving a
-real engineering environment is the whole point.
-
-But that consistency is the thing to protect. If an AI harness (or a person) comes up with a
-genuinely good improvement while working in one sandbox — a new tool, a better default, an extra
-`doctor` check, a smarter install step — the right place for it is **this repository, via a pull
-request**, not just that one person's credentials file or a one-off tweak that only exists on
-their machine. Your credentials file (see "Setting up your credentials" below) exists for things
-that are genuinely personal — your name, your API keys — precisely so that everything else stays
-shared and in sync across the whole team. A good idea that only lives in one sandbox helps one
-person; the same idea merged back here helps everyone (and every CI run, and every agent) who uses
-this setup after that.
+**Nix** is a package manager that installs exact, pinned versions of every tool (bash, git, all of
+it) into an isolated store, instead of whatever versions your OS happens to have. **A flake** is
+just this repository's own description, in one file (`flake.nix`), of exactly which tools and
+settings make up your environment. **home-manager** is what actually applies that description to
+your user account — each time it does, it creates a new **generation** (a complete, numbered
+snapshot you can switch back to instantly; see "rolling back" below) rather than editing your
+files in place. You don't need to know any more than this to use everything below.
 
 </details>
-
-Every spec under [`specs/`](specs/) (001 through 017) is implemented: the flake/shell base,
-credentials (including GitHub/GitLab tokens), `ws-repos`, `doctor`/rollback, container parity,
-compliance/observability tooling, the Java/Postgres toolchain, AI coding agent harness
-credentials, Nerd Font/prompt polish, agent-harness project scaffolding, bulk git tooling, secrets
-backup/restore, advanced `local.nix` overrides, per-persona workspace profiles, a handful of
-everyday utilities (`gopass`/`wget`/a directly-runnable `rclone`/`git-chglog`/the Deno
-runtime/SSH agent auto-start), and Git hooks and zero-trust networking clients (Lefthook,
-Tailscale/Nebula). See each spec's `spec.md` for its exact requirements.
-
-## Installation
 
 **If you're on Windows, start here** — that's what most people reading
 this want. Already on Linux or a Mac? Skip ahead to "Other platforms."
@@ -333,13 +297,10 @@ simple file. See `home/secrets.nix` for the exact option shape.
 
 ### Setting up AI harness credentials
 
-Every profile installs `nodejs` (needed by every AI CLI below), `aider-chat` (provider-agnostic,
-so it works with whichever API key you have), and [`llm`](https://llm.datasette.io/) (Simon
-Willison's CLI-based LLM tool — one of v1's own unfinished roadmap items) — all already on
-`PATH`, nothing to install. `llm` manages its own provider keys directly (`llm keys set
-anthropic`), independent of the credentials file below. The fast-moving hosted CLIs below aren't
-packaged in this flake's pinned nixpkgs — install them with their own `npm install -g`, same as
-upstream documents:
+Every profile installs `nodejs` (needed by every AI CLI below) and `aider-chat` — provider-agnostic,
+so it works with whichever API key you have, already on `PATH`, nothing to install. The fast-moving
+hosted CLIs below aren't packaged in this flake's pinned nixpkgs — install them with their own
+`npm install -g`, same as upstream documents:
 
 ```console
 $ npm install -g @anthropic-ai/claude-code   # provides: claude
@@ -385,6 +346,58 @@ present.
 
 </details>
 
+That's everything you need to get started. Every section below covers an additional capability —
+read them whenever you're ready, or jump straight to whichever one you need.
+
+<details>
+<summary><strong>Why this exists</strong></summary>
+
+The point isn't just "a nice shell" — it's that a human engineer, a teammate who's new to Linux, a
+CI/CD pipeline, and an AI coding agent (Claude Code, Codex, an autonomous CI bot, ...) can all open
+a terminal on completely different machines and find the *exact same* structure: the same place
+repos get cloned to (`~/workspaces`, managed by `ws-repos`), the same command to check the
+environment (`doctor`), the same command to update it (`workspaces-host-update`), the same shell,
+the same tools, at the same versions. When everyone and everything working on a project — across
+engineering, DevOps, and an AI agent doing a chunk of the work overnight — shares one predictable
+layout, nobody (human or machine) has to re-learn "how this particular person's/pipeline's machine
+happens to be set up" before they can be useful on it.
+
+That matters more, not less, now that AI has put a real command line within reach of people who
+never expected to need one. Effectively everyone is an engineer now, at least some of the time —
+and everyone doing that work deserves the same consistent, good-looking, fully capable Linux
+environment, not a stripped-down or inconsistent one just because they're newer to it. On Windows,
+WSL already gives you the Windows desktop, files, and apps you know; `workspaces-host` is what
+gives the Linux side of that the same consistent, ready-to-go engineering setup everyone else on
+the team has — so the "new to Linux" part is the only unfamiliar piece, not the tooling itself.
+
+This is also why AI CLIs are provisioned as part of the standard environment (see "Setting up AI
+harness credentials" above): once an engineer — technical or not — has an API key configured the
+safe way this repo documents, they can point an AI harness at their own sandbox and ask it to help
+configure or improve their setup, the same way it would help with application code. That's a
+deliberate design goal, not an accident: lowering the barrier to actually using and improving a
+real engineering environment is the whole point.
+
+But that consistency is the thing to protect. If an AI harness (or a person) comes up with a
+genuinely good improvement while working in one sandbox — a new tool, a better default, an extra
+`doctor` check, a smarter install step — the right place for it is **this repository, via a pull
+request**, not just that one person's credentials file or a one-off tweak that only exists on
+their machine. Your credentials file (see "Setting up your credentials" above) exists for things
+that are genuinely personal — your name, your API keys — precisely so that everything else stays
+shared and in sync across the whole team. A good idea that only lives in one sandbox helps one
+person; the same idea merged back here helps everyone (and every CI run, and every agent) who uses
+this setup after that.
+
+</details>
+
+Every spec under [`specs/`](specs/) (001 through 017) is implemented: the flake/shell base,
+credentials (including GitHub/GitLab tokens), `ws-repos`, `doctor`/rollback, container parity,
+compliance/observability tooling, the Java/Postgres toolchain, AI coding agent harness
+credentials, Nerd Font/prompt polish, agent-harness project scaffolding, bulk git tooling, secrets
+backup/restore, advanced `local.nix` overrides, per-persona workspace profiles (the base profile
+stays deliberately small — see "Workspace profiles" below for what moved behind a persona), a
+handful of everyday utilities, and Git hooks and zero-trust networking clients (Lefthook,
+Tailscale/Nebula). See each spec's `spec.md` for its exact requirements.
+
 ## Your shell
 
 This setup uses **bash**, not a different shell — on purpose: it's what
@@ -405,7 +418,8 @@ top:
   matches. A separate command, not a replacement for `cd`.
 - **oh-my-posh**, with its own upgrade nag turned off (see below).
 
-### Modern replacements for everyday CLI tools
+<details>
+<summary><strong>Modern replacements for everyday CLI tools</strong> (optional — everything below still works under its own name)</summary>
 
 | Instead of | Try | What's different |
 | --- | --- | --- |
@@ -418,6 +432,8 @@ top:
 `ll`/`ls` are aliased to `eza`, and `cat` is aliased to `bat --paging=never`
 — everything else is left alone under its own name, since a different
 enough flag set would break muscle memory more than help.
+
+</details>
 
 <details>
 <summary><strong>Why not <code>oh-my-posh enable autoupgrade</code>?</strong></summary>
@@ -432,7 +448,8 @@ oh-my-posh? That's a nixpkgs pin bump in this flake, the same as updating any ot
 
 </details>
 
-### Fonts for the prompt icons
+<details>
+<summary><strong>Fonts for the prompt icons</strong> (optional — the prompt works fine without them, just with a few boxes/<code>?</code>s where icons would be)</summary>
 
 The prompt uses small icons (branch name, folder, a clock, ...) from a
 "Nerd Font" - a regular monospace font with extra symbols added. Every
@@ -446,6 +463,8 @@ in the terminal app itself, not something Nix can turn on for you.
 - **On Linux with GNOME Terminal**: Terminal → Preferences → your profile → Text → uncheck "Use the system fixed-width font" → Custom font → `JetBrainsMono Nerd Font Mono`.
 - **Any other terminal app** (kitty, Alacritty, Konsole, iTerm2, ...): the font is already installed and discoverable system-wide — just set that app's own font setting to the same name.
 - **Check it worked**: close and reopen your terminal window and look at your prompt — actual icons, not boxes or `?` marks.
+
+</details>
 
 ## Managing your repos (`ws-repos`)
 
@@ -501,18 +520,21 @@ See spec 003 for the full `ws-repos` requirements.
 
 ### Bulk changes across many repos, and other git helpers
 
-`ws-repos` (above) governs *which* repos land under `~/workspaces`; a few
-more ported tools help make the same change *across* many of them, or do
-everyday multi-repo git tasks, at once (spec 011):
+`ws-repos` (above) governs *which* repos land under `~/workspaces`. `git-xargs`
+([gruntwork-io/git-xargs](https://github.com/gruntwork-io/git-xargs)) is in every profile too —
+run a command, or a small Go callback, against many GitHub repos in one shot and open a PR with
+the results in each:
+
+```console
+$ git-xargs --repos repo1,repo2,repo3 --branch-name my-fix --commit-message "my fix" -- ./my-script.sh
+```
+
+A few more everyday multi-repo git helpers live in the `agent-ops` persona (see "Workspace
+profiles" below) rather than every profile, since they're specialized enough that most engineers
+won't reach for them on day one:
 
 - **`git-extras`** — a grab-bag of everyday `git <cmd>` subcommands
   (`git summary`, `git changelog`, `git effort`, `git delete-merged-branches`, ...).
-- **`git-xargs`** ([gruntwork-io/git-xargs](https://github.com/gruntwork-io/git-xargs)) —
-  run a command, or a small Go callback, against many GitHub repos in one
-  shot and open a PR with the results in each:
-  ```console
-  $ git-xargs --repos repo1,repo2,repo3 --branch-name my-fix --commit-message "my fix" -- ./my-script.sh
-  ```
 - **`semtag`** — compute (and optionally apply) the next semantic version
   git tag: `semtag current`, `semtag final -s minor -a`.
 - **`git-standup`** — list your commits since your last working day,
@@ -524,30 +546,29 @@ everyday multi-repo git tasks, at once (spec 011):
 $ doctor
 ```
 
-Prints one `PASS`/`WARN`/`FAIL` line per check and exits non-zero only if
-something actually failed. Covers: Nix/flakes, home-manager; the shell,
-prompt, and direnv integration, and whether this flake's own pinned bash
-actually is your login shell (not just installed); git and its identity;
-the credentials file's existence and permissions; whether an advanced
-`local.nix` override is present (informational either way); GitHub/GitLab
-authentication for `gh`/`glab`; SSH key existence and permissions; common
-pitfalls easy to hit if you're new to Linux/WSL — working under WSL's
-slower `/mnt` Windows filesystem by mistake (both `$HOME` and wherever
-you're standing), low disk space, a misconfigured locale, a plaintext
-`~/.netrc` with the wrong permissions, an overly permissive `umask`, and
-Docker group membership; the AI harness CLIs and whether each has a
-credential configured; `ws-repos` and the `~/workspaces` layout; every tool
-this repository installs; compliance/observability tooling; PostgreSQL
-and Java toolchain setup; and optionally `docker`, for building/running
-this flake's container images.
+Prints one `PASS`/`WARN`/`FAIL` line per check and exits non-zero only if something actually
+failed. By default it shows only the essentials — did the install actually work: Nix/flakes,
+home-manager, the shell/prompt/direnv, git and its identity, the credentials file, GitHub/GitLab
+authentication, and `ws-repos` — plus a one-line summary count. Run `doctor --all` for everything
+else too: common WSL/SSH/disk/locale pitfalls, the AI harness CLIs, every ported tool, and every
+persona-specific check (compliance, backend, agent-ops, networking) reported as an informational
+`WARN` if that persona isn't active. A real problem is never hidden by the terse default — a
+genuine `FAIL` always prints, in either mode.
 
-If an update ever breaks something, roll back with home-manager's own
-generation mechanism — no separate tooling needed:
+If an update ever breaks something, roll back with home-manager's own generation mechanism — no
+separate tooling needed. Every `workspaces-host-update`/`home-manager switch` creates a new,
+numbered generation rather than editing anything in place, so the previous one is always still
+there to go back to:
 
 ```console
-$ home-manager generations         # list generations, newest first
-$ /nix/store/.../activate          # re-run an earlier generation's own activate script
+$ home-manager generations
+2026-09-13 14:02 : id 6 -> /nix/store/i9k2x...-home-manager-generation   # the broken one
+2026-09-13 09:47 : id 5 -> /nix/store/7fa31...-home-manager-generation   # the one before it
+$ /nix/store/7fa31...-home-manager-generation/activate   # re-run that generation's own activate script
 ```
+
+That's it — your environment is back to exactly how it was at generation 5, with nothing to
+reinstall.
 
 ## Keeping your sandbox in sync
 
@@ -570,46 +591,52 @@ workspaces-host-v3: 3 commit(s) behind origin/main - run workspaces-host-update 
 
 ## Workspace profiles (personas)
 
-The base profile (`current`/`default`) is deliberately general-purpose. For a specialized set of
-extra tools on top of it, activate a persona instead (spec 014):
+The base profile (`current`/`default`) is deliberately small — just what every engineer needs on
+day one. For a specialized set of extra tools on top of it, activate a persona instead (spec 014):
 
 ```console
-$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure   # postgresql, redis, docker-compose, httpie
-$ nix build ".#homeConfigurations.current-data.activationPackage" --impure      # python3, uv, duckdb
-$ nix build ".#homeConfigurations.current-mobile.activationPackage" --impure    # android-tools (adb/fastboot), watchman
-$ nix build ".#homeConfigurations.current-agent-ops.activationPackage" --impure # act (gh is already in the base)
+$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure     # Java+Maven, postgresql/pgpass, redis, docker-compose, httpie
+$ nix build ".#homeConfigurations.current-data.activationPackage" --impure        # python3, uv, duckdb
+$ nix build ".#homeConfigurations.current-mobile.activationPackage" --impure      # android-tools (adb/fastboot), watchman
+$ nix build ".#homeConfigurations.current-agent-ops.activationPackage" --impure   # act, semtag/git-standup/git-extras, gopass, deno, llm
+$ nix build ".#homeConfigurations.current-compliance.activationPackage" --impure  # osquery, cnquery, steampipe, openobserve, surveilr
+$ nix build ".#homeConfigurations.current-networking.activationPackage" --impure  # tailscale, nebula
 $ ./result/activate
 ```
 
 Personas are strictly additive — everything the base profile gives you is still there, plus that
-persona's extra packages. Activating none of them (the default) is completely unaffected.
+persona's extra packages. Activating none of them (the default) is completely unaffected, and
+`doctor` (below) reports every persona-specific tool as an informational `WARN`, not a problem,
+when its persona isn't active.
 
 ## More everyday tools
 
-A handful of small, general-purpose utilities round out the base profile (spec 015):
+A couple of small, general-purpose utilities round out the base profile (spec 015):
 
-- **`gopass`** — general secrets management, for anything you'd rather not put in the plain
-  credentials file (see "Setting up your credentials" above).
 - **`wget`**, **`rclone`** — a plain HTTP fetcher, and a directly-runnable `rclone` (not just the
   copy `sensitivectl` uses internally — see "Backing up sensitive local directories" below).
 - **`git-chglog`** — generate a `CHANGELOG.md` from your commit history.
-- **`deno`** — a general-purpose scripting runtime, with `deno-run`/`deno-test` aliases
-  (`deno run -A`/`deno test -A`).
 - **SSH agent auto-start** — a new login shell automatically starts an SSH agent and loads
   `~/.ssh/id_ed25519` or `~/.ssh/id_rsa` (whichever exists) if nothing's loaded yet — no more
   manual `ssh-agent`/`ssh-add` per session.
 - **`cdp`** — an alias that `cd`s to the current git repository's top-level directory.
 
+`gopass` (general secrets management) and `deno` (a general-purpose scripting runtime, with
+`deno-run`/`deno-test` aliases) are in the `agent-ops` persona instead of every profile — see
+"Workspace profiles" above.
+
 <details>
-<summary><strong>Why is Deno available here when this repo's own tools no longer need it?</strong></summary>
+<summary><strong>Why is Deno available at all when this repo's own tools no longer need it?</strong></summary>
 
 v1 (the original chezmoi-based repo) called Deno "a core requirement," and used it for `ws-repos`'
 own upstream ancestor (`mgit.ts`) plus most of its custom tooling. v2 reimplemented those specific
 scripts in POSIX `sh` to avoid *this repository's own tooling* needing a Deno dependency - but that
 sidestepped, rather than answered, a separate question: should engineers still have Deno available
 as a general scripting runtime? v1's answer was yes (it recommends `deno`+`dax` over `make` for
-custom task running); this repo agrees, so Deno is provisioned here as a plain tool, independent
-of what `ws-repos`/`doctor` are written in.
+custom task running); this repo agrees, so Deno is provisioned as a plain tool, independent of what
+`ws-repos`/`doctor` are written in - just not to every profile by default, since it's still a
+specialized choice most engineers won't reach for on day one (a newbie-simplification pass moved
+it to the `agent-ops` persona).
 
 </details>
 
@@ -636,19 +663,21 @@ documented, copy-in example config rather than forcing hooks on every repo.
 
 </details>
 
-## Zero-trust networking (optional)
+## Zero-trust networking (optional persona)
 
-Every profile installs the [Tailscale](https://tailscale.com/) and [Nebula](https://github.com/slackhq/nebula)
-mesh VPN clients — no service, no auto-start, no key material provisioned; joining either is
-always an explicit step you take yourself:
+The `networking` persona (see "Workspace profiles" above) installs the
+[Tailscale](https://tailscale.com/) and [Nebula](https://github.com/slackhq/nebula) mesh VPN
+clients — no service, no auto-start, no key material provisioned; joining either is always an
+explicit step you take yourself:
 
 ```console
+$ nix build ".#homeConfigurations.current-networking.activationPackage" --impure && ./result/activate
 $ sudo tailscale up      # interactive login against your own Tailscale account
 $ nebula -config nebula.yml   # needs a certificate issued by your mesh's own CA/admin first
 ```
 
-`doctor` reports both clients as present, informationally — neither is required for anything
-else in this repository.
+`doctor --all` reports both clients, informationally — neither is required for anything else in
+this repository, and most engineers never need this persona at all.
 
 <details>
 <summary><strong>Why does this repo install the clients but never configure or auto-start them?</strong></summary>
@@ -683,12 +712,16 @@ workload. Set `FIREWALL_ALLOWED_DOMAINS` to override the default
 allowlist, or `SKIP_FIREWALL=1` as an explicit opt-out on a runtime that
 can't grant `NET_ADMIN`. See spec 005 for details.
 
-## Compliance & observability tooling
+## Compliance & observability tooling (optional persona)
 
-This sandbox includes tooling for auditing itself — useful for SOC2 and
-similar compliance requirements, or just for understanding what's
-actually running on the machine. Every profile installs all five, ready
-to use with nothing extra to opt into (spec 006):
+This sandbox includes tooling for auditing itself — useful for SOC2 and similar compliance
+requirements, or just for understanding what's actually running on the machine. It's specialized
+enough that it lives in the `compliance` persona (see "Workspace profiles" above) rather than
+every profile — activate it, and you get all five with nothing extra to opt into (spec 006):
+
+```console
+$ nix build ".#homeConfigurations.current-compliance.activationPackage" --impure && ./result/activate
+```
 
 - **`osqueryi`** (interactive) / `osqueryd` (daemon) — SQL-queryable
   operating-system instrumentation. Linux-only (nixpkgs); `doctor` reports
@@ -704,15 +737,15 @@ to use with nothing extra to opt into (spec 006):
   binaries for Linux and Darwin; `doctor` reports its absence elsewhere as
   an informational WARN.
 
-None of these run anything by default — they're audit/query tools you
-reach for, not background daemons this repository starts for you.
+None of these run anything by default — they're audit/query tools you reach for, not background
+daemons this repository starts for you.
 
-## PostgreSQL credentials (`~/.pgpass`, `~/.psqlrc`, `pgpass`)
+## PostgreSQL credentials (`~/.pgpass`, `~/.psqlrc`, `pgpass`) (optional persona: `backend`)
 
-Every profile ships `~/.psqlrc` (a full `psql` client config — colored
-prompt, sane defaults, admin queries like `settings`, `locks`, `dbsize`)
-and bootstraps an empty `~/.pgpass` (mode 600) on first activation (spec
-007). Add connections using a small comment-header convention:
+The `backend` persona (see "Workspace profiles" above) ships `~/.psqlrc` (a full `psql` client
+config — colored prompt, sane defaults, admin queries like `settings`, `locks`, `dbsize`) and
+bootstraps an empty `~/.pgpass` (mode 600) on first activation (spec 007). Add connections using a
+small comment-header convention:
 
 ```console
 $ cat >> ~/.pgpass <<'EOF'
@@ -734,10 +767,10 @@ $ pgpass url --conn-id=MYDB                    # postgres://user:pass@host:port/
 `--conn-id` takes an extended regex, so `--conn-id=".*"` matches every
 connection.
 
-## Java toolchain
+## Java toolchain (optional persona: `backend`)
 
-Every profile installs a JDK (`java`) and Maven (`mvn`), with
-`JAVA_HOME` already set — no separate version manager needed (spec 007).
+The `backend` persona (see "Workspace profiles" above) installs a JDK (`java`) and Maven (`mvn`),
+with `JAVA_HOME` already set — no separate version manager needed (spec 007).
 
 <details>
 <summary><strong>Why not SDKMAN! or another Java version manager?</strong></summary>

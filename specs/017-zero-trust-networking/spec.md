@@ -23,6 +23,10 @@ boundary; it does not stand up any server-side control plane (a self-hosted Head
 a Nebula lighthouse) — that is infrastructure operators choose to run, not part of one
 engineer's sandbox.
 
+A later newbie-simplification audit (see spec 014's own follow-up) moved both clients behind the
+`networking` persona (spec 014) instead of the base profile — most engineers never touch a VPN
+client on day one, and until they do, this is one fewer thing for `doctor` to mention.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Join my team's tailnet without installing anything myself (Priority: P3)
@@ -62,14 +66,14 @@ separate install step.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install the `tailscale` client.
-- **FR-002**: The base profile MUST install the `nebula` client.
+- **FR-001**: The `networking` persona (spec 014) MUST install the `tailscale` client.
+- **FR-002**: The `networking` persona MUST install the `nebula` client.
 - **FR-003**: This feature MUST NOT provision, configure, or auto-start any always-on background
   service (no `systemd`/`launchd` unit) — joining and connecting are always an explicit,
   engineer-initiated action, consistent with a workstation sandbox rather than a managed fleet.
-- **FR-004**: The environment health check (spec 004) MUST report both clients on `PATH`, as an
-  informational check only (WARN, never FAIL, if some other tool is preferred) — this is optional
-  infrastructure, the same tier as `docker` in spec 005.
+- **FR-004**: The environment health check (spec 004) MUST report both clients as an informational
+  WARN (not FAIL) when the `networking` persona isn't active, and PASS when present — this is
+  optional infrastructure, the same tier as `docker` in spec 005.
 - **FR-005**: README MUST document the human-in-the-loop steps this feature deliberately does not
   automate: Tailscale's interactive `tailscale up` login, and that a Nebula certificate must be
   issued by the mesh's own CA/admin before `nebula` can join anything.

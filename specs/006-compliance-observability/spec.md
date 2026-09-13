@@ -9,6 +9,14 @@
 **Input**: User description: "Compliance and observability tooling (osquery, cnquery, steampipe,
 OpenObserve, surveilr) to audit the sandbox itself"
 
+## Background
+
+A newbie-simplification audit (see spec 014's own follow-up) found this tooling was the single
+largest contributor to a freshly-installed engineer's `doctor` output, despite having zero payoff
+for anyone not doing compliance/audit work. It now ships behind the `compliance` persona (spec
+014) instead of the base profile — activating it still gets all five tools with nothing extra to
+opt into; not activating it means a new engineer's first `doctor` run doesn't mention any of them.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Audit the sandbox itself (Priority: P1)
@@ -38,14 +46,14 @@ against the local system and confirm it returns real results.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install `cnquery`, `steampipe`, and `openobserve` on every
-  supported system.
-- **FR-002**: The base profile MUST install `osquery` on Linux systems.
-- **FR-003**: The base profile MUST install `surveilr` on the systems it publishes a release
-  asset for.
-- **FR-004**: The environment health check (spec 004) MUST report each of these five tools on
-  `PATH`, treating a platform's known-unsupported combination as an informational WARN rather
-  than a FAIL.
+- **FR-001**: The `compliance` persona (spec 014) MUST install `cnquery`, `steampipe`, and
+  `openobserve` on every supported system.
+- **FR-002**: The `compliance` persona MUST install `osquery` on Linux systems.
+- **FR-003**: The `compliance` persona MUST install `surveilr` on the systems it publishes a
+  release asset for.
+- **FR-004**: The environment health check (spec 004) MUST report each of these five tools as an
+  informational WARN (not a FAIL) when absent — whether because the persona isn't active or
+  because the platform doesn't support that tool — and as PASS when present.
 - **FR-005**: Documentation MUST explain what each tool is for and any platform caveats.
 
 ## Success Criteria *(mandatory)*

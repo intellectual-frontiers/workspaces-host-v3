@@ -51,12 +51,15 @@ inspect a plain interactive shell's environment and confirm the key is absent.
   the CLI's own login flow is an equally valid alternative.
 - **FR-004**: Documentation MUST describe the per-invocation-scoped behavior precisely, so an
   engineer understands why the credential does not appear in a plain `env`.
-- **FR-005**: The base profile MUST install [`llm`](https://llm.datasette.io/) (Simon Willison's
-  CLI-based LLM tool, part of v1's own unfinished roadmap of "CLI-based LLM tools and utilities").
-  `llm` manages its own provider keys via `llm keys set <provider>`, storing them outside this
-  repository's credential mechanism entirely — it is installed directly, not wrapped by FR-002's
-  per-invocation mechanism, since it has no ambient-env-var credential to scope in the first
-  place.
+- **FR-005**: The `agent-ops` persona (spec 014) MUST install [`llm`](https://llm.datasette.io/)
+  (Simon Willison's CLI-based LLM tool, part of v1's own unfinished roadmap of "CLI-based LLM
+  tools and utilities"). `llm` manages its own provider keys via `llm keys set <provider>`,
+  storing them outside this repository's credential mechanism entirely — it is installed
+  directly, not wrapped by FR-002's per-invocation mechanism, since it has no ambient-env-var
+  credential to scope in the first place. It moved out of the base profile in a later
+  newbie-simplification pass (see spec 014's own follow-up): `aider-chat` already covers "a
+  provider-agnostic AI CLI that just works" for every profile, so `llm` stays available without
+  being a second always-on default.
 
 ### Key Entities
 

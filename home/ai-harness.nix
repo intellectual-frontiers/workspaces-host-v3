@@ -47,13 +47,6 @@ let
         command ${name} "$@"
       }
     '';
-
-  # llm (spec 008 FR-005, https://llm.datasette.io/) isn't packaged at the
-  # top level of nixpkgs - only as a Python library
-  # (python3Packages.llm) - so it needs `toPythonApplication` to get a
-  # real `bin/llm` wrapper, the same pattern any Python-packaged CLI in
-  # nixpkgs needs.
-  llmCli = pkgs.python3Packages.toPythonApplication pkgs.python3Packages.llm;
 in
 {
   # AI-assisted CLI tooling, so an AI harness can help configure this
@@ -85,10 +78,6 @@ in
     openssh
     gh
     glab
-    # llm (spec 008 FR-005) manages its own provider keys via
-    # `llm keys set <provider>` - not wrapped by wrapCli, since it has no
-    # ambient-env-var credential to scope in the first place.
-    llmCli
   ];
 
   programs.bash.initExtra = lib.concatStrings (map

@@ -16,11 +16,10 @@
       # keeps this flake's own input set minimal.
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      # cnquery (home/tools.nix, compliance/observability tooling, spec
-      # 006) is the only unfree package this flake pulls in (nixpkgs
-      # marks it `bsl11`) - allowed by name rather than a blanket
-      # `allowUnfreePredicate = true` so a future unfree package doesn't
-      # slip in unnoticed.
+      # cnquery (home/profiles/compliance.nix, spec 006) is the only
+      # unfree package this flake pulls in (nixpkgs marks it `bsl11`) -
+      # allowed by name rather than a blanket `allowUnfreePredicate =
+      # true` so a future unfree package doesn't slip in unnoticed.
       pkgsFor = system: import nixpkgs {
         inherit system;
         config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "cnquery" ];
@@ -34,6 +33,8 @@
         data = ./home/profiles/data.nix;
         mobile = ./home/profiles/mobile.nix;
         agent-ops = ./home/profiles/agent-ops.nix;
+        compliance = ./home/profiles/compliance.nix;
+        networking = ./home/profiles/networking.nix;
       };
 
       mkHomeConfiguration = system: extraModules:

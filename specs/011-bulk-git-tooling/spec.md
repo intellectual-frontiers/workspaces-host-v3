@@ -9,6 +9,15 @@
 **Input**: User description: "git-extras and git-xargs for making the same change across many
 repos under ~/workspaces at once"
 
+## Background
+
+A newbie-simplification audit (see spec 014's own follow-up) reclassified `git-extras`, `semtag`,
+and `git-standup` as power-user tooling and moved them behind the `agent-ops` persona (spec 014)
+instead of the base profile — most engineers never reach for them on day one. `git-xargs` stays in
+the base profile: it's the tool this spec's own primary user story (bulk-changing many repos at
+once) is built around, and it's a single, self-contained binary with no bundled-subcommand
+collision to reason about.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Land the same fix across many repos in one shot (Priority: P3)
@@ -45,15 +54,17 @@ step.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install `git-extras`, a grab-bag of everyday `git <cmd>`
-  subcommands.
+- **FR-001**: The `agent-ops` persona (spec 014) MUST install `git-extras`, a grab-bag of everyday
+  `git <cmd>` subcommands.
 - **FR-002**: The flake MUST package `git-xargs` (fetched from its GitHub releases for the
   current system) and include it in the base profile's installed packages, to run a command or a
   small callback against many GitHub repos at once and open a PR with the results in each.
 - **FR-003**: The flake MUST package `semtag` (compute and optionally apply the next semantic
   version git tag) and `git-standup` (list a user's commits since their last working day, across
-  one or more repos) and include both in the base profile's installed packages.
-- **FR-004**: The environment health check (spec 004) MUST report all four tools on `PATH`.
+  one or more repos) and include both in the `agent-ops` persona's installed packages.
+- **FR-004**: The environment health check (spec 004) MUST report `git-xargs` on `PATH` as part of
+  its base-profile checks, and `git-extras`/`semtag`/`git-standup` as an informational WARN (not
+  FAIL) when the `agent-ops` persona isn't active.
 
 ## Success Criteria *(mandatory)*
 

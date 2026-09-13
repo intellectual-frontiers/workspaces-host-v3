@@ -21,20 +21,28 @@ avoided requiring Deno for *this repository's own* scripts, never addressed whet
 still be available to engineers as a general tool), SSH agent auto-start on login, and a `cdp`
 (cd-to-git-root) alias.
 
+A later newbie-simplification audit (see spec 014's own follow-up) reclassified `gopass` and
+`deno` as more specialized than `wget`/`rclone`/`git-chglog`/SSH-agent-autostart/`cdp`, and moved
+the former two behind the `agent-ops` persona (spec 014) instead of the base profile. The other
+three tools and the SSH/`cdp` conveniences stay in the base profile as originally specified below.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Everyday utilities just work (Priority: P3)
 
-An engineer reaches for `wget`, `gopass`, `git-chglog`, `rclone`, or `deno` and finds them
-already on `PATH`, the same as every other tool this profile installs.
+An engineer reaches for `wget`, `git-chglog`, or `rclone` and finds them already on `PATH` in the
+base profile, the same as every other tool it installs; an engineer doing agent-ops/automation
+work activates that persona and finds `gopass`/`deno` there too.
 
 **Independent Test**: On an activated profile, run each tool's `--version`/`--help` and confirm
 it resolves with no separate install step.
 
 **Acceptance Scenarios**:
 
-1. **Given** an activated base profile, **When** the engineer runs any of `wget`, `gopass`,
-   `git-chglog`, `rclone`, `deno`, **Then** each is on `PATH`.
+1. **Given** an activated base profile, **When** the engineer runs any of `wget`, `git-chglog`,
+   `rclone`, **Then** each is on `PATH`.
+2. **Given** an activated `agent-ops` persona, **When** the engineer runs `gopass` or `deno`,
+   **Then** each is on `PATH`.
 
 ---
 
@@ -64,24 +72,26 @@ confirm `ssh-add -l` lists a key with no manual step.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install `gopass`, `wget`, `rclone`, `git-chglog`, and `deno`
-  directly in `home.packages` (not merely as a build-time dependency of another package).
-- **FR-002**: The base profile MUST alias `deno-run` to `deno run -A` and `deno-test` to
+- **FR-001**: The base profile MUST install `wget`, `rclone`, and `git-chglog` directly in
+  `home.packages` (not merely as a build-time dependency of another package). The `agent-ops`
+  persona (spec 014) MUST install `gopass` and `deno` the same way.
+- **FR-002**: The `agent-ops` persona MUST alias `deno-run` to `deno run -A` and `deno-test` to
   `deno test -A`.
 - **FR-003**: The base profile MUST alias `cdp` to change to the current git repository's
   top-level directory.
 - **FR-004**: Every login shell MUST start an SSH agent and load the first private key found
   among `~/.ssh/id_ed25519`, `~/.ssh/id_rsa` (in that order) if the agent has no keys loaded yet,
   and MUST do nothing if neither exists.
-- **FR-005**: The environment health check (spec 004) MUST report `gopass`, `wget`,
-  `git-chglog`, `rclone`, and `deno` on `PATH`.
+- **FR-005**: The environment health check (spec 004) MUST report `wget`, `git-chglog`, and
+  `rclone` on `PATH` as part of its base-profile checks, and `gopass`/`deno` as an informational
+  WARN (not FAIL) when the `agent-ops` persona isn't active.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: All five tools are usable immediately after activation with no manual install
-  step.
+- **SC-001**: All five tools are usable with no manual install step — three immediately after
+  base-profile activation, `gopass`/`deno` immediately after activating the `agent-ops` persona.
 - **SC-002**: An engineer with an existing SSH key never has to manually start `ssh-agent` for a
   normal session.
 

@@ -28,8 +28,6 @@ in
     ./workspaces.nix
     ./ai-harness.nix
     ./fonts.nix
-    ./java.nix
-    ./postgres.nix
   ] ++ (if builtins.pathExists localConfigPath then [ localConfigPath ] else [ ]);
 
   # home.username, home.homeDirectory, and home.stateVersion are supplied by

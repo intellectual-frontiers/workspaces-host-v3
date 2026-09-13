@@ -9,6 +9,14 @@
 **Input**: User description: "Pinned Java toolchain and PostgreSQL client tooling available in
 every sandbox"
 
+## Background
+
+A newbie-simplification audit (see spec 014's own follow-up) found a JDK/Maven and a bootstrapped
+`~/.pgpass` had no payoff for engineers doing neither JVM nor Postgres work, yet were the two
+heaviest contributors to a base-profile install. This toolchain now ships behind the `backend`
+persona (spec 014) instead of the base profile — `home/java.nix` and `home/postgres.nix`
+themselves are unchanged, only which profile imports them.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Java projects just work (Priority: P2)
@@ -50,17 +58,18 @@ the CLI's `test` subcommand and confirm it validates the connection.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install a pinned JDK and Maven, and set `JAVA_HOME`
-  accordingly.
-- **FR-002**: The base profile MUST declaratively manage a `psql` configuration file (prompt,
+- **FR-001**: The `backend` persona (spec 014) MUST install a pinned JDK and Maven, and set
+  `JAVA_HOME` accordingly.
+- **FR-002**: The `backend` persona MUST declaratively manage a `psql` configuration file (prompt,
   history, pager, and shortcut settings).
-- **FR-003**: The base profile MUST create a Postgres credentials file (mode 600) on first
+- **FR-003**: The `backend` persona MUST create a Postgres credentials file (mode 600) on first
   activation if absent, using a documented id/description/boundary comment-header format, and
   MUST NOT overwrite an existing one.
-- **FR-004**: A small CLI MUST provide `list`, `test`, `env`, `url`, and `psql` subcommands
-  operating on that credentials file's entries.
+- **FR-004**: The `backend` persona MUST include a small CLI (`pgpass`) providing `list`, `test`,
+  `env`, `url`, and `psql` subcommands operating on that credentials file's entries.
 - **FR-005**: The environment health check (spec 004) MUST report the Java toolchain's presence
-  and version, and the Postgres credentials file's existence/permissions.
+  and version, and the Postgres credentials file's existence/permissions, as an informational
+  WARN (not FAIL) when the `backend` persona isn't active.
 - **FR-006**: Documentation MUST explain how to override the pinned JDK/Maven version and the
   credentials file's format with runnable examples.
 

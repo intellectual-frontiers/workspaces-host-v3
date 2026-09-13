@@ -1,29 +1,27 @@
 { pkgs, ... }:
 
 let
-  # ws-repos, doctor, workspaces-host-update, pgpass, sensitivectl, semtag,
-  # git-standup, git-xargs, specify-cli, backlog-md, scaffold-agent-harness
-  # (pkgs/default.nix) - built as flake packages, but only actually land
-  # on PATH once they're also listed in home.packages like every other
-  # tool here.
+  # ws-repos, doctor, workspaces-host-update, sensitivectl, specify-cli,
+  # backlog-md, scaffold-agent-harness, git-xargs (pkgs/default.nix) -
+  # built as flake packages, but only actually land on PATH once they're
+  # also listed in home.packages like every other tool here. Persona-
+  # specific ported tools (pgpass -> backend, surveilr -> compliance,
+  # semtag/git-standup -> agent-ops) are added by their own persona
+  # module instead of here (a newbie-simplification pass), so activating
+  # no persona keeps this list to what every profile actually needs.
   ported = import ../pkgs { inherit pkgs; };
-
-  # cnquery (compliance/observability, spec 006) fetches its source with
-  # fetchFromGitHub, a sandboxed fixed-output derivation build whose own
-  # curl can't TLS-validate an egress proxy the way the outer `nix` CLI
-  # process can (the same class of problem pkgs/specify-cli documents).
-  # builtins.fetchGit, evaluated by that outer process, sidesteps it the
-  # same way; vendorHash is untouched since the fetched tree is
-  # byte-identical to the tagged release archive.
-  cnquery' = pkgs.cnquery.overrideAttrs (_old: {
-    src = builtins.fetchGit {
-      url = "https://github.com/mondoohq/cnquery";
-      rev = "7dee6bd537cb4a04c223a19394726fa8707171e6"; # v11.19.1
-    };
-  });
 in
 {
-  home.packages = (builtins.attrValues ported) ++ (with pkgs; [
+  home.packages = (with ported; [
+    ws-repos
+    workspaces-host-update
+    doctor
+    sensitivectl
+    specify-cli
+    backlog-md
+    scaffold-agent-harness
+    git-xargs
+  ]) ++ (with pkgs; [
     # Everyday CLI tools (spec 001 FR-007). `ripgrep`/`fd` back fzf's
     # file/dir widgets (home/shell.nix), `jq`/`findutils` back `ws-repos`
     # (pkgs/ws-repos), `eza`/`bat` are the aliased `ls`/`cat` replacements
@@ -42,48 +40,18 @@ in
     # project's own .gitignore and reviewing `git diff --staged`.
     gitleaks
 
-    # Compliance & observability tooling (spec 006) - plain nixpkgs
-    # packages, so they flow in here directly rather than through
-    # pkgs/default.nix's aggregate of this repo's own custom-built tools.
-    steampipe
-    openobserve
-
-    # Bulk multi-repo git tooling (spec 011) - a plain nixpkgs package,
-    # so it flows in here directly. git-extras bundles its own
-    # `bin/git-standup`, which collides with this repo's own, already-
-    # ported `pkgs/git-standup`; lowPrio makes that one lose the
-    # collision rather than failing the build - every other git-extras
-    # subcommand is unaffected.
-    (lib.lowPrio git-extras)
-
-    # Additional ported utilities (spec 015) - small, general-purpose
-    # tools a v1-vs-v2-vs-v3 parity audit found missing: general secrets
-    # management, a plain HTTP fetcher, a directly-runnable `rclone`
-    # (previously only vendored inside pkgs/sensitivectl's own wrapped
-    # PATH), changelog generation, and the Deno runtime v1 called "a core
-    # requirement" (this repo's own tooling no longer needs it - ws-repos/
-    # doctor are POSIX sh - but that's a separate question from whether
-    # engineers should have it available, per spec 015's background).
-    gopass
+    # Additional ported utilities (spec 015) general-purpose enough to
+    # stay in every profile: a plain HTTP fetcher, a directly-runnable
+    # `rclone` (also used internally by pkgs/sensitivectl), and changelog
+    # generation. gopass/deno moved to the agent-ops persona in a
+    # newbie-simplification pass, since they're more specialized.
     wget
     rclone
     git-chglog
-    deno
 
-    # Lefthook git hooks manager (spec 016) - fulfills a v1 roadmap item
-    # that v1 itself never built. See templates/lefthook.yml.example.
+    # Lefthook git hooks manager (spec 016) - a no-op until a project
+    # actually adds a lefthook.yml, so it stays available to everyone.
+    # See templates/lefthook.yml.example.
     lefthook
-
-    # Zero-trust networking clients (spec 017) - fulfills another v1
-    # roadmap item v1 never built. Clients only: no service module, no
-    # auto-start, no key material - joining a tailnet/mesh is always an
-    # explicit, engineer-initiated action (README documents the steps).
-    tailscale
-    nebula
-  ] ++ [ cnquery' ])
-  # osquery is nixpkgs-packaged Linux-only (meta.platforms = platforms.linux
-  # at pkgs/tools/system/osquery) - unlike cnquery/steampipe/openobserve
-  # above, referencing it unconditionally would fail to evaluate
-  # home.packages on Darwin, so it's added only where it actually builds.
-  ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.osquery;
+  ]);
 }
