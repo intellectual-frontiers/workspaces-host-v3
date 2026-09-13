@@ -46,9 +46,9 @@ that Linux system, a window titled "Debian," except step 1.
    password. Use a different password than your Windows login.
 3. From inside that Debian window, run this one line:
    ```console
-   $ sudo apt-get update && sudo apt-get install -y curl git && sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"
+   $ cd && sudo apt-get update && sudo apt-get install -y curl git && sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"
    ```
-   `sudo` asks for the password from step 2. That's the only password prompt in the whole
+   The `cd` gets you out of the `sudo` asks for the password from step 2. That's the only password prompt in the whole
    process. It takes a few minutes the first time. Run it again later and it just skips what's
    already done and updates the rest; that's what `workspaces-host-update` does under the hood
    once you're set up.
