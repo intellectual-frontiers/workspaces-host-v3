@@ -511,6 +511,7 @@ footer.site-footer a {
         <li><a href="#macos">macOS</a></li>
         <li><a href="#manual">Manual, step by step</a></li>
         <li><a href="#verify">Verify it worked</a></li>
+        <li><a href="#autocomplete-ux">Autocomplete UX</a></li>
         <li><a href="#personas">Personas</a></li>
         <li class="sub"><a href="#personas-discover">Finding and checking personas</a></li>
         <li class="sub"><a href="#personas-activate">Activating one</a></li>
@@ -589,6 +590,22 @@ $ ./result/activate</code></pre>
       <pre><code>$ doctor</code></pre>
       <p>One <code>PASS</code>/<code>WARN</code>/<code>FAIL</code> line per check. Exits non-zero only if something's actually broken. A <code>WARN</code> for anything you haven't configured yet (like a blank credential) is normal.</p>
 
+      <h2 id="autocomplete-ux">Autocomplete UX</h2>
+      <p>Bash here gets fish-like real-time syntax highlighting and history autosuggestions from <code>blesh</code>, layered on top of plain bash so every tutorial and copy-pasted snippet still works unchanged. If typing feels slower than you'd expect, here's why, and two ways to fix it.</p>
+      <p><code>blesh</code>'s default configuration auto-triggers full completion, not just the lightweight grey suggestion, on almost every keystroke. That's the expensive part: it can shell out to real completion scripts (git, docker, and so on) before you've even pressed Tab.</p>
+      <p><strong>Option (a): turn off just that one setting.</strong> Tab-completion itself is unaffected; you only lose the auto-popup that runs before you press Tab. Try it in your current shell first:</p>
+      <pre><code>$ bleopt complete_auto_complete=</code></pre>
+      <p>That change lasts for the current shell only. To make it permanent, add it to your personal, machine-specific override file (never touched by <code>workspaces-host-update</code>, so it survives every sync):</p>
+      <pre><code>$ nano ~/.config/workspaces-host/local.nix</code></pre>
+      <pre><code>{ ... }:
+{
+  programs.bash.initExtra = ''
+    bleopt complete_auto_complete=
+  '';
+}</code></pre>
+      <p>Then run <code>workspaces-host-update</code> to apply it.</p>
+      <p><strong>Option (b): switch to the <code>fish</code> persona.</strong> Fish's own line editor (fish 4.x is written in Rust) does highlighting and suggestions natively, with nothing layered on top. See <a href="#personas">Personas</a> below for the exact command.</p>
+
       <h2 id="personas">Personas</h2>
       <p>The base profile stays small: your shell, git, credentials, <code>ws-repos</code>, and AI coding agent tooling. A persona adds one more specialized set of tools on top, when you actually need it. (Curious why the base profile stays small instead of including all of this? See <a href="#why-personas">Why the base profile stays small</a>.)</p>
       <table>
@@ -599,8 +616,12 @@ $ ./result/activate</code></pre>
         <tr><td><code>agent-ops</code></td><td>act, semtag/git-standup/git-extras, gopass, deno, llm</td></tr>
         <tr><td><code>compliance</code></td><td>osquery, cnquery, steampipe, openobserve, surveilr</td></tr>
         <tr><td><code>networking</code></td><td>Tailscale, Nebula</td></tr>
+        <tr><td><code>fish</code></td><td>fish shell, with the same aliases and prompt bash gets</td></tr>
       </table>
       <p>Personas are additive: everything the base profile gives you is still there, plus that persona's extras. Skip all of them and nothing changes. Activate more than one and you get all of them together.</p>
+      <div class="callout">
+        <p>The <code>fish</code> persona only makes <code>fish</code> and its config available. It never changes your login shell, the same way activating <code>networking</code> never joins a Tailscale mesh for you. To actually use it day to day, run <code>chsh -s $(which fish)</code> yourself, then close this window and open a new one.</p>
+      </div>
 
       <h3 id="personas-discover">Finding and checking personas</h3>
       <p>Don't want to remember the table above? <code>ws-persona</code> prints it for you, along with the exact command to turn each one on:</p>
@@ -689,6 +710,7 @@ $ glab auth login     # same prompt, for gitlab.com</code></pre>
         <li><strong>Smarter <code>cd</code></strong>: <code>z &lt;part of a path&gt;</code> jumps there by frecency.</li>
         <li><strong>Modern replacements</strong>, all optional: <code>eza</code> for <code>ls</code>, <code>bat</code> for <code>cat</code>, <code>rg</code> for <code>grep</code>, <code>fd</code> for <code>find</code>. <code>ll</code>/<code>ls</code>/<code>cat</code> are already aliased; everything else keeps its own name.</li>
       </ul>
+      <p>Typing feels slower than you'd expect? See <a href="#autocomplete-ux">Autocomplete UX</a> in Getting Started for why, and the two fixes (one of which is switching to the <code>fish</code> persona).</p>
 
       <h2 id="repos">Managing your repos</h2>
       <p><code>ws-repos</code> keeps every project you work on under one predictable layout. (Wondering about the name? See <a href="#why-ws-repos">Why <code>ws-repos</code></a>.)</p>
@@ -928,6 +950,7 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
         <li><a href="#why-secret-scoping">Why secrets are scoped per invocation</a></li>
         <li><a href="#why-ai-clis">Why AI CLIs aren't Nix-packaged</a></li>
         <li><a href="#why-personas">Why the base profile stays small</a></li>
+        <li><a href="#why-fish">Why fish is a persona, not the default</a></li>
         <li><a href="#why-ws-repos">Why <code>ws-repos</code>, not <code>mgit</code></a></li>
         <li><a href="#why-roadmap">Why Deno, Lefthook, and VPN clients are scoped this way</a></li>
         <li><a href="#why-prompt">Why oh-my-posh won't self-update</a></li>
@@ -973,6 +996,10 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
 
       <h2 id="why-personas">Why the base profile stays small, and specialized tools moved to personas</h2>
       <p>The base profile stays small on purpose: just what every engineer needs on day one. Compliance tooling, the Java/Postgres toolchain, bulk git tooling, and zero-trust networking clients all live in personas instead, since only some engineers use any given one of them, and a base-profile install is what every other engineer carries around unused. Deciding where a new tool belongs is a single question: does every engineer need this, or only someone doing a specific kind of work? That question is Constitution Principle V, simplicity over completeness, applied directly.</p>
+
+      <h2 id="why-fish">Why fish is a persona, not the default</h2>
+      <p>Bash stays the base profile's shell because every tutorial, every copy-pasted snippet, and most engineers' existing muscle memory already assume it. <code>blesh</code> gets bash most of the way to fish's own feel (see <a href="#autocomplete-ux">Autocomplete UX</a>) without asking anyone to give that up.</p>
+      <p>Fish is the honest alternative for someone who wants the real thing: its own native, Rust-implemented (fish 4.x) line editor, nothing layered on top. It's a persona, not a second default, for the same reason Tailscale is a persona and not something this repo joins a mesh for automatically: switching your actual login shell is a consequential, per-engineer choice, not something a package list should decide on your behalf. Activating the <code>fish</code> persona only makes <code>fish</code> and a matching config available; running <code>chsh -s $(which fish)</code> afterward is the one, separate, deliberate step that actually makes it yours.</p>
 
       <h2 id="why-ws-repos">Why <code>ws-repos</code>, not <code>mgit</code>, and why the file suffix still says <code>.mgit</code></h2>
       <p>Other, unrelated tools are also named <code>mgit</code>. Naming this repository's tool <code>ws-repos</code> instead avoids that collision entirely; the directory convention and file matching it implements aren't affected by the rename. (Curious about the tool this one was inspired by? See <a href="#insp-v1">Inspiration</a>.)</p>

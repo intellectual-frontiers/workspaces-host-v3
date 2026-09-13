@@ -36,6 +36,7 @@ mobile:adb:android-tools (adb/fastboot), watchman
 agent-ops:act:act, semtag/git-standup/git-extras, gopass, deno, llm
 compliance:cnquery:osquery, cnquery, steampipe, openobserve, surveilr
 networking:tailscale:Tailscale, Nebula
+fish:fish:fish shell with matching aliases/prompt (making it your login shell is a separate, manual step)
 EOF
 }
 

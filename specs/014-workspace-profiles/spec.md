@@ -33,6 +33,22 @@ and `agent-ops` grew to include the specialized half of spec 011's git tooling a
 `gopass`/`deno`, plus `llm` (spec 008). See each of those specs' own "Background" sections for
 the per-feature rationale; this spec's own FRs below reflect the result.
 
+### Follow-up: ws-persona and the fish persona (2026)
+
+Engineers new to Nix found activating a persona itself a real barrier: the `nix build
+".#homeConfigurations.current-<persona>.activationPackage" --impure` incantation assumes exactly
+the flake-attribute literacy this repository otherwise tries not to require. `ws-persona`
+(FR-011) closes that gap with a discovery command, not a new activation mechanism - activation was
+already a single line via `workspaces-host-update`'s `WORKSPACES_HOST_PROFILE` variable, just
+undocumented and unsurfaced.
+
+Separately, an engineer reported bash's `blesh`-based line editor feeling slow to type in.
+Root cause: `blesh`'s default configuration auto-triggers full completion (not just its
+lightweight, fish-like grey suggestion) on almost every keystroke. A `bleopt` setting fixes that
+for anyone who wants to keep bash. For anyone who wants the real thing instead, a `fish` persona
+(FR-012) offers fish's own native line editor, written in Rust as of fish 4.x - additive, like
+every other persona, and never a change to anyone else's shell.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Activate a specialized profile for my role (Priority: P2)
@@ -87,6 +103,33 @@ current`; confirm it's reported active.
   tool happens to be installed some other way, or a persona's own package failed to build)? It's
   documented as a heuristic, not a guarantee, in the command's own output - `doctor --all` remains
   the authoritative check, since it verifies each persona's own set of tools directly.
+- What happens when someone activates the `fish` persona expecting it to become their shell? It
+  doesn't, and can't: home-manager has no way to write `/etc/passwd`. Both `ws-persona list` and
+  the docs site name the separate, manual `chsh -s $(which fish)` step explicitly, rather than
+  leaving "why didn't my shell change" to be discovered the hard way.
+
+---
+
+### User Story 3 - A faster-feeling shell without giving up bash for everyone (Priority: P3)
+
+An engineer who finds `blesh`'s default keystroke-time completion noticeably slow wants either a
+quick fix that keeps bash, or a real native alternative, without that choice being forced on
+every other engineer using this repository.
+
+**Why this priority**: This is a real, reported friction point, but a workaround (a `bleopt`
+setting) already exists for anyone who wants to keep bash; a whole second shell is the option for
+someone who wants more than a workaround.
+
+**Independent Test**: Activate the `fish` persona; confirm `fish` is on `PATH` with the same
+aliases bash gets, and that no other engineer's `default`/`current` activation changed at all.
+
+**Acceptance Scenarios**:
+
+1. **Given** the base profile alone, **When** an engineer activates the `fish` persona, **Then**
+   `fish` becomes available with matching aliases and the same prompt/`zoxide`/`fzf` integration
+   bash already had, and their login shell is unchanged until they run `chsh` themselves.
+2. **Given** any other persona or the base profile alone, **When** `fish` exists as a persona,
+   **Then** nothing about their own activation changes.
 
 ## Requirements *(mandatory)*
 
@@ -125,6 +168,13 @@ current`; confirm it's reported active.
   check). `ws-persona` MUST NOT itself run `nix build`/`home-manager switch` — activation stays a
   single documented command (`WORKSPACES_HOST_PROFILE=current-<persona> workspaces-host-update`,
   or the plain `nix build .../activate` two-step) that this command only prints, never runs.
+- **FR-012**: The `fish` persona MUST enable fish as an additional shell (`programs.fish`) with
+  the same aliases home/shell.nix gives bash (`ll`, `ls`, `cat`, `g`, `deno-run`, `deno-test`,
+  `cdp`), and MUST preserve the same daily-update-nudge and SSH-agent-auto-start behavior bash
+  gets, translated to fish's own syntax rather than dropped. It MUST NOT change the caller's login
+  shell (home-manager cannot write `/etc/passwd`, and personas stay additive regardless); making
+  it the actual login shell (`chsh -s $(which fish)`) MUST be documented as a separate, manual
+  step, never implied as automatic.
 
 ### Key Entities
 
@@ -137,7 +187,7 @@ current`; confirm it's reported active.
 
 ### Measurable Outcomes
 
-- **SC-001**: `nix flake check --all-systems` passes with all six persona profiles included.
+- **SC-001**: `nix flake check --all-systems` passes with all seven persona profiles included.
 - **SC-002**: Every persona's activation package builds and includes both the base profile's
   full package set and that persona's own additions.
 - **SC-003**: `doctor`'s default output covers only base-profile essentials, regardless of which
@@ -152,4 +202,8 @@ current`; confirm it's reported active.
 - A persona module may itself import an existing shared module (e.g. `backend` importing
   `home/java.nix`/`home/postgres.nix`) rather than only adding plain `home.packages` — FR-002's
   "own extra `home.packages`" restriction is about not touching *other* modules' configuration,
-  not about which file a persona's own additions live in.
+  not about which file a persona's own additions live in. The `fish` persona follows the same
+  rule by enabling a whole new `programs.fish` subsystem rather than plain packages, the same
+  precedent `backend` already set.
+- fish 4.x (the Rust rewrite) requires nixpkgs `nixos-25.05` or newer; this repository's nixpkgs
+  pin was bumped from `nixos-24.11` specifically for this persona (flake.nix).

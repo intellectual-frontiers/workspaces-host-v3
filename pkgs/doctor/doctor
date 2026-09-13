@@ -424,6 +424,12 @@ if command -v nebula >/dev/null 2>&1; then
     pass "nebula needs a CA-issued certificate from your mesh's admin to join"
 fi
 
+section "Alternative shell (optional persona: fish)" 1 "🐠"
+optional_cmd fish fish
+if command -v fish >/dev/null 2>&1; then
+    pass "'chsh -s \$(which fish)' makes it your login shell (a separate, manual step)"
+fi
+
 section "Sandbox sync (workspaces-host-update)" 1 "🔄"
 if [ -n "${WORKSPACES_HOST_REPO:-}" ]; then
     if [ -d "$WORKSPACES_HOST_REPO/.git" ]; then

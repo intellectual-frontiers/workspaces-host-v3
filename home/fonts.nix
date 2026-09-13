@@ -12,6 +12,9 @@
   fonts.fontconfig.enable = true;
 
   home.packages = [
-    (pkgs.nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+    # nixpkgs split the old single `nerdfonts.override { fonts = [...] }`
+    # derivation into one package per font family under `nerd-fonts.*`
+    # (bumped to nixos-25.05, spec 014's `fish` persona).
+    pkgs.nerd-fonts.jetbrains-mono
   ];
 }

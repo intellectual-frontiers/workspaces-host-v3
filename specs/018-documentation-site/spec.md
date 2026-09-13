@@ -16,10 +16,13 @@ Further revised: move every historical reference (prior repositories, prior tool
 other section into one dedicated 'Inspiration' section, framing this repository as those
 repositories' spiritual successor rather than a port; add a 'Try with AI' section giving
 copy/paste, natural-language prompts a newbie can hand to an AI coding agent instead of typing
-commands themselves; add a 'Personas' section. Most recently: fold 'Personas' into 'Getting
-Started' (a reader who just got a working shell is the natural moment to offer a specialized
-toolset too); merge 'Why?' and 'Inspiration' into one unified 'FAQ' section, with the Inspiration
-entries visually set apart within its sidebar; rename 'Technical Reference' to 'Contributing'."
+commands themselves; add a 'Personas' section. Then: fold 'Personas' into 'Getting Started' (a
+reader who just got a working shell is the natural moment to offer a specialized toolset too);
+merge 'Why?' and 'Inspiration' into one unified 'FAQ' section, with the Inspiration entries
+visually set apart within its sidebar; rename 'Technical Reference' to 'Contributing'. Most
+recently: add an 'Autocomplete UX' subsection to Getting Started explaining why bash's typing can
+feel slow and both fixes (a `bleopt` setting, or the new `fish` persona); document the `fish`
+persona in Personas and in a new FAQ entry."
 
 ## Background
 
@@ -58,6 +61,14 @@ group, so a reader can still tell "why" from "history" at a glance. "Technical R
 renamed "Contributing," since its actual content (repository layout, the spec-driven workflow, the
 constitution, AI-agent guidance, building and testing) is written for someone about to change this
 repository, not someone reading for general background.
+
+A fifth revision added an "Autocomplete UX" subsection to Getting Started, between verifying the
+install and Personas, after an engineer reported bash's typing feeling slow. The root cause
+(`blesh`'s default keystroke-time auto-completion) has two real fixes - a `bleopt` setting for
+anyone who wants to keep bash, or spec 014's new `fish` persona for anyone who wants a native line
+editor instead - and this subsection is where a reader hits that choice, right next to where
+Personas already explains how to activate one. The Personas table and the FAQ both gained a
+`fish` entry to match.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -259,7 +270,8 @@ activate one without reading any other section.
 - **FR-004**: The site MUST have a Getting Started section, visible by default when the page loads
   with no URL fragment, presenting installation instructions with minimal surrounding rationale
   ("just the facts"): Windows/WSL first, followed by Linux, then macOS, then a manual/step-by-step
-  equivalent, then how to verify the install worked, then Personas (FR-015), then what to do next.
+  equivalent, then how to verify the install worked, then Autocomplete UX (FR-016), then Personas
+  (FR-015), then what to do next.
 - **FR-005**: The site MUST have a "Using Your Sandbox" section for newbie, day-to-day usage:
   credentials (including authenticating `gh`/`glab` for private repositories), shell features,
   `ws-repos`, `doctor`/rollback, and keeping in sync, written for someone who has already finished
@@ -277,7 +289,8 @@ activate one without reading any other section.
   Nix-packaged; why the base profile stays small and personas exist; why `ws-repos` is named that;
   why the v1-roadmap tools - Deno, Lefthook, Tailscale/Nebula - are provisioned the way they are;
   why oh-my-posh doesn't self-update; why there's no Java version manager; why every feature gets a
-  spec; and why the documentation lives on this site rather than in the README), and, within the
+  spec; why the documentation lives on this site rather than in the README; and why fish is a
+  persona rather than the default shell), and, within the
   same section but visually set apart in its own sidebar group (FR-014), an "Inspiration" set of
   entries. Every other section that makes a "this was deliberate" claim MUST link to that claim's
   matching "FAQ" subsection.
@@ -315,11 +328,20 @@ activate one without reading any other section.
   understand it; a section whose reasoning traces back to that history MUST link to "FAQ"'s
   Inspiration entries rather than restate the history itself.
 - **FR-015**: Getting Started (FR-004) MUST include a "Personas" subsection, positioned after
-  verifying the install worked and before "What's next," giving: every persona and what it adds
-  (the same table spec 014 requires), how to discover and check personas (`ws-persona
-  list`/`ws-persona current`), and the exact command to activate one. "Using Your Sandbox" MUST
-  keep only a short pointer to it (not a second copy of the table or the activation command),
-  consistent with FR-012's one-canonical-answer rule.
+  "Autocomplete UX" (FR-016) and before "What's next," giving: every persona and what it adds
+  (the same table spec 014 requires, including `fish`), how to discover and check personas
+  (`ws-persona list`/`ws-persona current`), and the exact command to activate one. "Using Your
+  Sandbox" MUST keep only a short pointer to it (not a second copy of the table or the activation
+  command), consistent with FR-012's one-canonical-answer rule. It MUST also state that activating
+  the `fish` persona never changes the reader's login shell, and MUST give the exact `chsh` command
+  for anyone who wants to make it their shell.
+- **FR-016**: Getting Started (FR-004) MUST include an "Autocomplete UX" subsection, positioned
+  after verifying the install worked and before "Personas" (FR-015), explaining why bash's typing
+  can feel slow (`blesh`'s default auto-triggering of full completion on almost every keystroke)
+  and giving both fixes: the exact `bleopt` setting to disable, shown both as a live, session-only
+  command and as a durable snippet for `~/.config/workspaces-host/local.nix`; and a pointer to the
+  `fish` persona (FR-015) as the native alternative. "Using Your Sandbox"'s own shell subsection
+  MUST link to this subsection rather than restate it.
 
 ### Key Entities
 

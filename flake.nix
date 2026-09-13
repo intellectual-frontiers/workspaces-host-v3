@@ -2,10 +2,14 @@
   description = "Workspaces Host v3 - core flake: home-manager module (bash, oh-my-posh, direnv, git), ws-repos workspace management, doctor health check, and an OCI image built from the same closure";
 
   inputs = {
-    nixpkgs.url = "git+https://github.com/NixOS/nixpkgs?ref=nixos-24.11&shallow=1";
+    # Bumped from nixos-24.11 specifically to get fish 4.x (spec 014's
+    # `fish` persona needs the Rust rewrite, not the 3.7 C++ line
+    # nixos-24.11 stays on for its whole release lifetime - stable
+    # branches don't backport a shell's major rewrite).
+    nixpkgs.url = "git+https://github.com/NixOS/nixpkgs?ref=nixos-25.05&shallow=1";
 
     home-manager = {
-      url = "git+https://github.com/nix-community/home-manager?ref=release-24.11&shallow=1";
+      url = "git+https://github.com/nix-community/home-manager?ref=release-25.05&shallow=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -35,6 +39,7 @@
         agent-ops = ./home/profiles/agent-ops.nix;
         compliance = ./home/profiles/compliance.nix;
         networking = ./home/profiles/networking.nix;
+        fish = ./home/profiles/fish.nix;
       };
 
       mkHomeConfiguration = system: extraModules:
