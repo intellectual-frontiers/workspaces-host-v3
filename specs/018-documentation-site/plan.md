@@ -6,47 +6,58 @@
 
 ## Summary
 
-A `docs/` directory holds three hand-written HTML pages (`index.html` = Getting Started,
-`usage.html` = Using Your Sandbox, `technical.html` = Technical Reference) sharing one stylesheet
-(`assets/style.css`) and one small, optional enhancement script (`assets/copy.js`, copy-to-clipboard
-buttons on code blocks). No build step, no static-site generator, no external CDN dependency -
-consistent with this repository's own "minimal toolchain" stance, just applied to documentation
-instead of the flake. GitHub Pages serves `docs/` directly once a repository owner points Pages'
-source at `main` / `docs` (a one-time settings action - see spec's Assumptions).
+`docs/index.html` is the entire site: one self-contained file with HTML, CSS, and JavaScript all
+inlined, no separate asset files, no external CDN, no build step, no static-site generator, and no
+client-side routing library (HTMx explicitly considered and rejected in favor of plain CSS). Four
+sections (Getting Started, Using Your Sandbox, Technical Reference, Why?) live in the same
+document; `:target`/`:has()` CSS selectors show exactly one at a time based on the URL fragment,
+including correctly resolving a deep link to a sub-heading back to its containing section. A small
+amount of JavaScript adds purely cosmetic enhancements (active-nav-link highlight, tab-title
+update, copy-to-clipboard buttons) and is never required for navigation or reading. GitHub Pages
+serves `docs/` directly once a repository owner points Pages' source at `main` / `docs` (a
+one-time settings action - see spec's Assumptions). The README stays a short pointer at this site
+rather than a second copy of the same content.
 
 ## Technical Context
 
-**Language/Version**: Plain HTML5 + CSS3, one small vanilla-JS enhancement script (no framework,
-no transpilation).
+**Language/Version**: Plain HTML5 + CSS3 (including `:has()`) + one small vanilla-JS enhancement
+block (no framework, no transpilation, no library of any kind).
 
-**Primary Dependencies**: None. No CDN font, no analytics script, no JS framework - system font
-stack, hand-written CSS.
+**Primary Dependencies**: None. No CDN font, no analytics script, no JS framework, no client-side
+routing library - system font stack, hand-written CSS, native browser fragment navigation.
 
-**Storage**: N/A (static files).
+**Storage**: N/A (one static file).
 
-**Testing**: Manual visual check per page (desktop and phone-width viewport), and a plain-text
-read-through with JavaScript disabled to confirm FR-008.
+**Testing**: Automated headless-browser checks (Playwright) covering: default landing section,
+each top-level section's own URL fragment, a deep link to a sub-heading resolving to its
+containing section, phone-width layout with no horizontal overflow, and the exact same routing
+checks repeated with JavaScript disabled. Manual visual read-through per section.
 
-**Target Platform**: Any static web host; GitHub Pages specifically (deploy-from-branch mode).
+**Target Platform**: Any static web host; GitHub Pages specifically (deploy-from-branch mode). Any
+browser supporting CSS `:has()` (universal in actively updated Chrome, Edge, Safari, Firefox).
 
-**Project Type**: Static documentation site, sibling to the flake it documents.
+**Project Type**: Static, single-file documentation site, sibling to the flake it documents.
 
-**Performance Goals**: N/A (a handful of small static files).
+**Performance Goals**: N/A (one static file).
 
-**Constraints**: No build tooling, no external runtime dependency (Constitution's "Toolchain"
-constraint, applied here to documentation rather than the flake itself); prose follows
-`.specify/memory/writing-style.md` (Constitution Principle VI).
+**Constraints**: No build tooling, no external runtime dependency, no client-side routing library
+(Constitution Principle V, applied here to documentation rather than the flake itself); prose
+follows `.specify/memory/writing-style.md` (Constitution Principle VI); the README, not this site,
+is the one that must stay short (spec FR-012).
 
-**Scale/Scope**: Three pages plus shared assets.
+**Scale/Scope**: One HTML file, four sections.
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- Principle V (simplicity): no static-site generator, no JS framework, no build step - the
-  simplest thing that satisfies the spec.
-- Principle VI (Documentation Voice): every page's prose follows the writing-style guide; the
-  audit pass described there is run before this feature is considered done.
+- Principle V (simplicity): no static-site generator, no JS framework or routing library, no build
+  step - CSS-only routing is the simplest mechanism that satisfies the spec's linkability and
+  no-JS requirements simultaneously, simpler than the JavaScript-driven alternative (HTMx or a
+  hand-rolled router) that was considered and rejected.
+- Principle VI (Documentation Voice): every section's prose follows the writing-style guide; the
+  guide's own audit pass (banned words, em dashes, hedging) is run before this feature is
+  considered done.
 
 No violations requiring Complexity Tracking.
 
@@ -64,18 +75,14 @@ specs/018-documentation-site/
 
 ```text
 docs/
-├── .nojekyll            # tells GitHub Pages not to run Jekyll over this directory
-├── index.html            # Getting Started (WSL, Linux, macOS, manual)
-├── usage.html             # Using Your Sandbox (newbie day-to-day usage)
-├── technical.html         # Technical Reference (Nix/flake internals, AI-agent workflow)
-└── assets/
-    ├── style.css          # shared styles for all three pages
-    └── copy.js            # optional copy-to-clipboard enhancement for code blocks
-README.md                  # gets a short link to the published site
+├── .nojekyll        # tells GitHub Pages not to run Jekyll over this directory
+└── index.html        # the entire site: HTML + inline <style> + inline <script>
+README.md              # short overview + link to the published site
 ```
 
-**Structure Decision**: A single `docs/` tree, GitHub Pages' own conventional location for
-"deploy from a branch" mode - no separate branch, no generated output to keep in sync with source.
+**Structure Decision**: A single file under `docs/`, GitHub Pages' own conventional location for
+"deploy from a branch" mode - no separate branch, no generated output to keep in sync with source,
+no per-section files to keep navigation-consistent by hand.
 
 ## Complexity Tracking
 
