@@ -11,7 +11,12 @@ Pages, starting with just-the-facts Getting Started for WSL then other platforms
 newbie-usage and technical/Nix/AI-agent-workflow sections. Later revised: consolidate into one
 self-contained `index.html` with client-side section routing and no external library (no HTMx, no
 framework, no CDN) - plain modern HTML/CSS/JS only. Add a comprehensive 'Why?' section covering
-every design decision's rationale, and slim the README down to a short pointer at this site."
+every design decision's rationale, and slim the README down to a short pointer at this site.
+Further revised: move every historical reference (prior repositories, prior tools) out of every
+other section into one dedicated 'Inspiration' section, framing this repository as those
+repositories' spiritual successor rather than a port; add a 'Try with AI' section giving
+copy/paste, natural-language prompts a newbie can hand to an AI coding agent instead of typing
+commands themselves."
 
 ## Background
 
@@ -27,6 +32,15 @@ added a dedicated "Why?" section covering every real design decision's rationale
 the README's own collapsible asides, and made this site (not the README) the comprehensive,
 always-current documentation - the README now stays a short pointer to it, specifically to avoid
 two documents that can silently drift out of agreement about the same feature.
+
+A third revision separated "why a choice was made" from "what came before it." The "Why?" section
+had accumulated real project history (an earlier repository's roadmap, a separate tool this
+repository's own naming avoids colliding with) alongside its design rationale. That history moved
+to a new, dedicated "Inspiration" section, so every other section explains this repository entirely
+on its own terms, with no reader ever needing to know what came before it to use what's here now.
+The same revision added a "Try with AI" section: copy/paste, natural-language prompts for common
+tasks, written for a reader who would rather hand a task to their AI coding agent than learn the
+underlying command.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -112,6 +126,53 @@ docs/README split) in one click.
    base profile small"), **When** the reader follows that claim's link, **Then** they land on the
    "Why?" section's matching subsection with the actual reasoning, not a restatement of the claim.
 
+---
+
+### User Story 5 - Do a task by asking AI instead of typing the command (Priority: P2)
+
+A newbie who doesn't yet know (or doesn't want to type) the exact command for a common task, like
+adding a repository to their workspace, opens "Try with AI," copies a ready-made prompt, and pastes
+it into their already-configured AI coding agent.
+
+**Why this priority**: The whole point of this repository is a low barrier to entry; a reader who
+can describe what they want in plain language shouldn't have to learn a CLI first.
+
+**Independent Test**: From "Try with AI," copy the prompt for adding a repository to
+`~/workspaces` and paste it, unmodified except for the repository's own URL, into a working AI
+coding agent; the agent completes the task using commands this site itself documents.
+
+**Acceptance Scenarios**:
+
+1. **Given** the "Try with AI" section, **When** a reader wants to accomplish a task this site
+   documents elsewhere (adding a repo, diagnosing a problem, rotating a credential, rolling back an
+   update, activating a persona, scaffolding a project), **Then** they find a natural-language
+   prompt for it, not a raw shell command to type themselves.
+
+---
+
+### User Story 6 - See what this repository grew out of, without needing to (Priority: P3)
+
+A reader curious about this project's history, or trying to understand why `ws-repos` isn't called
+`mgit`, opens "Inspiration" and finds the earlier repositories and tools this one continues, framed
+as a lineage this repository builds on rather than a compatibility promise it has to keep.
+
+**Why this priority**: This context helps a curious reader, but no other section, and no actual
+task on this site, requires it.
+
+**Independent Test**: Read every other section end to end with no prior knowledge of any earlier
+repository or tool, and complete every task each section describes; separately, open "Inspiration"
+and find the same historical detail without needing it for anything else on the site.
+
+**Acceptance Scenarios**:
+
+1. **Given** any section other than "Inspiration," **When** it makes a claim or names a design
+   decision, **Then** it does so without requiring the reader to know any earlier repository or
+   tool this one grew out of.
+2. **Given** the "Inspiration" section, **When** a reader wants to know the earlier work this
+   repository continues, **Then** they find each one (a first version of this repository, a
+   separate multi-repo tool, and a second version) named, linked, and framed as inspiration this
+   repository builds on rather than a strict port of.
+
 ### Edge Cases
 
 - What happens when a reader's browser has JavaScript disabled? Section routing itself MUST still
@@ -127,6 +188,15 @@ docs/README split) in one click.
   fully correct and complete in the repository regardless; enabling Pages itself is a one-time
   repository-settings action outside this repository's own files (documented in this spec's
   Assumptions).
+- What happens when a section other than "Why?" or "Inspiration" would otherwise need to justify a
+  naming or scoping choice that traces back to an earlier repository or tool? That section states
+  the current, present-tense fact (the name, the scope, the behavior) and links to "Why?" for the
+  reasoning; "Why?" links to "Inspiration" for the earlier work behind it, rather than restating
+  that history itself.
+- What happens if a reader pastes a "Try with AI" prompt into an agent that isn't yet configured
+  (no AI CLI installed, no credential set)? The prompt itself doesn't handle that case; "Try with
+  AI" assumes "Setting up AI coding agents" (part of "Using Your Sandbox") is already done, and
+  links there.
 
 ## Requirements *(mandatory)*
 
@@ -183,13 +253,27 @@ docs/README split) in one click.
   always-current documentation. A change that affects installation, day-to-day usage, or the
   technical architecture MUST update this site in the same commit; the README MUST only change
   when the short overview itself stops being accurate.
+- **FR-013**: The site MUST have a "Try with AI" section giving copy/paste, natural-language
+  prompts (not raw shell commands) for common tasks a newbie would otherwise have to look up and
+  type themselves (at minimum: adding a repository to `~/workspaces`, diagnosing a problem with
+  `doctor`, adding or rotating a credential, rolling back a broken update, activating a persona,
+  and scaffolding a new project). Each prompt MUST assume "Setting up AI coding agents" is already
+  done and MUST link to it.
+- **FR-014**: The site MUST have an "Inspiration" section naming and linking every earlier
+  repository or tool this project's own lineage includes (a first version of this repository, the
+  separate multi-repository tool `ws-repos` takes its pattern from, and a second version), framing
+  this repository as their spiritual successor, not a strict port or a promise of behavioral
+  compatibility with any of them. Every other section on the site MUST describe this repository
+  entirely on its own, present-tense terms, with no reader needing to know any of that history to
+  install, use, or understand it; a section whose reasoning traces back to that history MUST link
+  to "Inspiration" (directly, or via "Why?") rather than restate the history itself.
 
 ### Key Entities
 
 - **`docs/index.html`**: the entire site - one self-contained file GitHub Pages serves directly.
-- **Getting Started / Using Your Sandbox / Technical Reference / Why?**: the four sections this
-  spec requires, each targeting a different reader intent, implemented as CSS-routed regions of
-  the same document rather than separate pages.
+- **Getting Started / Using Your Sandbox / Try with AI / Technical Reference / Why? / Inspiration**:
+  the six sections this spec requires, each targeting a different reader intent, implemented as
+  CSS-routed regions of the same document rather than separate pages.
 
 ## Success Criteria *(mandatory)*
 
@@ -204,6 +288,10 @@ docs/README split) in one click.
   including section routing itself.
 - **SC-004**: Every "this was deliberate" claim elsewhere on the site links to a real, substantive
   answer in the "Why?" section, not a restatement of the same sentence.
+- **SC-005**: A reader with no prior knowledge of any earlier repository or tool this project grew
+  out of can read every section except "Inspiration" and complete every task those sections
+  describe with no gap in understanding; "Inspiration" is the only section that names or links that
+  earlier work.
 
 ## Assumptions
 
