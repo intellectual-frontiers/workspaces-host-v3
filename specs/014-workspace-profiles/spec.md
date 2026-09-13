@@ -173,8 +173,11 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
   `cdp`), and MUST preserve the same daily-update-nudge and SSH-agent-auto-start behavior bash
   gets, translated to fish's own syntax rather than dropped. It MUST NOT change the caller's login
   shell (home-manager cannot write `/etc/passwd`, and personas stay additive regardless); making
-  it the actual login shell (`chsh -s $(which fish)`) MUST be documented as a separate, manual
-  step, never implied as automatic.
+  it the actual login shell MUST be documented as a separate, manual, two-command step - adding
+  the Nix-installed path to `/etc/shells` (not there by default, and `chsh` refuses any shell that
+  isn't - verified directly against a real non-root user, not assumed), then `chsh` itself - never
+  implied as the one command it isn't. The environment health check (spec 004 FR-001) MUST treat
+  fish as a correct login shell choice, not just bash, once this persona exists.
 
 ### Key Entities
 

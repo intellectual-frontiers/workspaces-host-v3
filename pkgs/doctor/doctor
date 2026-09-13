@@ -166,16 +166,23 @@ else
 fi
 if command -v getent >/dev/null 2>&1; then
     bash_path="$HOME/.nix-profile/bin/bash"
+    fish_path="$HOME/.nix-profile/bin/fish"
     login_shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
     # $SHELL only reflects whatever shell you're actually running right
     # now (the system's own /bin/bash, if you're reading doctor's
     # output from a window opened before install.sh's chsh step ran) -
     # /etc/passwd's own field is the only reliable source for "what
-    # will a brand-new window actually start in."
+    # will a brand-new window actually start in." Either this flake's
+    # pinned bash or its pinned fish (the fish persona) counts as a
+    # real answer - fish is an equally supported, deliberate choice
+    # (see doctor's own "Alternative shell" section below), not
+    # something to warn about just for not being bash.
     if [ "$login_shell" = "$bash_path" ]; then
         pass "this flake's own pinned bash ($bash_path) is your login shell"
+    elif [ "$login_shell" = "$fish_path" ]; then
+        pass "this flake's own pinned fish ($fish_path, the 'fish' persona) is your login shell"
     else
-        warn "your login shell is $login_shell, not this flake's pinned bash ($bash_path) - install.sh tries to set this automatically and may have failed (a locked-down /etc, no sudo); fix it yourself with 'chsh -s $bash_path' if you want the exact same bash version as everyone else on this setup"
+        warn "your login shell is $login_shell, not this flake's pinned bash ($bash_path) or fish ($fish_path) - install.sh tries to set bash automatically and may have failed (a locked-down /etc, no sudo); fix it yourself with 'chsh -s $bash_path', or for fish (if you've activated that persona) first run 'echo \"$fish_path\" | sudo tee -a /etc/shells' (chsh refuses a shell that isn't listed there) then 'chsh -s $fish_path' - if you want a shell this setup actually provisions"
     fi
 fi
 
@@ -427,7 +434,7 @@ fi
 section "Alternative shell (optional persona: fish)" 1 "🐠"
 optional_cmd fish fish
 if command -v fish >/dev/null 2>&1; then
-    pass "'chsh -s \$(which fish)' makes it your login shell (a separate, manual step)"
+    pass "'echo \"\$(which fish)\" | sudo tee -a /etc/shells && chsh -s \$(which fish)' makes it your login shell (a separate, manual step - chsh refuses any shell not listed in /etc/shells first)"
 fi
 
 section "Sandbox sync (workspaces-host-update)" 1 "🔄"

@@ -591,7 +591,7 @@ $ ./result/activate</code></pre>
       <p>One <code>PASS</code>/<code>WARN</code>/<code>FAIL</code> line per check. Exits non-zero only if something's actually broken. A <code>WARN</code> for anything you haven't configured yet (like a blank credential) is normal.</p>
 
       <h2 id="autocomplete-ux">Autocomplete UX</h2>
-      <p>Bash here gets fish-like real-time syntax highlighting and history autosuggestions from <code>blesh</code>, layered on top of plain bash so every tutorial and copy-pasted snippet still works unchanged. If typing feels slower than you'd expect, here's why, and two ways to fix it.</p>
+      <p>This repository uses <strong>bash</strong> by default. Bash here gets fish-like real-time syntax highlighting and history autosuggestions from <code>blesh</code>, layered on top of plain bash so every tutorial and copy-pasted snippet still works unchanged. If typing feels slower than you'd expect, here's why, and two ways to fix it.</p>
       <p><code>blesh</code>'s default configuration auto-triggers full completion, not just the lightweight grey suggestion, on almost every keystroke. That's the expensive part: it can shell out to real completion scripts (git, docker, and so on) before you've even pressed Tab.</p>
       <p><strong>Option (a): turn off just that one setting.</strong> Tab-completion itself is unaffected; you only lose the auto-popup that runs before you press Tab. Try it in your current shell first:</p>
       <pre><code>$ bleopt complete_auto_complete=</code></pre>
@@ -604,7 +604,7 @@ $ ./result/activate</code></pre>
   '';
 }</code></pre>
       <p>Then run <code>workspaces-host-update</code> to apply it.</p>
-      <p><strong>Option (b): switch to the <code>fish</code> persona.</strong> Fish's own line editor (fish 4.x is written in Rust) does highlighting and suggestions natively, with nothing layered on top. See <a href="#personas">Personas</a> below for the exact command.</p>
+      <p><strong>Option (b): switch to the <code>fish</code> persona.</strong> If you want the real thing instead of a workaround, fish's own line editor (fish 4.x is written in Rust) does highlighting and suggestions natively, with nothing layered on top. It also gives you a few things <code>blesh</code> doesn't try to replicate: richer tab-completion generated straight from a command's own man page (no separate <code>bash-completion</code> package to install), simpler scripting syntax (real arrays, no <code>[[ ]]</code>), and a visual settings tool (<code>fish_config</code>) for tweaking colors and prompt options in a browser tab instead of editing config by hand. See <a href="#personas">Personas</a> below for the exact command.</p>
 
       <h2 id="personas">Personas</h2>
       <p>The base profile stays small: your shell, git, credentials, <code>ws-repos</code>, and AI coding agent tooling. A persona adds one more specialized set of tools on top, when you actually need it. (Curious why the base profile stays small instead of including all of this? See <a href="#why-personas">Why the base profile stays small</a>.)</p>
@@ -620,7 +620,10 @@ $ ./result/activate</code></pre>
       </table>
       <p>Personas are additive: everything the base profile gives you is still there, plus that persona's extras. Skip all of them and nothing changes. Activate more than one and you get all of them together.</p>
       <div class="callout">
-        <p>The <code>fish</code> persona only makes <code>fish</code> and its config available. It never changes your login shell, the same way activating <code>networking</code> never joins a Tailscale mesh for you. To actually use it day to day, run <code>chsh -s $(which fish)</code> yourself, then close this window and open a new one.</p>
+        <p>The <code>fish</code> persona only makes <code>fish</code> and its config available. It never changes your login shell, the same way activating <code>networking</code> never joins a Tailscale mesh for you. To actually use it day to day, run these two commands (the same way on Linux generally, WSL included, and macOS - anywhere <code>chsh</code> validates against <code>/etc/shells</code>):</p>
+        <pre><code>$ echo "$(which fish)" | sudo tee -a /etc/shells
+$ chsh -s $(which fish)</code></pre>
+        <p>The first line is required: a Nix-installed shell isn't in <code>/etc/shells</code> by default, and <code>chsh</code> refuses any shell that isn't. Then close this window and open a new one. <code>doctor</code> checks for either bash or fish as your login shell, so switching never shows up as a problem.</p>
       </div>
 
       <h3 id="personas-discover">Finding and checking personas</h3>
@@ -999,7 +1002,7 @@ $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, n
 
       <h2 id="why-fish">Why fish is a persona, not the default</h2>
       <p>Bash stays the base profile's shell because every tutorial, every copy-pasted snippet, and most engineers' existing muscle memory already assume it. <code>blesh</code> gets bash most of the way to fish's own feel (see <a href="#autocomplete-ux">Autocomplete UX</a>) without asking anyone to give that up.</p>
-      <p>Fish is the honest alternative for someone who wants the real thing: its own native, Rust-implemented (fish 4.x) line editor, nothing layered on top. It's a persona, not a second default, for the same reason Tailscale is a persona and not something this repo joins a mesh for automatically: switching your actual login shell is a consequential, per-engineer choice, not something a package list should decide on your behalf. Activating the <code>fish</code> persona only makes <code>fish</code> and a matching config available; running <code>chsh -s $(which fish)</code> afterward is the one, separate, deliberate step that actually makes it yours.</p>
+      <p>Fish is the honest alternative for someone who wants the real thing: its own native, Rust-implemented (fish 4.x) line editor, nothing layered on top. It's a persona, not a second default, for the same reason Tailscale is a persona and not something this repo joins a mesh for automatically: switching your actual login shell is a consequential, per-engineer choice, not something a package list should decide on your behalf. Activating the <code>fish</code> persona only makes <code>fish</code> and a matching config available; a separate, deliberate <code>chsh</code> step (see <a href="#personas">Personas</a> for the exact commands) is what actually makes it yours.</p>
 
       <h2 id="why-ws-repos">Why <code>ws-repos</code>, not <code>mgit</code>, and why the file suffix still says <code>.mgit</code></h2>
       <p>Other, unrelated tools are also named <code>mgit</code>. Naming this repository's tool <code>ws-repos</code> instead avoids that collision entirely; the directory convention and file matching it implements aren't affected by the rename. (Curious about the tool this one was inspired by? See <a href="#insp-v1">Inspiration</a>.)</p>
