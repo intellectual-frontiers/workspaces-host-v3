@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Using Your Sandbox | workspaces-host-v3</title>
+<meta name="description" content="Day-to-day usage: credentials, your shell, managing repos, checking your environment, and workspace profiles." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#9107;</text></svg>" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <a class="brand" href="index.html"><code>workspaces-host-v3</code></a>
+  <a class="nav-link" href="index.html">Getting Started</a>
+  <a class="nav-link current" href="usage.html">Using Your Sandbox</a>
+  <a class="nav-link" href="technical.html">Technical Reference</a>
+  <span class="spacer"></span>
+  <a class="gh-link" href="https://github.com/intellectual-frontiers/workspaces-host-v3">GitHub &#8599;</a>
+</nav>
+
+<header class="page-hero">
+  <h1>Using Your Sandbox</h1>
+  <p class="lede">Already installed? Here's what you'll actually reach for, day to day.</p>
+</header>
+
+<div class="page">
+  <aside class="sidebar">
+    <p class="eyebrow">On this page</p>
+    <ul>
+      <li><a href="#credentials">Setting up credentials</a></li>
+      <li><a href="#shell">Your shell</a></li>
+      <li><a href="#repos">Managing your repos</a></li>
+      <li><a href="#doctor">Checking your environment</a></li>
+      <li><a href="#sync">Keeping in sync</a></li>
+      <li><a href="#personas">Workspace profiles</a></li>
+      <li><a href="#ai">AI coding agents</a></li>
+      <li><a href="#more">Everyday tools</a></li>
+    </ul>
+  </aside>
+
+  <main class="content">
+
+    <h2 id="credentials">Setting up credentials</h2>
+    <p>Your git name/email and your GitHub/GitLab tokens go in one plain text file, outside the repository entirely: <code>~/.config/workspaces-host/credentials</code>. Just <code>KEY=value</code> lines. No Nix syntax, no encryption tool to learn first.</p>
+    <pre><code>$ nano ~/.config/workspaces-host/credentials</code></pre>
+    <pre><code>GIT_NAME=Your Name
+GIT_EMAIL=you@example.com
+
+GITHUB_TOKEN=ghp_yourToken
+GITLAB_TOKEN=
+
+ANTHROPIC_API_KEY=sk-ant-yourRealKey</code></pre>
+    <pre><code>$ workspaces-host-update</code></pre>
+    <p>That one command applies your changes and runs <code>doctor</code> right after, so you see immediately whether it worked. Rotating a token later is the same two steps: edit the line, run <code>workspaces-host-update</code> again.</p>
+
+    <div class="callout">
+      <p>Need a credential this file doesn't have a line for (a cloud token, a project API key)? Add it with whatever name makes sense. <code>workspaces-host-update</code> writes anything that isn't <code>GIT_NAME</code>/<code>GIT_EMAIL</code> into <code>~/.local/state/workspaces-host/secrets/env/&lt;NAME&gt;</code>, ready for a project's own <code>.envrc</code>.</p>
+    </div>
+
+    <p>Before committing anything, check what's staged (<code>git diff --staged</code>) and scan for secrets with the tool that's already installed:</p>
+    <pre><code>$ gitleaks detect --source . -v</code></pre>
+
+    <h2 id="shell">Your shell</h2>
+    <p>Bash, on purpose. It's what every tutorial already assumes. A few things are added on top:</p>
+    <ul>
+      <li><strong>Syntax highlighting and autosuggestions</strong> as you type. Press <kbd>&rarr;</kbd> or <kbd>End</kbd> to accept a suggestion.</li>
+      <li><strong>Fuzzy history and file search</strong>: <kbd>Ctrl+R</kbd> searches history, <kbd>Ctrl+T</kbd> finds a file, <kbd>Alt+C</kbd> finds and jumps into a directory.</li>
+      <li><strong>Smarter <code>cd</code></strong>: <code>z &lt;part of a path&gt;</code> jumps there by frecency.</li>
+      <li><strong>Modern replacements</strong>, all optional: <code>eza</code> for <code>ls</code>, <code>bat</code> for <code>cat</code>, <code>rg</code> for <code>grep</code>, <code>fd</code> for <code>find</code>. <code>ll</code>/<code>ls</code>/<code>cat</code> are already aliased; everything else keeps its own name.</li>
+    </ul>
+
+    <h2 id="repos">Managing your repos</h2>
+    <p><code>ws-repos</code> keeps every project you work on under one predictable layout.</p>
+    <pre><code>$ nano ~/workspaces/ws-repos.json   # { "repos": [{ "repo": "github.com/org/repo" }] }
+$ ws-repos ensure                    # clone-or-pull everything listed
+$ ws-repos status                    # dirty/untracked/ahead/behind/locked/stash/clean
+$ ws-repos inspect                   # list git hosts and repos referenced by workspace files</code></pre>
+    <p>Every repo lands at <code>~/workspaces/&lt;git-host&gt;/&lt;org&gt;/&lt;repo&gt;</code>, the same path segments as its HTTPS clone URL, so it stays predictable and greppable no matter how many hosts you work across.</p>
+
+    <div class="callout note">
+      <p><strong>On WSL:</strong> keep repos under <code>~/workspaces</code>, not <code>/mnt/c/Users/...</code>. Crossing the Windows/Linux filesystem boundary is slow, git especially. <code>doctor</code> checks for this too.</p>
+    </div>
+
+    <h2 id="doctor">Checking your environment</h2>
+    <pre><code>$ doctor</code></pre>
+    <p>By default you get the essentials: Nix, your shell, git, credentials, GitHub/GitLab authentication, and <code>ws-repos</code>, plus a one-line summary. Run <code>doctor --all</code> for everything else: every ported tool, and every persona-specific check reported as an informational <code>WARN</code> when that persona isn't active. A real <code>FAIL</code> always prints, in either mode.</p>
+    <p>If an update ever breaks something, roll back with home-manager's own generations. No separate tooling needed:</p>
+    <pre><code>$ home-manager generations
+2026-09-13 14:02 : id 6 -> /nix/store/i9k2x...-home-manager-generation   # the broken one
+2026-09-13 09:47 : id 5 -> /nix/store/7fa31...-home-manager-generation   # the one before it
+$ /nix/store/7fa31...-home-manager-generation/activate</code></pre>
+
+    <h2 id="sync">Keeping in sync</h2>
+    <p>New features land on <code>main</code> as small, merged changes. Your machine doesn't pick those up on its own:</p>
+    <pre><code>$ cd ~/.workspaces-host-v3
+$ workspaces-host-update</code></pre>
+    <p>Every shell also checks once a day, in the background, whether <code>origin/main</code> has moved, and nudges you if so. It never runs the update itself.</p>
+
+    <h2 id="personas">Workspace profiles (personas)</h2>
+    <p>The base profile stays small on purpose: just what everyone needs on day one. Want a specialized set of extra tools? Activate a persona:</p>
+    <table>
+      <tr><th>Persona</th><th>Adds</th></tr>
+      <tr><td><code>backend</code></td><td>Java+Maven, PostgreSQL client/<code>pgpass</code>, Redis, docker-compose, httpie</td></tr>
+      <tr><td><code>data</code></td><td>python3, uv, duckdb</td></tr>
+      <tr><td><code>mobile</code></td><td>android-tools (adb/fastboot), watchman</td></tr>
+      <tr><td><code>agent-ops</code></td><td>act, semtag/git-standup/git-extras, gopass, deno, llm</td></tr>
+      <tr><td><code>compliance</code></td><td>osquery, cnquery, steampipe, openobserve, surveilr</td></tr>
+      <tr><td><code>networking</code></td><td>Tailscale, Nebula</td></tr>
+    </table>
+    <pre><code>$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure
+$ ./result/activate</code></pre>
+    <p>Personas are additive: everything the base profile gives you is still there, plus that persona's extras. Skip all of them and nothing changes.</p>
+
+    <h2 id="ai">Setting up AI coding agents</h2>
+    <p>Every profile installs <code>nodejs</code> and <code>aider-chat</code>, ready to go. The fast-moving hosted CLIs install with their own <code>npm install -g</code>:</p>
+    <pre><code>$ npm install -g @anthropic-ai/claude-code   # provides: claude
+$ npm install -g @openai/codex               # provides: codex
+$ npm install -g @google/gemini-cli          # provides: gemini</code></pre>
+    <p>Give one its key by adding it to your credentials file (above) and running <code>workspaces-host-update</code>. Each CLI's key is scoped to that one invocation, never exported to your whole shell: <code>echo $ANTHROPIC_API_KEY</code> stays empty even after <code>claude</code> has used it. <code>doctor</code> checks whether each CLI is installed and whether it has a key.</p>
+
+    <h2 id="more">Everyday tools</h2>
+    <ul>
+      <li><strong><code>wget</code>, <code>rclone</code></strong>: a plain fetcher and a directly-runnable <code>rclone</code>.</li>
+      <li><strong><code>git-chglog</code></strong>: generate a <code>CHANGELOG.md</code> from your commit history.</li>
+      <li><strong>SSH agent auto-start</strong>: a new login shell loads your key automatically.</li>
+      <li><strong><code>cdp</code></strong>: jumps to the current git repo's top-level directory.</li>
+      <li><strong><code>lefthook</code></strong>: git hooks manager, ready to adopt in any project: <code>cp templates/lefthook.yml.example ./lefthook.yml &amp;&amp; lefthook install</code>.</li>
+      <li><strong><code>sensitivectl</code></strong>: back up a sensitive local directory to any <code>rclone</code>-supported remote.</li>
+    </ul>
+    <p>Full details for every one of these live in the repository's <a href="https://github.com/intellectual-frontiers/workspaces-host-v3#readme">README</a>.</p>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <p><a href="https://github.com/intellectual-frontiers/workspaces-host-v3">intellectual-frontiers/workspaces-host-v3</a> &middot; MIT License</p>
+</footer>
+
+<script src="assets/copy.js"></script>
+</body>
+</html>

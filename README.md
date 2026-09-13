@@ -14,6 +14,10 @@ The principles behind these choices live in
 [`.specify/memory/constitution.md`](.specify/memory/constitution.md); the requirements each
 feature implements live in [`specs/`](specs/).
 
+**Prefer a documentation site over a long scroll?** [intellectual-frontiers.github.io/workspaces-host-v3](https://intellectual-frontiers.github.io/workspaces-host-v3/)
+has the same content split into Getting Started, Using Your Sandbox, and a Technical Reference for
+Nix internals and managing this repository with an AI agent.
+
 ## Installation
 
 <details>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Getting Started | workspaces-host-v3</title>
+<meta name="description" content="Install workspaces-host-v3 on Windows (WSL), Linux, or macOS. Exact steps, no extra reading." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#9107;</text></svg>" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<nav class="site-nav">
+  <a class="brand" href="index.html"><code>workspaces-host-v3</code></a>
+  <a class="nav-link current" href="index.html">Getting Started</a>
+  <a class="nav-link" href="usage.html">Using Your Sandbox</a>
+  <a class="nav-link" href="technical.html">Technical Reference</a>
+  <span class="spacer"></span>
+  <a class="gh-link" href="https://github.com/intellectual-frontiers/workspaces-host-v3">GitHub &#8599;</a>
+</nav>
+
+<header class="page-hero">
+  <h1>Getting Started</h1>
+  <p class="lede">Pick your platform. Run the commands. You'll have a working shell in a few minutes.</p>
+</header>
+
+<div class="page">
+  <aside class="sidebar">
+    <p class="eyebrow">On this page</p>
+    <ul>
+      <li><a href="#wsl">Windows (via WSL)</a></li>
+      <li class="sub"><a href="#wsl-vscode">Using VS Code</a></li>
+      <li><a href="#linux">Linux</a></li>
+      <li><a href="#macos">macOS</a></li>
+      <li><a href="#manual">Manual, step by step</a></li>
+      <li><a href="#verify">Verify it worked</a></li>
+      <li><a href="#next">What's next</a></li>
+    </ul>
+  </aside>
+
+  <main class="content">
+
+    <h2 id="wsl">Windows, via WSL</h2>
+    <p>Most people reading this are on Windows. WSL runs a real Linux system next to your normal Windows apps. Everything below happens inside that Linux system, except step 1.</p>
+
+    <div class="platform-card">
+      <h3>Steps</h3>
+      <ol>
+        <li>
+          Open PowerShell as Administrator. Run:
+          <pre><code>wsl --install -d Debian</code></pre>
+          This may ask you to restart your computer.
+        </li>
+        <li>Open "Debian" from the Start menu. The first time it opens, pick a Linux username and password (different from your Windows login).</li>
+        <li>
+          From inside that Debian window, run this one line:
+          <pre><code>$ cd && sudo apt-get update && sudo apt-get install -y curl git && sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"</code></pre>
+          <code>sudo</code> asks for the password from step 2. That's the only password prompt in the whole process. It takes a few minutes the first time; safe to run again later.
+        </li>
+        <li>
+          Fill in your credentials and apply them:
+          <pre><code>$ nano ~/.config/workspaces-host/credentials
+$ workspaces-host-update</code></pre>
+        </li>
+        <li>Close this window and open a new one. Look for the new prompt and autosuggestions as you type. That's your confirmation it worked.</li>
+      </ol>
+    </div>
+
+    <div class="callout">
+      <p>New window looks the same as the old one? Run <code>doctor</code>. It names the exact problem and the exact fix. See <a href="usage.html#doctor">Checking your environment</a>.</p>
+    </div>
+
+    <h3 id="wsl-vscode">Using VS Code with WSL</h3>
+    <ol>
+      <li>Install VS Code on <strong>Windows</strong> (not inside Debian): <a href="https://code.visualstudio.com/">code.visualstudio.com</a>.</li>
+      <li>Install the <strong>"WSL" extension</strong> in that Windows VS Code (published by Microsoft).</li>
+      <li>From your Debian window, in any project folder, run <code>code .</code> The first time, this installs a small VS Code Server inside WSL and opens a normal VS Code window running entirely inside Linux.</li>
+    </ol>
+
+    <h2 id="linux">Linux</h2>
+    <p>Open a regular terminal. Most VM/cloud images already have <code>curl</code>/<code>git</code>/<code>xz</code>; a bare-bones one won't.</p>
+    <pre><code>$ sudo apt-get install -y curl git xz-utils   # Debian/Ubuntu
+$ sudo dnf install -y curl git xz             # RHEL/Fedora/CentOS
+$ sudo pacman -Sy --noconfirm curl git xz     # Arch</code></pre>
+    <p>Then run:</p>
+    <pre><code>$ sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"</code></pre>
+    <p><code>install.sh</code> auto-detects which of those three families you're on for anything else it needs. Want to build or run this repo's container images too?</p>
+    <pre><code>$ sudo apt install -y docker.io   # Debian/Ubuntu; see docs.docker.com for other distros</code></pre>
+
+    <h2 id="macos">macOS</h2>
+    <p><code>curl</code>, <code>git</code>, and <code>xz</code> are already there. Apple Silicon or Intel, run the same one-liner:</p>
+    <pre><code>$ sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"</code></pre>
+    <p>Container sandboxing (the network-restricted image) doesn't run on macOS. Everything else does.</p>
+
+    <h2 id="manual">Manual, step by step</h2>
+    <p>If you'd rather run each step yourself instead of the one-liner:</p>
+    <pre><code>$ sudo apt update && sudo apt install -y curl git xz-utils   # skip on macOS
+$ sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon
+$ mkdir -p ~/.config/nix
+$ echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+$ git clone https://github.com/intellectual-frontiers/workspaces-host-v3.git ~/.workspaces-host-v3
+$ cd ~/.workspaces-host-v3
+$ nix build ".#homeConfigurations.current.activationPackage" --impure
+$ export HOME_MANAGER_BACKUP_EXT=pre-workspaces-host-backup
+$ ./result/activate</code></pre>
+    <p><code>install.sh</code> in the repository is the real source of truth for these steps.</p>
+
+    <h2 id="verify">Verify it worked</h2>
+    <pre><code>$ doctor</code></pre>
+    <p>One <code>PASS</code>/<code>WARN</code>/<code>FAIL</code> line per check. Exits non-zero only if something's actually broken. A <code>WARN</code> for anything you haven't configured yet (like a blank credential) is normal.</p>
+
+    <h2 id="next">What's next</h2>
+    <p>Head to <a href="usage.html">Using Your Sandbox</a> for credentials, your shell, managing repos, and everything else you'll touch day to day. Want to understand how this is built, or point an AI agent at the repository? Go to <a href="technical.html">Technical Reference</a>.</p>
+
+  </main>
+</div>
+
+<footer class="site-footer">
+  <p><a href="https://github.com/intellectual-frontiers/workspaces-host-v3">intellectual-frontiers/workspaces-host-v3</a> &middot; MIT License</p>
+</footer>
+
+<script src="assets/copy.js"></script>
+</body>
+</html>
