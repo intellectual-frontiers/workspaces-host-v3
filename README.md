@@ -15,25 +15,44 @@ in sync" below).
 
 See [`.specify/memory/constitution.md`](.specify/memory/constitution.md) for
 the principles behind these design choices, and [`specs/`](specs/) for the
-requirements each feature implements. This is a from-scratch rewrite of
-[workspaces-host-v2](https://github.com/intellectual-frontiers/workspaces-host-v2):
-same purpose, fresh specs, simplest implementation that satisfies them —
-see the constitution's "Simplicity Over Completeness" principle.
+requirements each feature implements.
+
+<details>
+<summary><strong>Why does this repository exist, and why a full rewrite?</strong></summary>
+
+This is a from-scratch rewrite of
+[workspaces-host-v2](https://github.com/intellectual-frontiers/workspaces-host-v2),
+which was itself a Nix-based rewrite of the original
+[workspaces-host](https://github.com/strategy-coach/workspaces-host) (chezmoi-based) and its
+companion [`workspaces`](https://github.com/strategy-coach/workspaces) repo (the "mGit" multi-repo
+pattern). Each generation kept the same purpose — the same environment for a human, a teammate,
+CI, and an AI coding agent, regardless of whose machine it's on — while replacing whatever the
+previous generation's toolchain got wrong: chezmoi's templating for home-manager's actual module
+system, and Homebrew/pkgx/eget/mise (four different package managers with four different
+reproducibility stories) for one - Nix - that pins everything by lockfile.
+
+v3 specifically starts with fresh specs and the simplest implementation that satisfies them,
+rather than carrying forward v2's incidental implementation choices — see the constitution's
+"Simplicity Over Completeness" principle. Where v3 turned out to be missing something real from
+an earlier generation, that gap was closed via a deliberate audit (specs 006-017), not by porting
+code wholesale.
+
+</details>
 
 ## What's implemented
 
 Every spec under [`specs/`](specs/) (001 through 017) is implemented. Specs 001-013 are the full
 feature set workspaces-host-v2 had, rebuilt fresh: the flake/shell base, credentials (including
-GitHub/GitLab tokens), `mgit`, `doctor`/rollback, container parity, compliance/observability
+GitHub/GitLab tokens), `ws-repos`, `doctor`/rollback, container parity, compliance/observability
 tooling, the Java/Postgres toolchain, AI coding agent harness credentials, Nerd Font/prompt
 polish, agent-harness project scaffolding, bulk git tooling, secrets backup/restore, and advanced
 `local.nix` overrides. Specs 014-017 came from a further audit against
 [workspaces-host-v1](https://github.com/strategy-coach/workspaces-host) (the chezmoi-based
-original both v2 and v3 descend from): the per-persona workspace profiles v2 had but v3's initial
-rebuild dropped, a handful of everyday utilities neither v2 nor v3 had ever ported
-(`gopass`/`wget`/a directly-runnable `rclone`/`git-chglog`/the Deno runtime/SSH agent
-auto-start), and two items straight off v1's own unfinished roadmap (Lefthook, Tailscale/Nebula).
-See each spec's `spec.md` for its exact requirements.
+original): the per-persona workspace profiles v2 had but v3's initial rebuild dropped, a handful
+of everyday utilities neither v2 nor v3 had ever ported (`gopass`/`wget`/a directly-runnable
+`rclone`/`git-chglog`/the Deno runtime/SSH agent auto-start), and two items straight off v1's own
+unfinished roadmap (Lefthook, Tailscale/Nebula). See each spec's `spec.md` for its exact
+requirements.
 
 ## Installation
 
@@ -53,11 +72,7 @@ apps. Everything below happens inside that Linux system (a window titled
    This may ask you to restart your computer.
 2. **Open "Debian"** from the Start menu. The first time it opens, choose
    a Linux username and password (separate from your Windows login).
-3. **From inside that Debian window, run this one line.** A brand-new
-   Debian/WSL image doesn't include `curl` yet (nothing does, on a
-   minimal install) — this first installs just enough (`curl`, `git`) to
-   fetch and run the actual installer, which then does everything else
-   itself:
+3. **From inside that Debian window, run this one line**:
    ```console
    $ sudo apt-get update && sudo apt-get install -y curl git && sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"
    ```
@@ -66,6 +81,18 @@ apps. Everything below happens inside that Linux system (a window titled
    and is safe to run again later (it skips whatever's already done, and
    just updates/reapplies otherwise — that's what `workspaces-host-update`
    does under the hood once you're set up).
+
+   <details>
+   <summary><strong>Why does this command start with <code>apt-get install curl git</code>?</strong></summary>
+
+   A brand-new Debian/WSL image doesn't include `curl` yet (nothing does, on a minimal install) -
+   so a one-liner that starts with `curl -fsSL https://.../install.sh` can't even fetch itself on
+   a fresh machine. This first installs just enough (`curl`, `git`) to fetch and run the actual
+   installer, which then does everything else itself, including detecting and installing anything
+   *it* still needs (Nix's own `xz` dependency, for instance).
+
+   </details>
+
 4. **Fill in your credentials, then apply them:**
    ```console
    $ nano ~/.config/workspaces-host/credentials
@@ -84,13 +111,16 @@ If a new window doesn't look/feel any different, step 3's automatic
 `chsh` may not have succeeded (a locked-down `/etc`, no `sudo`) — `doctor`
 will tell you, with the exact command to fix it yourself.
 
-**One habit worth having from day one**: always keep your project repos
-under `~/workspaces` (see "Managing your repos" below), not under
-`/mnt/c/Users/...`. WSL can access Windows' files from Linux and vice
-versa, but it's slow across that boundary — git especially — and it's
-exactly what a WSL warning about "an I/O intensive operation like git" is
-telling you if you ever see one. `doctor` checks for this too, for both
-`$HOME` and wherever you happen to be standing when you run it.
+<details>
+<summary><strong>Why keep project repos under <code>~/workspaces</code>, not <code>/mnt/c/Users/...</code>?</strong></summary>
+
+WSL can access Windows' files from Linux and vice versa, but it's slow across that boundary — git
+especially — and it's exactly what a WSL warning about "an I/O intensive operation like git" is
+telling you if you ever see one. `doctor` checks for this too, for both `$HOME` and wherever you
+happen to be standing when you run it. See "Managing your repos" below for the tool that keeps
+every repo under `~/workspaces` automatically.
+
+</details>
 
 ### Using VS Code with this setup (WSL)
 
@@ -197,22 +227,33 @@ That one command re-applies your setup with the new values *and* finishes
 by running `doctor`, so you see immediately whether everything took
 effect.
 
+<details>
+<summary><strong>Why a plain file outside the repo, instead of Nix or an encrypted store?</strong></summary>
+
 This file:
 
 - **Never leaves your machine.** It lives outside this repository, so
   `git pull`/`workspaces-host-update` can never touch, overwrite, or
-  conflict with it.
+  conflict with it, and there's nothing here to accidentally commit.
 - **Is protected the same way `~/.ssh` or `~/.aws/credentials` are**:
   `workspaces-host-update` sets it to mode 600 every time it runs, and
   fixes the permissions automatically if anything ever loosens them;
   `doctor` checks this too.
 - **Is read by a plain script, not by Nix.** `workspaces-host-update`
   parses it as plain `KEY=value` text (never `source`s it as a shell
-  script), writes your git name/email into a file git itself includes
+  script, so a stray backtick or `$(...)` in a token can't be executed as
+  a command), writes your git name/email into a file git itself includes
   automatically, and drops each token into a per-command-scoped
   mechanism — a key is only ever visible to the one command that
   actually needs it (`gh`/`glab`, or an AI harness CLI — see "Setting up
   AI harness credentials" below), never the rest of your shell.
+
+This is the simplest thing that actually satisfies Constitution Principle III ("secrets never
+touch the agent's shell unscoped") for the common case — no `age`/`sops` steps required just to
+set your name and email. The advanced sops-based path below exists for the cases this doesn't
+cover.
+
+</details>
 
 **Rotating a token**: edit the same line and run `workspaces-host-update`
 again — no encrypted file to regenerate, no old plaintext left behind.
@@ -230,7 +271,8 @@ export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-$(cat ~/.local/state/workspaces-h
 $ direnv allow
 ```
 
-### Why `.envrc` should prefer the ambient variable first
+<details>
+<summary><strong>Why should <code>.envrc</code> prefer the ambient variable first?</strong></summary>
 
 The same project usually runs in more than one place — your machine, a
 teammate's machine, and CI/CD or a container. Each gets its credentials
@@ -249,6 +291,8 @@ had the right one configured. Shell's `${VAR:-fallback}` does exactly
 this in one line, as shown above: in CI/CD the `cat` never even runs
 (the pipeline's own secret wins); on your machine, nothing set it yet, so
 it falls through to the file.
+
+</details>
 
 ### Advanced: encrypting a secret at rest with sops
 
@@ -292,6 +336,17 @@ $ npm install -g @google/gemini-cli          # provides: gemini
 $ gh extension install github/gh-copilot     # GitHub Copilot CLI, via gh
 ```
 
+<details>
+<summary><strong>Why aren't Claude Code/Codex/Gemini CLI packaged in Nix like everything else?</strong></summary>
+
+They ship near-weekly releases, and hand-vendoring each one as a Nix derivation would mean either
+pinning to a stale version indefinitely or re-deriving a new hash on every release - a maintenance
+burden this repo isn't taking on for tools whose whole value is being current. `nodejs` (their
+shared runtime) is provisioned declaratively instead, so installing the actual CLI is just the one
+`npm install -g` command upstream already documents.
+
+</details>
+
 `doctor` checks whether each is installed and whether it has a key to
 use. Give one its key by adding it to
 `~/.config/workspaces-host/credentials` (above) and running
@@ -301,14 +356,22 @@ use. Give one its key by adding it to
 ANTHROPIC_API_KEY=sk-ant-yourRealKey
 ```
 
-`claude`/`codex`/`gemini`/`aider`/`gh`/`glab` each get their own bash
-function of the same name (`home/ai-harness.nix`) that looks for their
-matching key and sets it only for that one invocation — the same
-per-invocation-scoped mechanism as everything else in this file. If a CLI
-supports its own browser-based `login` command instead (Claude Code and
-Gemini CLI both do), that works too — the wrapper is a transparent
-no-op when no matching credential is configured, and `doctor` only warns
-if neither a configured credential nor an existing login is present.
+<details>
+<summary><strong>Why per-invocation credential scoping instead of exporting the key?</strong></summary>
+
+`claude`/`codex`/`gemini`/`aider`/`gh`/`glab` each get their own bash function of the same name
+(`home/ai-harness.nix`) that looks for their matching key and sets it only for that one
+invocation - not a shell-wide `export`. This is Constitution Principle III applied literally: a
+secret is resolved "at the point of use," never as an ambient variable available to the whole
+shell session (and everything else running in it, an AI coding agent included). Run `claude`
+afterward and its wrapper finds the value, sets `$ANTHROPIC_API_KEY` only for that one call, and
+never touches the rest of your shell - `echo $ANTHROPIC_API_KEY` in the same window stays empty.
+If a CLI supports its own browser-based `login` command instead (Claude Code and Gemini CLI both
+do), that works too - the wrapper is a transparent no-op when no matching credential is
+configured, and `doctor` only warns if neither a configured credential nor an existing login is
+present.
+
+</details>
 
 ## Your shell
 
@@ -344,17 +407,18 @@ top:
 — everything else is left alone under its own name, since a different
 enough flag set would break muscle memory more than help.
 
-### Why not `oh-my-posh enable autoupgrade`?
+<details>
+<summary><strong>Why not <code>oh-my-posh enable autoupgrade</code>?</strong></summary>
 
-It might seem like the obvious fix for the "a new release is available"
-message — but oh-my-posh's own binary lives in the read-only Nix store, so
-a self-upgrade would either fail outright, or (worse) succeed by writing a
-new binary somewhere Nix has no record of — directly undermining the one
-guarantee this repository exists to provide (every tool pinned by a
-lockfile, not resolved against a mutable upstream at runtime). The message
-is silenced correctly instead (`disable_notice` in `home/shell.nix`) — a
-cosmetic setting, not a version change. Want a newer oh-my-posh? That's a
-nixpkgs pin bump in this flake, the same as updating any other tool.
+It might seem like the obvious fix for the "a new release is available" message — but
+oh-my-posh's own binary lives in the read-only Nix store, so a self-upgrade would either fail
+outright, or (worse) succeed by writing a new binary somewhere Nix has no record of - directly
+undermining the one guarantee this repository exists to provide (every tool pinned by a lockfile,
+not resolved against a mutable upstream at runtime). The message is silenced correctly instead
+(`disable_notice` in `home/shell.nix`) - a cosmetic setting, not a version change. Want a newer
+oh-my-posh? That's a nixpkgs pin bump in this flake, the same as updating any other tool.
+
+</details>
 
 ### Fonts for the prompt icons
 
@@ -371,35 +435,61 @@ in the terminal app itself, not something Nix can turn on for you.
 - **Any other terminal app** (kitty, Alacritty, Konsole, iTerm2, ...): the font is already installed and discoverable system-wide — just set that app's own font setting to the same name.
 - **Check it worked**: close and reopen your terminal window and look at your prompt — actual icons, not boxes or `?` marks.
 
-## Managing your repos (`mgit`)
+## Managing your repos (`ws-repos`)
 
 Keep every project you work on under one predictable layout:
 
 ```console
-$ nano ~/workspaces/mgit.json   # { "repos": [{ "repo": "github.com/org/repo" }] }
-$ mgit ensure                    # clone-or-pull everything listed
-$ mgit status                    # dirty/ahead/behind/clean, across every repo
-$ mgit inspect                   # list git hosts and repos referenced by *.mgit.code-workspace files
+$ nano ~/workspaces/ws-repos.json   # { "repos": [{ "repo": "github.com/org/repo" }] }
+$ ws-repos ensure                    # clone-or-pull everything listed
+$ ws-repos status                    # dirty/untracked/ahead/behind/locked/stash/clean, across every repo
+$ ws-repos inspect                   # list git hosts and repos referenced by *.mgit.code-workspace files
 ```
 
 Every repo lives at `~/workspaces/<git-host>/<org>/.../<repo>` — the same
 path segments as its HTTPS clone URL, so the layout is predictable and
-greppable no matter how many hosts/orgs you work across. `mgit ensure`
+greppable no matter how many hosts/orgs you work across. `ws-repos ensure`
 also follows `*.mgit.code-workspace` files (VS Code multi-root workspaces)
 inside a repo, symlinking them to `~/workspaces` and recursively ensuring
 whatever repos they reference — several independent repos, potentially
 from different hosts, presenting as one composed "workspace" with no
 submodules and no vendoring.
 
+<details>
+<summary><strong>Why is this called <code>ws-repos</code> and not <code>mgit</code>, and why does the file suffix still say ".mgit"?</strong></summary>
+
+This is a POSIX-shell port of the "mGit" pattern from
+[strategy-coach/workspaces](https://github.com/strategy-coach/workspaces) (`mgit.ts`/
+`ws-ensure.ts`): the same governed directory convention, the same idempotent clone-or-pull
+semantics, and the same VS Code multi-root composition trick. Two things are named differently
+from upstream, deliberately:
+
+- **The command is `ws-repos`, not `mgit`.** Unrelated third-party tools are also named `mgit`;
+  naming this command differently avoids that collision entirely. It's a naming choice only - the
+  directory convention and file-matching behavior are unchanged.
+- **The workspace file suffix stays `*.mgit.code-workspace`.** That string comes from upstream
+  `mgit.ts`'s own hardcoded matcher, not from this tool's name - keeping it means a
+  `*.mgit.code-workspace` file written for the original mGit tooling (or for v2's own `mgit`) is
+  still recognized here unchanged.
+
+This revision also brought `ws-repos status` back up to upstream's own fidelity: it now reports a
+stuck `index.lock` ("locked") and stash count, and separates "untracked" from "dirty" the way
+upstream's `mGitStatus()` does - a prior port had simplified these away. Parsing a
+`*.mgit.code-workspace` file also now tolerates the comments VS Code itself allows there (a
+best-effort filter for `//` and `/* */` comments, not a full JSONC parser - see spec 003's
+Assumptions for the one edge case this doesn't cover).
+
+</details>
+
 **On WSL, this also matters for speed, not just organization** — see the
 `/mnt` note in the Windows/WSL section above. `doctor` checks this for
 both `$HOME` and wherever you're currently standing.
 
-See spec 003 for the full `mgit` requirements.
+See spec 003 for the full `ws-repos` requirements.
 
 ### Bulk changes across many repos, and other git helpers
 
-`mgit` (above) governs *which* repos land under `~/workspaces`; a few
+`ws-repos` (above) governs *which* repos land under `~/workspaces`; a few
 more ported tools help make the same change *across* many of them, or do
 everyday multi-repo git tasks, at once (spec 011):
 
@@ -434,7 +524,7 @@ slower `/mnt` Windows filesystem by mistake (both `$HOME` and wherever
 you're standing), low disk space, a misconfigured locale, a plaintext
 `~/.netrc` with the wrong permissions, an overly permissive `umask`, and
 Docker group membership; the AI harness CLIs and whether each has a
-credential configured; `mgit` and the `~/workspaces` layout; every tool
+credential configured; `ws-repos` and the `~/workspaces` layout; every tool
 this repository installs; compliance/observability tooling; PostgreSQL
 and Java toolchain setup; and optionally `docker`, for building/running
 this flake's container images.
@@ -498,6 +588,19 @@ A handful of small, general-purpose utilities round out the base profile (spec 0
   manual `ssh-agent`/`ssh-add` per session.
 - **`cdp`** — an alias that `cd`s to the current git repository's top-level directory.
 
+<details>
+<summary><strong>Why is Deno available here when this repo's own tools no longer need it?</strong></summary>
+
+v1 (the original chezmoi-based repo) called Deno "a core requirement," and used it for `ws-repos`'
+own upstream ancestor (`mgit.ts`) plus most of its custom tooling. v2 reimplemented those specific
+scripts in POSIX `sh` to avoid *this repository's own tooling* needing a Deno dependency - but that
+sidestepped, rather than answered, a separate question: should engineers still have Deno available
+as a general scripting runtime? v1's answer was yes (it recommends `deno`+`dax` over `make` for
+custom task running); this repo agrees, so Deno is provisioned here as a plain tool, independent
+of what `ws-repos`/`doctor` are written in.
+
+</details>
+
 ## Git hooks (`lefthook`)
 
 Every profile installs [Lefthook](https://lefthook.dev/). Adopt it in any project with two
@@ -510,6 +613,16 @@ $ lefthook install
 
 See [`templates/lefthook.yml.example`](templates/lefthook.yml.example) for a starter covering
 `pre-commit` and `pre-push`.
+
+<details>
+<summary><strong>Why wasn't this here before?</strong></summary>
+
+v1's own README carried this as an unchecked roadmap item ("Integrate Lefthook Git hooks
+manager...") that v1 itself never built. It turned out to be a clean fit once actually attempted:
+install the tool declaratively via Nix (replacing v1's proposed `brew install`), and provide a
+documented, copy-in example config rather than forcing hooks on every repo.
+
+</details>
 
 ## Zero-trust networking (optional)
 
@@ -524,6 +637,21 @@ $ nebula -config nebula.yml   # needs a certificate issued by your mesh's own CA
 
 `doctor` reports both clients as present, informationally — neither is required for anything
 else in this repository.
+
+<details>
+<summary><strong>Why does this repo install the clients but never configure or auto-start them?</strong></summary>
+
+This was another item on v1's own unfinished roadmap ("Integrate Zero Trust client
+infrastructure starting with Tailscale... and then add Nebula..."). Nix can provision the
+*clients* declaratively the same as every other tool here - but joining an actual mesh (a
+Tailscale account and its login flow, or a Nebula CA certificate issued by a network admin) is
+unavoidably a human, out-of-band action, the same category as a git identity or an API key
+(Constitution Principle III's "provisioning the key is a deliberate, separate, human action"
+applies equally to network trust material). Standing up a server-side control plane (a
+self-hosted Headscale instance, a Nebula lighthouse) is infrastructure operators choose to run
+separately - entirely out of scope for one engineer's sandbox.
+
+</details>
 
 ## Container & cloud-harness parity
 
@@ -598,10 +726,15 @@ connection.
 
 Every profile installs a JDK (`java`) and Maven (`mvn`), with
 `JAVA_HOME` already set — no separate version manager needed (spec 007).
-Nix itself already pins reproducible versions for every tool in this
-setup, Java included, so a second version manager on top of it would just
-duplicate that job. Override `home/java.nix`'s `pkgs.jdk`/`pkgs.maven` in
-a fork for a different JDK version or vendor.
+
+<details>
+<summary><strong>Why not SDKMAN! or another Java version manager?</strong></summary>
+
+Nix itself already pins reproducible versions for every tool in this setup, Java included, so a
+second version manager on top of it would just duplicate that job. Override `home/java.nix`'s
+`pkgs.jdk`/`pkgs.maven` in a fork for a different JDK version or vendor.
+
+</details>
 
 ## Scaffolding a project for an AI coding agent
 

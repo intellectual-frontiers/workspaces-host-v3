@@ -198,7 +198,7 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
     # Windows Explorer) as it is a misconfigured $HOME.
     case "$PWD" in
     /mnt/*)
-        warn "the current directory ($PWD) is under /mnt - that's the Windows filesystem from inside WSL, which is exactly what makes git (and other I/O-heavy commands) slow here; 'mgit ensure' clones repos under ~/workspaces (the Linux filesystem) instead - move or re-clone this one there"
+        warn "the current directory ($PWD) is under /mnt - that's the Windows filesystem from inside WSL, which is exactly what makes git (and other I/O-heavy commands) slow here; 'ws-repos ensure' clones repos under ~/workspaces (the Linux filesystem) instead - move or re-clone this one there"
         ;;
     *)
         pass "the current directory is on the Linux filesystem, not a slower /mnt/* Windows mount"
@@ -294,14 +294,14 @@ if command -v gh >/dev/null 2>&1; then
 fi
 
 echo
-echo "-- Workspace repo management (~/workspaces, mgit) --"
-check_cmd mgit
+echo "-- Workspace repo management (~/workspaces, ws-repos) --"
+check_cmd ws-repos
 if [ -d "$HOME/workspaces" ]; then
     pass "~/workspaces exists"
-    if [ -f "$HOME/workspaces/mgit.json" ]; then
-        pass "~/workspaces/mgit.json exists (edit it to declare repos, then run 'mgit ensure')"
+    if [ -f "$HOME/workspaces/ws-repos.json" ]; then
+        pass "~/workspaces/ws-repos.json exists (edit it to declare repos, then run 'ws-repos ensure')"
     else
-        warn "~/workspaces/mgit.json not found (did home-manager switch run?)"
+        warn "~/workspaces/ws-repos.json not found (did home-manager switch run?)"
     fi
 else
     warn "~/workspaces does not exist yet (did home-manager switch run?)"
@@ -309,7 +309,7 @@ fi
 
 echo
 echo "-- Ported CLI tools (home.packages) --"
-for c in rg fd jq bat eza gitleaks semtag git-standup mgit specify backlog scaffold-agent-harness sensitivectl pgpass git-xargs workspaces-host-update git-extras gopass wget rclone git-chglog deno lefthook llm; do
+for c in rg fd jq bat eza gitleaks semtag git-standup ws-repos specify backlog scaffold-agent-harness sensitivectl pgpass git-xargs workspaces-host-update git-extras gopass wget rclone git-chglog deno lefthook llm; do
     check_cmd "$c"
 done
 

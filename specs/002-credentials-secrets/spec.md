@@ -115,7 +115,7 @@ it successfully.
 - **FR-008**: `credentials.example` MUST include `GITHUB_TOKEN`/`GITLAB_TOKEN`, and the base
   profile MUST install `gh`/`glab`, each wrapped so a configured token is exported only for that
   CLI's own invocation (the same per-invocation mechanism FR-005 requires) — needed for spec 003's
-  `mgit` to be practically usable against private repositories, not a separate concern.
+  `ws-repos` to be practically usable against private repositories, not a separate concern.
 - **FR-009**: The base profile MUST install `gitleaks`, so an engineer can scan a repository for
   accidentally-staged secrets before committing, as a concrete backstop alongside a project's own
   `.gitignore` and reviewing `git diff --staged`.

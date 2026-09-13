@@ -1,4 +1,4 @@
-# Feature Specification: Workspace Repository Management (`mgit`)
+# Feature Specification: Workspace Repository Management (`ws-repos`)
 
 **Feature Branch**: `003-workspace-repo-mgmt`
 
@@ -8,6 +8,27 @@
 
 **Input**: User description: "mgit tool to clone and update many git repositories into one
 predictable ~/workspaces layout and run the same command across many of them"
+
+## Background
+
+This feature is a POSIX-shell port of the "mGit" pattern from
+[strategy-coach/workspaces](https://github.com/strategy-coach/workspaces) (`mgit.ts` /
+`ws-ensure.ts`): the same governed `<git-host>/<org>/.../<repo>` directory convention, the same
+idempotent clone-or-pull semantics, and the same VS Code `*.code-workspace` multi-root
+composition trick. Two things are named differently from upstream, deliberately:
+
+- **The command is `ws-repos`, not `mgit`.** Unrelated third-party tools are also named `mgit`;
+  naming this command differently avoids that collision entirely. This is a naming choice only —
+  the underlying pattern, directory convention, and file-matching behavior are unchanged.
+- **The workspace file suffix stays `*.mgit.code-workspace`.** That string comes from upstream
+  `mgit.ts`'s own hardcoded `strictVsCodeWsPathMatchers()`, not from this tool's name — keeping it
+  means a `*.mgit.code-workspace` file written for the original mGit tooling (or for v2's `mgit`)
+  is still recognized here unchanged.
+
+A prior port (workspaces-host-v2's `mgit`, and v3's own first pass) simplified upstream's
+`mGitStatus()` down to dirty/ahead/behind/no-upstream/clean, dropping upstream's stash count and
+stuck-`index.lock` detection, and used a strict-JSON `jq` parse of `*.code-workspace` files where
+upstream uses a comments-tolerant JSONC parser. This revision closes those gaps (FR-004a, FR-008).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -36,19 +57,21 @@ ensure command; confirm both are cloned to their expected paths.
 ### User Story 2 - Know the state of everything at a glance (Priority: P1)
 
 An engineer wants to know, across every repo under `~/workspaces`, which are dirty, ahead, behind,
-or have no upstream, without visiting each one individually.
+have no upstream, have untracked files, are stuck with a stale lock, or have stashed changes —
+without visiting each one individually.
 
-**Why this priority**: Losing track of uncommitted work across many repos is the exact failure
-mode this tool exists to prevent.
+**Why this priority**: Losing track of uncommitted (or stashed, and forgotten) work across many
+repos is the exact failure mode this tool exists to prevent.
 
-**Independent Test**: Create a dirty repo and a clean repo under `~/workspaces`; run the status
-command; confirm the dirty one is reported as such and the clean one is not.
+**Independent Test**: Create a dirty repo, a repo with only untracked files, a repo with a stash,
+and a clean repo under `~/workspaces`; run the status command; confirm each is reported correctly
+and distinctly.
 
 **Acceptance Scenarios**:
 
 1. **Given** several repos under `~/workspaces` in different states, **When** the engineer runs
-   the status command, **Then** each repo's state (dirty / ahead / behind / no-upstream / clean)
-   is reported.
+   the status command, **Then** each repo's state (dirty / untracked / ahead / behind /
+   no-upstream / locked / stash count / clean) is reported.
 
 ---
 
@@ -76,30 +99,47 @@ distinct hosts and full set of repo paths.
   automatically on first shell activation, without ever overwriting an existing config.
 - What happens when a repo entry's remote is unreachable? That entry must fail clearly and the
   command must still process the remaining entries rather than aborting the whole run.
+- What happens when a `*.mgit.code-workspace` file's `folders` array includes `"path": "."`
+  (upstream's convention for "this same repo")? It must be recognized as a self-reference, never
+  passed through as a literal path to clone.
+- What happens when a `*.mgit.code-workspace` file contains JSON comments (which VS Code itself
+  allows there, and upstream's JSONC parser tolerates)? Common comment forms (a whole line
+  starting with `//`, a `/* ... */` block) must not break parsing; see FR-008's Assumptions for
+  the one blind spot this leaves.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: A single `mgit` command MUST provide `ensure`, `status`, and `inspect`
+- **FR-001**: A single `ws-repos` command MUST provide `ensure`, `status`, and `inspect`
   subcommands, installed on `PATH` by the base profile (spec 001).
-- **FR-002**: `mgit ensure` MUST clone a repo listed in the workspace config (default
-  `~/workspaces/mgit.json`) to its predictable path under `~/workspaces` if absent, or pull it if
-  already present, unless that entry is explicitly marked for a fresh reclone.
-- **FR-003**: `mgit ensure` MUST support repos that reference other repos (e.g. via a multi-root
-  workspace file), recursively ensuring each referenced repo, deduplicated per run.
-- **FR-004**: `mgit status` MUST report git status (dirty / ahead / behind / no-upstream / clean)
-  for every repo found under `~/workspaces`.
-- **FR-005**: `mgit inspect` MUST list the distinct git hosts and the full set of repo paths
-  referenced by the workspace config and any multi-root workspace files it discovers.
+- **FR-002**: `ws-repos ensure` MUST clone a repo listed in the workspace config (default
+  `~/workspaces/ws-repos.json`) to its predictable path under `~/workspaces` if absent, or pull it
+  if already present, unless that entry is explicitly marked for a fresh reclone.
+- **FR-003**: `ws-repos ensure` MUST support repos that reference other repos (e.g. via a
+  multi-root workspace file), recursively ensuring each referenced repo, deduplicated per run, and
+  MUST treat a `"path": "."` folder entry as a self-reference (skip, never clone) rather than a
+  literal path.
+- **FR-004**: `ws-repos status` MUST report, per repo: dirty (modified/staged tracked files) and
+  untracked files as distinct flags, ahead/behind/no-upstream, and clean when none of the above
+  apply.
+- **FR-004a**: `ws-repos status` MUST additionally report a stuck `index.lock` (as "locked") and a
+  non-zero stash count, matching upstream `mgit.ts`'s `mGitStatus()`.
+- **FR-005**: `ws-repos inspect` MUST list the distinct git hosts and the full set of repo paths
+  referenced by the workspace config and any multi-root workspace files it discovers, resolving a
+  `"path": "."` entry to the repo the workspace file itself lives in.
 - **FR-006**: The base profile MUST create `~/workspaces` and an empty workspace config on first
   activation, without ever overwriting an existing config.
-- **FR-007**: The environment health check (spec 004) MUST report whether `mgit` is on `PATH` and
-  whether `~/workspaces` and its config exist.
+- **FR-007**: The environment health check (spec 004) MUST report whether `ws-repos` is on `PATH`
+  and whether `~/workspaces` and its config exist.
+- **FR-008**: Parsing a `*.mgit.code-workspace` file MUST tolerate the comment forms VS Code
+  itself allows there (a whole-line `//` comment, a `/* ... */` block) rather than requiring
+  strict JSON, on a best-effort basis (see Assumptions for the scope boundary this draws, versus
+  upstream's full JSONC parser).
 
 ### Key Entities
 
-- **Workspace config**: `~/workspaces/mgit.json`, the list of repos to manage.
+- **Workspace config**: `~/workspaces/ws-repos.json`, the list of repos to manage.
 - **Repo entry**: one config entry — at minimum a remote URL and a target path, optionally marked
   for fresh-reclone-only behavior.
 
@@ -111,11 +151,17 @@ distinct hosts and full set of repo paths.
   repo cloned to its predictable path after one command.
 - **SC-002**: Re-running the ensure command against already-cloned repos never loses uncommitted
   local changes.
-- **SC-003**: The status command surfaces every dirty repo under `~/workspaces` in one invocation,
-  with no repo silently skipped.
+- **SC-003**: The status command surfaces every dirty, untracked, locked, or stashed repo under
+  `~/workspaces` in one invocation, with no repo silently skipped.
 
 ## Assumptions
 
 - Repos are cloned over the protocol (HTTPS or SSH) the engineer's existing git credentials
   already support; this spec does not add its own auth mechanism.
 - The workspace config format is a single JSON file; per-repo config files are out of scope.
+- FR-008's comment tolerance is a pragmatic filter (strips whole-line `//` and `/* */` block
+  comments), not a full JSONC tokenizer — a `//` or `/*` that happens to appear inside a JSON
+  string value (e.g. a URL) is a known, accepted blind spot, the same class of simplification
+  `pkgs/pgpass` already documents for its own descriptor format. Reaching for a real parser would
+  mean a runtime dependency (e.g. Deno, which upstream uses) this POSIX-shell port deliberately
+  does without.

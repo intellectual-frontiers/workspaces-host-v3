@@ -2,7 +2,7 @@
 
 let
   # ~/.pgpass holds real credentials, so - like home/workspaces.nix's
-  # mgit.json - home-manager only creates it once (mode 0600, which
+  # ws-repos.json - home-manager only creates it once (mode 0600, which
   # libpq itself requires or it silently ignores the file) and never
   # touches an existing one again. This stub has no real secrets, just
   # the format documentation `pgpass --help` also prints.

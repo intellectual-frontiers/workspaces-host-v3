@@ -13,7 +13,7 @@ repos under ~/workspaces at once"
 
 ### User Story 1 - Land the same fix across many repos in one shot (Priority: P3)
 
-An engineer with several repos under `~/workspaces` (managed by `mgit`, spec 003) wants to apply
+An engineer with several repos under `~/workspaces` (managed by `ws-repos`, spec 003) wants to apply
 the same script or command to every one of them and open a PR with the results, without a
 hand-written loop.
 

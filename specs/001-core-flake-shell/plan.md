@@ -71,12 +71,12 @@ home/
 ├── git.nix                    # git identity + delta + aliases (specs 001, 002)
 ├── direnv.nix                 # direnv + nix-direnv (specs 001)
 ├── tools.nix                  # pinned everyday CLI tools (specs 001)
-├── workspaces.nix              # ~/workspaces + mgit.json activation (specs 003)
+├── workspaces.nix              # ~/workspaces + ws-repos.json activation (specs 003)
 └── secrets.nix                 # opt-in sops-based workspacesHost.secrets (specs 002)
 themes/oh-my-posh/coach.omp.json
 pkgs/
-├── default.nix                 # aggregate: mgit, doctor, workspaces-host-update
-├── mgit/                       # specs 003
+├── default.nix                 # aggregate: ws-repos, doctor, workspaces-host-update
+├── ws-repos/                   # specs 003
 ├── doctor/                      # specs 004
 ├── workspaces-host-update/      # specs 002
 └── init-firewall/               # specs 005

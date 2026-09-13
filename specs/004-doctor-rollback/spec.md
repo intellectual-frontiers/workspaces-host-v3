@@ -73,7 +73,7 @@ roll back; confirm the environment matches generation A again.
   minimum: Nix and flakes enabled; home-manager on `PATH`; the shell, prompt, and direnv
   integration from spec 001; whether this flake's own pinned bash is actually the caller's login
   shell (via the real `/etc/passwd` entry, not `$SHELL`), not just installed; git on `PATH` and
-  identity configured (WARN, not FAIL, if unset); every tool this repository installs; `mgit` and
+  identity configured (WARN, not FAIL, if unset); every tool this repository installs; `ws-repos` and
   the workspace layout from spec 003; the credentials file's existence and permissions from spec
   002; GitHub/GitLab authentication for `gh`/`glab` (spec 002 FR-008), counting either an existing
   login or a configured token as authenticated; and `docker` on `PATH` (WARN only — optional, for

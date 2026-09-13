@@ -1,0 +1,252 @@
+#!/bin/sh
+# ws-repos: governed multi-repo workspace management under $WORKSPACES_HOME.
+#
+# A native POSIX-shell port of strategy-coach/workspaces' mgit.ts/
+# ws-ensure.ts "mGit" pattern (https://github.com/strategy-coach/workspaces)
+# - the same <git-host>/<org>/.../<repo> directory convention, idempotent
+# clone-or-pull, *.mgit.code-workspace symlinking with recursive
+# dependent-repo resolution ("VS Code monorepo" composition), and a status
+# report - as one dependency-free tool instead of a Deno script an
+# engineer edits and re-runs by hand.
+#
+# Named "ws-repos" (not "mgit") to avoid confusion with unrelated
+# third-party tools of that name; the *.mgit.code-workspace file suffix
+# below is kept exactly as upstream's mgit.ts hardcodes it
+# (strictVsCodeWsPathMatchers()), so files following that convention stay
+# recognized regardless of which tool manages them.
+set -u
+
+WORKSPACES_HOME="${WORKSPACES_HOME:-$HOME/workspaces}"
+WS_REPOS_CONFIG="${WS_REPOS_CONFIG:-$WORKSPACES_HOME/ws-repos.json}"
+WS_REPOS_VSCODE_WS_PATTERN="${WS_REPOS_VSCODE_WS_PATTERN:-*.mgit.code-workspace}"
+
+usage() {
+    cat <<EOF
+Usage: ws-repos <command> [args...]
+
+Commands:
+  ensure                 Clone-or-pull every repo in \$WS_REPOS_CONFIG into
+                          \$WORKSPACES_HOME, following the
+                          <git-host>/<org>/.../<repo> convention. Symlinks
+                          any $WS_REPOS_VSCODE_WS_PATTERN files found inside
+                          each repo to the workspace root, and recursively
+                          ensures any repos referenced by that workspace
+                          file's "folders" (VS Code multi-root "monorepo").
+  status [DEPTH]          Report git status (dirty/ahead/behind/no-upstream/
+                          clean), plus untracked files, a stuck index.lock,
+                          and stash count, across every repo under
+                          \$WORKSPACES_HOME (DEPTH default 6, deep enough
+                          for nested GitLab group/subgroup layouts).
+  inspect                 List the git managers (github.com, gitlab.*, ...)
+                          and full repo list referenced by every
+                          $WS_REPOS_VSCODE_WS_PATTERN file under
+                          \$WORKSPACES_HOME.
+
+Environment:
+  WORKSPACES_HOME            Root of the managed workspace (default: \$HOME/workspaces)
+  WS_REPOS_CONFIG            Repo list (default: \$WORKSPACES_HOME/ws-repos.json)
+  WS_REPOS_VSCODE_WS_PATTERN find(1) -name pattern for workspace files
+                             (default: *.mgit.code-workspace - upstream
+                             mGit's own convention, unrelated to this
+                             tool's own name)
+
+Config file format (\$WS_REPOS_CONFIG):
+  {
+    "repos": [
+      { "repo": "github.com/org/repo" },
+      { "repo": "github.com/org/other-repo", "fresh": true }
+    ]
+  }
+
+"fresh": true deletes and re-clones an already-cloned repo instead of
+pulling.
+EOF
+}
+
+HANDLED_FILE=$(mktemp)
+trap 'rm -f "$HANDLED_FILE"' EXIT INT TERM
+
+is_handled() {
+    grep -qxF "$1" "$HANDLED_FILE" 2>/dev/null
+}
+
+mark_handled() {
+    printf '%s\n' "$1" >>"$HANDLED_FILE"
+}
+
+# strip_jsonc FILE: a best-effort JSONC -> JSON filter (drops whole-line
+# "//" comments and "/* ... */" block comments) so `jq` can read a VS Code
+# *.code-workspace file even when it has the comments VS Code itself
+# allows there - upstream mgit.ts parses these with a real JSONC parser
+# (Deno's std jsonc module); reaching for a runtime dependency just for
+# this would undo the whole point of this being a dependency-free POSIX
+# port, so this covers the common cases (a comment on its own line, or a
+# block comment) rather than tokenizing strings byte-by-byte. A "//" or
+# "/*" that appears inside a JSON string value is a real, if rare, blind
+# spot - see spec 003's Assumptions.
+strip_jsonc() {
+    sed -E 's#^[[:space:]]*//.*$##' "$1" | sed -E ':a;N;$!ba; s#/\*[^*]*\*+([^/*][^*]*\*+)*/##g'
+}
+
+# resolve_workspace_deps ABS_REPO_PATH
+# Finds *.mgit.code-workspace files inside a just-cloned/pulled repo,
+# symlinks each to the workspace root, and recursively ensures every repo
+# referenced by that file's .folders[].path - "." means "this same repo"
+# (upstream mgit.ts's own convention for a workspace file that includes
+# its own containing repo as one of its folders), so it's recognized and
+# skipped rather than passed through as a literal path.
+resolve_workspace_deps() {
+    abs="$1"
+    find "$abs" -type f -name "$WS_REPOS_VSCODE_WS_PATTERN" 2>/dev/null | while IFS= read -r wsfile; do
+        name=$(basename "$wsfile")
+        target="$WORKSPACES_HOME/$name"
+        rel=$(realpath --relative-to="$WORKSPACES_HOME" "$wsfile")
+        echo "ws-repos:   symlinking $name -> $rel" >&2
+        rm -f "$target"
+        ln -s "$rel" "$target"
+
+        strip_jsonc "$wsfile" | jq -r '.folders[]?.path // empty' 2>/dev/null | while IFS= read -r dep; do
+            [ -n "$dep" ] || continue
+            [ "$dep" = "." ] && continue
+            ensure_repo "$dep" "false"
+        done
+    done
+}
+
+# ensure_repo REPO_PATH FRESH
+ensure_repo() {
+    repo_path="$1"
+    fresh="$2"
+    abs="$WORKSPACES_HOME/$repo_path"
+
+    is_handled "$abs" && return 0
+    mark_handled "$abs"
+
+    if [ -d "$abs" ]; then
+        if [ "$fresh" = "true" ]; then
+            echo "ws-repos: $repo_path found, forcing re-clone (removing $abs)" >&2
+            rm -rf "$abs"
+        else
+            echo "ws-repos: $repo_path found, pulling latest" >&2
+            if git -C "$abs" pull --quiet; then
+                resolve_workspace_deps "$abs"
+            else
+                echo "ws-repos: pull failed for $repo_path" >&2
+            fi
+            return 0
+        fi
+    fi
+
+    mkdir -p "$(dirname "$abs")"
+    echo "ws-repos: $repo_path not found, cloning" >&2
+    if git clone --quiet "https://$repo_path" "$abs"; then
+        resolve_workspace_deps "$abs"
+    else
+        echo "ws-repos: clone failed for $repo_path (not a valid managed git URL?)" >&2
+    fi
+}
+
+cmd_ensure() {
+    [ -f "$WS_REPOS_CONFIG" ] || {
+        echo "ws-repos: no config at $WS_REPOS_CONFIG - see 'ws-repos --help' for the format" >&2
+        exit 1
+    }
+    mkdir -p "$WORKSPACES_HOME"
+    jq -c '.repos[]' "$WS_REPOS_CONFIG" | while IFS= read -r entry; do
+        repo=$(printf '%s' "$entry" | jq -r '.repo')
+        fresh=$(printf '%s' "$entry" | jq -r '.fresh // false')
+        ensure_repo "$repo" "$fresh"
+    done
+}
+
+# report_repo_status ABS_REPO_PATH
+report_repo_status() {
+    repo="$1"
+    branch=$(git -C "$repo" symbolic-ref --short -q HEAD || echo "(detached)")
+    status_flags=""
+
+    # A stuck index.lock (a crashed/killed git process) blocks every other
+    # git command in that repo until removed by hand - worth its own flag
+    # rather than folding it into "dirty" (upstream mgit.ts's mGitStatus
+    # reports this as "Locked" too).
+    if [ -f "$repo/.git/index.lock" ]; then
+        status_flags="locked"
+    fi
+
+    porcelain=$(git -C "$repo" status --porcelain 2>/dev/null)
+    if [ -n "$porcelain" ]; then
+        # Distinguish modified/staged tracked files ("dirty") from
+        # untracked-only ("untracked") the same way upstream reports
+        # "Uncommitted changes" and "Untracked files" separately, rather
+        # than folding both into one flag.
+        if printf '%s\n' "$porcelain" | grep -qv '^??'; then
+            status_flags="${status_flags:+$status_flags, }dirty"
+        fi
+        if printf '%s\n' "$porcelain" | grep -q '^??'; then
+            status_flags="${status_flags:+$status_flags, }untracked"
+        fi
+    fi
+
+    upstream=$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    if [ -z "$upstream" ]; then
+        status_flags="${status_flags:+$status_flags, }no-upstream"
+    else
+        counts=$(git -C "$repo" rev-list --left-right --count "$upstream...HEAD" 2>/dev/null || printf '0\t0')
+        behind=$(printf '%s' "$counts" | cut -f1)
+        ahead=$(printf '%s' "$counts" | cut -f2)
+        [ "$ahead" != "0" ] && status_flags="${status_flags:+$status_flags, }ahead $ahead"
+        [ "$behind" != "0" ] && status_flags="${status_flags:+$status_flags, }behind $behind"
+    fi
+
+    stash_count=$(git -C "$repo" stash list 2>/dev/null | wc -l | tr -d ' ')
+    [ "$stash_count" != "0" ] && status_flags="${status_flags:+$status_flags, }$stash_count stash(es)"
+
+    [ -z "$status_flags" ] && status_flags="clean"
+
+    printf '%-45s [%s] %s\n' "$repo" "$branch" "$status_flags"
+}
+
+cmd_status() {
+    depth="${1:-6}"
+    find "$WORKSPACES_HOME" -maxdepth "$depth" -name .git -type d 2>/dev/null | while IFS= read -r gitdir; do
+        report_repo_status "$(dirname "$gitdir")"
+    done
+}
+
+cmd_inspect() {
+    repos=$(mktemp)
+    find "$WORKSPACES_HOME" -type f -name "$WS_REPOS_VSCODE_WS_PATTERN" 2>/dev/null | while IFS= read -r wsfile; do
+        # "." means "the repo this workspace file itself lives in"
+        # (upstream mgit.ts's own convention) - resolve it to that repo's
+        # actual path instead of reporting the literal ".".
+        self_repo=$(dirname "$(realpath --relative-to="$WORKSPACES_HOME" "$wsfile")")
+        strip_jsonc "$wsfile" | jq -r '.folders[]?.path // empty' 2>/dev/null | while IFS= read -r p; do
+            [ "$p" = "." ] && p="$self_repo"
+            printf '%s\n' "$p"
+        done
+    done | sort -u >"$repos"
+
+    echo "Git Managers:"
+    cut -d/ -f1 "$repos" | sort -u | sed 's/^/  - /'
+    echo "All ws-repos repos referenced by $WS_REPOS_VSCODE_WS_PATTERN files:"
+    sed 's/^/  - /' "$repos"
+    rm -f "$repos"
+}
+
+[ $# -ge 1 ] || {
+    usage >&2
+    exit 1
+}
+cmd="$1"
+shift
+case "$cmd" in
+ensure) cmd_ensure "$@" ;;
+status) cmd_status "$@" ;;
+inspect) cmd_inspect "$@" ;;
+-h | --help) usage ;;
+*)
+    echo "ws-repos: unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

@@ -7,7 +7,7 @@
 ## Summary
 
 A single unwrapped POSIX `sh` script, packaged as `doctor`, prints one PASS/WARN/FAIL line per
-check (Nix/flakes, home-manager, shell/prompt/direnv, git identity, credentials file, `mgit`/
+check (Nix/flakes, home-manager, shell/prompt/direnv, git identity, credentials file, `ws-repos`/
 workspace layout, every tool this profile installs, `docker` optional) and exits non-zero only on
 a FAIL. It is deliberately *not* wrapped with a fixed `PATH` (unlike every other `pkgs/*` tool
 here), since its entire job is to observe the caller's real environment. Rollback is documented

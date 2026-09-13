@@ -13,7 +13,7 @@ pkgs.dockerTools.buildLayeredImage {
   tag = "latest";
 
   # Same closure as the host profile: the exact package set home-manager
-  # decided this profile needs (bash, oh-my-posh, direnv, git, mgit,
+  # decided this profile needs (bash, oh-my-posh, direnv, git, ws-repos,
   # doctor, and the core CLI toolset), plus cacert/bash/coreutils for a
   # usable minimal container.
   contents = cfg.home.packages ++ (with pkgs; [

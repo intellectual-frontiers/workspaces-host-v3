@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 let
-  # mgit, doctor, workspaces-host-update, pgpass, sensitivectl, semtag,
+  # ws-repos, doctor, workspaces-host-update, pgpass, sensitivectl, semtag,
   # git-standup, git-xargs, specify-cli, backlog-md, scaffold-agent-harness
   # (pkgs/default.nix) - built as flake packages, but only actually land
   # on PATH once they're also listed in home.packages like every other
@@ -25,8 +25,8 @@ in
 {
   home.packages = (builtins.attrValues ported) ++ (with pkgs; [
     # Everyday CLI tools (spec 001 FR-007). `ripgrep`/`fd` back fzf's
-    # file/dir widgets (home/shell.nix), `jq`/`findutils` back `mgit`
-    # (pkgs/mgit), `eza`/`bat` are the aliased `ls`/`cat` replacements
+    # file/dir widgets (home/shell.nix), `jq`/`findutils` back `ws-repos`
+    # (pkgs/ws-repos), `eza`/`bat` are the aliased `ls`/`cat` replacements
     # (home/shell.nix), and `blesh` is bash's syntax-highlighting/
     # autosuggestion engine sourced directly by store path there - listed
     # here too so its own helper commands are on PATH for manual use.
@@ -61,7 +61,7 @@ in
     # management, a plain HTTP fetcher, a directly-runnable `rclone`
     # (previously only vendored inside pkgs/sensitivectl's own wrapped
     # PATH), changelog generation, and the Deno runtime v1 called "a core
-    # requirement" (this repo's own tooling no longer needs it - mgit/
+    # requirement" (this repo's own tooling no longer needs it - ws-repos/
     # doctor are POSIX sh - but that's a separate question from whether
     # engineers should have it available, per spec 015's background).
     gopass

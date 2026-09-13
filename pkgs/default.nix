@@ -1,7 +1,7 @@
 { pkgs }:
 
 {
-  mgit = import ./mgit { inherit pkgs; };
+  ws-repos = import ./ws-repos { inherit pkgs; };
   workspaces-host-update = import ./workspaces-host-update { inherit pkgs; };
   doctor = import ./doctor { inherit pkgs; };
   pgpass = import ./pgpass { inherit pkgs; };
