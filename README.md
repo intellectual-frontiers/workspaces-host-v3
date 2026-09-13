@@ -48,10 +48,11 @@ that Linux system, a window titled "Debian," except step 1.
    ```console
    $ cd && sudo apt-get update && sudo apt-get install -y curl git && sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"
    ```
-   The `cd` gets you out of the `sudo` asks for the password from step 2. That's the only password prompt in the whole
-   process. It takes a few minutes the first time. Run it again later and it just skips what's
-   already done and updates the rest; that's what `workspaces-host-update` does under the hood
-   once you're set up.
+   The `cd` puts you in `$HOME` before anything else runs, in case this window happened to open
+   somewhere else. `sudo` asks for the password from step 2. That's the only password prompt in
+   the whole process. It takes a few minutes the first time. Run it again later and it just skips
+   what's already done and updates the rest; that's what `workspaces-host-update` does under the
+   hood once you're set up.
 
    <details>
    <summary><strong>Why start with <code>apt-get install curl git</code>?</strong></summary>
