@@ -1,0 +1,157 @@
+#!/bin/sh
+# pgpass: read ~/.pgpass connection descriptors (an id/description/boundary
+# comment-header convention) and emit env vars / a ready-to-run psql
+# command / a postgres:// URL by connection id.
+set -u
+
+SRC="${PGPASS_FILE:-$HOME/.pgpass}"
+
+usage() {
+    cat <<EOF
+Usage: pgpass <command> [--conn-id=REGEX] [--no-export]
+
+Commands:
+  ls               List every connection's id, description, and host:port/db
+  test             Validate the file, reporting any parse issues
+  env --conn-id=REGEX
+                   Emit PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD export
+                   lines for every connection whose id matches REGEX (an
+                   extended/grep -E-style regex). Pair with eval:
+                     eval "\$(pgpass env --conn-id=MYDB)"
+  url --conn-id=REGEX
+                   Emit the postgres://user:pass@host:port/db URL for the
+                   first connection whose id matches REGEX
+  psql --conn-id=REGEX
+                   Emit a ready-to-run "psql -h HOST -p PORT -d DB -U USER"
+                   command for the first connection whose id matches REGEX
+
+Options:
+  --conn-id=REGEX  Extended-regex to match against connection ids (required
+                   for env/url/psql)
+  --no-export      env: emit bare VAR=value lines instead of "export VAR=value"
+
+\$PGPASS_FILE (default: \$HOME/.pgpass) format - a comment header before each
+connection line:
+  # { id: "MYDB", description: "Purpose", boundary: "Network" }
+  hostname:port:database:username:password
+EOF
+}
+
+# Convert a "{ bareword: "value", ... }" comment body into valid JSON by
+# quoting bare keys - these connection descriptors are simple enough that a
+# full JSON5 parser isn't needed.
+to_json() {
+    printf '%s\n' "$1" | sed -E 's/([,{[:space:]])([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*:/\1"\2":/g'
+}
+
+# parse_all: emit one JSON object per connection line found in $SRC
+parse_all() {
+    [ -f "$SRC" ] || {
+        echo "pgpass: no such file: $SRC" >&2
+        exit 1
+    }
+    descr=""
+    lineno=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        lineno=$((lineno + 1))
+        case "$line" in
+        \#*\{*\}*)
+            descr=$(to_json "${line#\#}")
+            ;;
+        \#*) ;;
+        "") ;;
+        *)
+            if [ -z "$descr" ]; then
+                echo "pgpass: line $lineno: connection has no descriptor comment before it" >&2
+                continue
+            fi
+            host=$(printf '%s' "$line" | cut -d: -f1)
+            port=$(printf '%s' "$line" | cut -d: -f2)
+            database=$(printf '%s' "$line" | cut -d: -f3)
+            username=$(printf '%s' "$line" | cut -d: -f4)
+            password=$(printf '%s' "$line" | cut -d: -f5-)
+            if ! printf '%s' "$descr" | jq empty >/dev/null 2>&1; then
+                echo "pgpass: line $lineno: unable to parse descriptor: $descr" >&2
+                descr=""
+                continue
+            fi
+            printf '%s' "$descr" | jq -c \
+                --arg host "$host" --arg port "$port" --arg database "$database" \
+                --arg username "$username" --arg password "$password" --argjson line "$lineno" \
+                '. + {host: $host, port: $port, database: $database, username: $username, password: $password, line: $line}'
+            descr=""
+            ;;
+        esac
+    done <"$SRC"
+}
+
+cmd="${1:-}"
+[ $# -ge 1 ] && shift
+
+conn_id_re=""
+no_export="false"
+for arg in "$@"; do
+    case "$arg" in
+    --conn-id=*) conn_id_re="${arg#--conn-id=}" ;;
+    --no-export) no_export="true" ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    esac
+done
+
+require_conn_id() {
+    [ -n "$conn_id_re" ] || {
+        echo "pgpass: $cmd requires --conn-id=REGEX" >&2
+        exit 1
+    }
+}
+
+case "$cmd" in
+ls)
+    parse_all | jq -r '"\(.id)\t\(.description // "")\t[\(.host):\(.port) \(.username)@\(.database)]"' |
+        awk -F'\t' '{printf "%-20s %-40s %s\n", $1, $2, $3}'
+    ;;
+test)
+    issues=$(parse_all 2>&1 >/dev/null)
+    if [ -n "$issues" ]; then
+        printf '%s\n' "$issues"
+        exit 1
+    fi
+    echo "pgpass: OK"
+    ;;
+env)
+    require_conn_id
+    exp="export "
+    [ "$no_export" = "true" ] && exp=""
+    parse_all | jq -c --arg re "$conn_id_re" 'select(.id | test($re))' | while IFS= read -r conn; do
+        id=$(printf '%s' "$conn" | jq -r '.id')
+        prefix=$(printf '%s' "$id" | tr '[:lower:]' '[:upper:]')
+        for f in host:PGHOST port:PGPORT database:PGDATABASE username:PGUSER password:PGPASSWORD; do
+            field="${f%%:*}"
+            var="${f##*:}"
+            value=$(printf '%s' "$conn" | jq -r ".$field")
+            echo "${exp}${prefix}_${var}=\"${value}\""
+        done
+    done
+    ;;
+url)
+    require_conn_id
+    parse_all | jq -r --arg re "$conn_id_re" \
+        'select(.id | test($re)) | "postgres://\(.username):\(.password)@\(.host):\(.port)/\(.database)"' | head -1
+    ;;
+psql)
+    require_conn_id
+    parse_all | jq -r --arg re "$conn_id_re" \
+        'select(.id | test($re)) | "psql -h \(.host) -p \(.port) -d \(.database) -U \(.username)"' | head -1
+    ;;
+-h | --help | "")
+    usage
+    ;;
+*)
+    echo "pgpass: unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

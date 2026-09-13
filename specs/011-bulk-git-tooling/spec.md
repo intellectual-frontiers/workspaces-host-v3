@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Draft (Backlog — not yet implemented; see constitution's spec-tiering policy)
+**Status**: Implemented
 
 **Input**: User description: "git-extras and git-xargs for making the same change across many
 repos under ~/workspaces at once"
@@ -50,7 +50,10 @@ step.
 - **FR-002**: The flake MUST package `git-xargs` (fetched from its GitHub releases for the
   current system) and include it in the base profile's installed packages, to run a command or a
   small callback against many GitHub repos at once and open a PR with the results in each.
-- **FR-003**: The environment health check (spec 004) MUST report both tools on `PATH`.
+- **FR-003**: The flake MUST package `semtag` (compute and optionally apply the next semantic
+  version git tag) and `git-standup` (list a user's commits since their last working day, across
+  one or more repos) and include both in the base profile's installed packages.
+- **FR-004**: The environment health check (spec 004) MUST report all four tools on `PATH`.
 
 ## Success Criteria *(mandatory)*
 

@@ -1,0 +1,87 @@
+#!/bin/sh
+# sensitivectl: backup/restore named local directories to/from rclone
+# remotes, driven by a small declarative JSON config.
+set -eu
+
+CONFIG="${SENSITIVECTL_CONFIG:-$HOME/.config/workspaces-host/sensitivectl.json}"
+
+usage() {
+    cat <<EOF
+Usage: sensitivectl <command> [profile] [-- rclone-args...]
+
+Commands:
+  list                    List configured profiles
+  backup <profile>        rclone sync <local> -> <remote> for that profile
+  restore <profile>       rclone sync <remote> -> <local> for that profile
+
+Config file (default: \$SENSITIVECTL_CONFIG or
+~/.config/workspaces-host/sensitivectl.json):
+  {
+    "profiles": {
+      "my-profile": { "local": "/home/me/Sensitive", "remote": "myremote:backups/sensitive" }
+    }
+  }
+
+Anything after "--" is passed straight through to rclone (e.g. --dry-run).
+EOF
+}
+
+require_config() {
+    if [ ! -f "$CONFIG" ]; then
+        echo "sensitivectl: no config at $CONFIG (set SENSITIVECTL_CONFIG or create it)" >&2
+        exit 1
+    fi
+}
+
+profile_field() {
+    profile="$1"
+    field="$2"
+    jq -r --arg p "$profile" --arg f "$field" '.profiles[$p][$f] // empty' "$CONFIG"
+}
+
+case "${1:-}" in
+    "")
+        usage >&2
+        exit 1
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+esac
+
+COMMAND="$1"; shift
+
+case "$COMMAND" in
+    list)
+        require_config
+        jq -r '.profiles | keys[]' "$CONFIG"
+        ;;
+    backup|restore)
+        [ $# -ge 1 ] || { echo "sensitivectl: $COMMAND requires a profile name" >&2; exit 1; }
+        PROFILE="$1"; shift
+        if [ "${1:-}" = "--" ]; then shift; fi
+        require_config
+
+        LOCAL=$(profile_field "$PROFILE" local)
+        REMOTE=$(profile_field "$PROFILE" remote)
+
+        if [ -z "$LOCAL" ] || [ -z "$REMOTE" ]; then
+            echo "sensitivectl: profile '$PROFILE' not found (or missing local/remote) in $CONFIG" >&2
+            exit 1
+        fi
+
+        if [ "$COMMAND" = "backup" ]; then
+            echo "sensitivectl: backing up $LOCAL -> $REMOTE" >&2
+            rclone sync "$LOCAL" "$REMOTE" "$@"
+        else
+            echo "sensitivectl: restoring $REMOTE -> $LOCAL" >&2
+            rclone sync "$REMOTE" "$LOCAL" "$@"
+        fi
+        ;;
+    *)
+        echo "sensitivectl: unknown command: $COMMAND" >&2
+        usage >&2
+        exit 1
+        ;;
+esac

@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Draft (Backlog — not yet implemented; see constitution's spec-tiering policy)
+**Status**: Implemented
 
 **Input**: User description: "Compliance and observability tooling (osquery, cnquery, steampipe,
 OpenObserve, surveilr) to audit the sandbox itself"

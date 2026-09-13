@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Draft (Backlog — not yet implemented; see constitution's spec-tiering policy)
+**Status**: Implemented
 
 **Input**: User description: "An advanced local.nix override file for personal Nix-level
 customization (identity, secrets, persona tweaks) outside the repository, picked up impurely by

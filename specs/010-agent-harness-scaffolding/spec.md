@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Draft (Backlog — not yet implemented; see constitution's spec-tiering policy)
+**Status**: Implemented
 
 **Input**: User description: "Scaffold an AGENTS.md, MCP config, and Claude settings/hooks into
 any project directory via a specify-cli and backlog-md powered agent harness template"

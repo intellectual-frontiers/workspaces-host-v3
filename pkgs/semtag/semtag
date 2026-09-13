@@ -1,0 +1,98 @@
+#!/bin/sh
+# semtag: compute and optionally apply the next semantic version git tag.
+set -eu
+
+usage() {
+    cat <<'EOF'
+Usage: semtag <command> [options]
+
+Commands:
+  list                 List all semver tags (vMAJOR.MINOR.PATCH), sorted
+  current              Print the highest semver tag (default: v0.0.0)
+  final -s <level>     Print the next final tag for <level> (major|minor|patch)
+  final -s <level> -a  Compute the next tag for <level> and create it (git tag)
+
+Options:
+  -s LEVEL   Version component to bump: major, minor, or patch
+  -a         Actually create the computed tag (git tag <tag>), not just print it
+  -m MSG     Annotate the created tag with this message (implies annotated tag)
+  -h         Show this help
+EOF
+}
+
+is_semver_tag() {
+    printf '%s\n' "$1" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
+list_tags() {
+    git tag -l | while IFS= read -r t; do
+        is_semver_tag "$t" && printf '%s\n' "$t"
+    done | sort -t. -k1.2,1n -k2,2n -k3,3n
+}
+
+current_tag() {
+    tag=$(list_tags | tail -1)
+    printf '%s\n' "${tag:-v0.0.0}"
+}
+
+[ $# -ge 1 ] || { usage >&2; exit 1; }
+COMMAND="$1"; shift
+
+case "$COMMAND" in
+    list)
+        list_tags
+        ;;
+    current)
+        current_tag
+        ;;
+    final)
+        LEVEL=""
+        APPLY=false
+        MESSAGE=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -s) LEVEL="$2"; shift 2 ;;
+                -a) APPLY=true; shift ;;
+                -m) MESSAGE="$2"; shift 2 ;;
+                -h|--help) usage; exit 0 ;;
+                *) echo "semtag: unknown option: $1" >&2; usage >&2; exit 1 ;;
+            esac
+        done
+        case "$LEVEL" in
+            major|minor|patch) ;;
+            *) echo "semtag: -s must be one of: major, minor, patch" >&2; exit 1 ;;
+        esac
+
+        cur=$(current_tag)
+        cur_stripped=${cur#v}
+        major=$(printf '%s' "$cur_stripped" | cut -d. -f1)
+        minor=$(printf '%s' "$cur_stripped" | cut -d. -f2)
+        patch=$(printf '%s' "$cur_stripped" | cut -d. -f3)
+
+        case "$LEVEL" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+        esac
+
+        next="v${major}.${minor}.${patch}"
+        printf '%s\n' "$next"
+
+        if [ "$APPLY" = true ]; then
+            if [ -n "$MESSAGE" ]; then
+                git tag -a "$next" -m "$MESSAGE"
+            else
+                git tag "$next"
+            fi
+            echo "semtag: created tag $next" >&2
+        fi
+        ;;
+    -h|--help)
+        usage
+        ;;
+    *)
+        echo "semtag: unknown command: $COMMAND" >&2
+        usage >&2
+        exit 1
+        ;;
+esac

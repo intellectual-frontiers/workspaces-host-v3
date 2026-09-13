@@ -1,0 +1,30 @@
+/*
+  Copy this file to ~/.config/workspaces-host/local.nix (outside this
+  repository) for advanced, per-machine Nix-level customization the
+  plain credentials file (see README's "Setting up your credentials"
+  section) doesn't cover. Only the `current` profile picks this up
+  (`home-manager switch --flake .#current --impure`, what
+  `workspaces-host-update` and install.sh both use) - `default` and
+  every other fixed-identity profile `nix flake check` builds are
+  completely unaffected by this file's presence or absence.
+
+  Most people never need this file at all.
+*/
+{ ... }:
+
+{
+  # Override git identity at the Nix level instead of via the
+  # credentials file (rarely needed - the credentials file is the
+  # recommended path for this).
+  # programs.git.userName = "Your Name";
+  # programs.git.userEmail = "you@example.com";
+
+  # Declare an advanced, sops-encrypted secret (see home/secrets.nix).
+  # workspacesHost.secrets.github-token = {
+  #   sopsFile = ./github-token.enc.yaml;
+  #   path = "env/GITHUB_TOKEN";
+  # };
+
+  # Add a package only this machine needs.
+  # home.packages = [ pkgs.some-extra-tool ];
+}

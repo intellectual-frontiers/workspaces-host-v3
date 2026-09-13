@@ -1,20 +1,35 @@
 { pkgs, ... }:
 
 let
-  # mgit, doctor, and workspaces-host-update (pkgs/default.nix) - built as
-  # flake packages, but only actually land on PATH once they're also
-  # listed in home.packages like every other tool here.
+  # mgit, doctor, workspaces-host-update, pgpass, sensitivectl, semtag,
+  # git-standup, git-xargs, specify-cli, backlog-md, scaffold-agent-harness
+  # (pkgs/default.nix) - built as flake packages, but only actually land
+  # on PATH once they're also listed in home.packages like every other
+  # tool here.
   ported = import ../pkgs { inherit pkgs; };
+
+  # cnquery (compliance/observability, spec 006) fetches its source with
+  # fetchFromGitHub, a sandboxed fixed-output derivation build whose own
+  # curl can't TLS-validate an egress proxy the way the outer `nix` CLI
+  # process can (the same class of problem pkgs/specify-cli documents).
+  # builtins.fetchGit, evaluated by that outer process, sidesteps it the
+  # same way; vendorHash is untouched since the fetched tree is
+  # byte-identical to the tagged release archive.
+  cnquery' = pkgs.cnquery.overrideAttrs (_old: {
+    src = builtins.fetchGit {
+      url = "https://github.com/mondoohq/cnquery";
+      rev = "7dee6bd537cb4a04c223a19394726fa8707171e6"; # v11.19.1
+    };
+  });
 in
 {
-  # Everyday CLI tools pinned by the flake's own nixpkgs input (spec 001
-  # FR-007). Kept deliberately small for v3's core: `ripgrep`/`fd` back
-  # fzf's file/dir widgets (home/shell.nix), `jq`/`findutils` back `mgit`
-  # (pkgs/mgit), `eza`/`bat` are the aliased `ls`/`cat` replacements
-  # (home/shell.nix), and `blesh` is bash's syntax-highlighting/
-  # autosuggestion engine sourced directly by store path there - listed
-  # here too so its own helper commands are on PATH for manual use.
   home.packages = (builtins.attrValues ported) ++ (with pkgs; [
+    # Everyday CLI tools (spec 001 FR-007). `ripgrep`/`fd` back fzf's
+    # file/dir widgets (home/shell.nix), `jq`/`findutils` back `mgit`
+    # (pkgs/mgit), `eza`/`bat` are the aliased `ls`/`cat` replacements
+    # (home/shell.nix), and `blesh` is bash's syntax-highlighting/
+    # autosuggestion engine sourced directly by store path there - listed
+    # here too so its own helper commands are on PATH for manual use.
     ripgrep
     fd
     jq
@@ -26,5 +41,24 @@ in
     # "keeping credentials out of git history" (README) alongside a
     # project's own .gitignore and reviewing `git diff --staged`.
     gitleaks
-  ]);
+
+    # Compliance & observability tooling (spec 006) - plain nixpkgs
+    # packages, so they flow in here directly rather than through
+    # pkgs/default.nix's aggregate of this repo's own custom-built tools.
+    steampipe
+    openobserve
+
+    # Bulk multi-repo git tooling (spec 011) - a plain nixpkgs package,
+    # so it flows in here directly. git-extras bundles its own
+    # `bin/git-standup`, which collides with this repo's own, already-
+    # ported `pkgs/git-standup`; lowPrio makes that one lose the
+    # collision rather than failing the build - every other git-extras
+    # subcommand is unaffected.
+    (lib.lowPrio git-extras)
+  ] ++ [ cnquery' ])
+  # osquery is nixpkgs-packaged Linux-only (meta.platforms = platforms.linux
+  # at pkgs/tools/system/osquery) - unlike cnquery/steampipe/openobserve
+  # above, referencing it unconditionally would fail to evaluate
+  # home.packages on Darwin, so it's added only where it actually builds.
+  ++ pkgs.lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs.osquery;
 }

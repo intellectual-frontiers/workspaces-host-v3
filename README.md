@@ -20,26 +20,16 @@ requirements each feature implements. This is a from-scratch rewrite of
 same purpose, fresh specs, simplest implementation that satisfies them —
 see the constitution's "Simplicity Over Completeness" principle.
 
-## What's implemented vs. planned
+## What's implemented
 
-The specs under [`specs/001-core-flake-shell`](specs/001-core-flake-shell)
-through [`specs/005-container-parity`](specs/005-container-parity) are
-implemented: the flake/shell base, credentials (including GitHub/GitLab
-tokens), `mgit`, `doctor`/rollback, and container parity.
-
-A few more capabilities v2 had are written up as specs but not yet
-built — sequenced, not lost:
-
-| Spec | Capability |
-| --- | --- |
-| [`006-compliance-observability`](specs/006-compliance-observability) | osquery/cnquery/steampipe/OpenObserve/surveilr |
-| [`007-java-postgres-toolchain`](specs/007-java-postgres-toolchain) | Pinned JDK/Maven, `~/.pgpass`/`pgpass` CLI |
-| [`008-ai-harness-credentials`](specs/008-ai-harness-credentials) | Claude Code/Codex/Gemini CLI/aider install + scoped keys |
-| [`009-prompt-theme-polish`](specs/009-prompt-theme-polish) | Nerd Font install + per-terminal setup instructions |
-| [`010-agent-harness-scaffolding`](specs/010-agent-harness-scaffolding) | `scaffold-agent-harness`, `specify-cli`, `backlog-md` |
-| [`011-bulk-git-tooling`](specs/011-bulk-git-tooling) | `git-extras`, `git-xargs` |
-| [`012-secrets-backup-restore`](specs/012-secrets-backup-restore) | `sensitivectl` (rclone-backed backup/restore) |
-| [`013-local-nix-overrides`](specs/013-local-nix-overrides) | `local.nix` advanced per-machine Nix overrides |
+Every spec under [`specs/`](specs/) (001 through 013) is implemented — the
+full feature set workspaces-host-v2 had, rebuilt fresh: the flake/shell
+base, credentials (including GitHub/GitLab tokens), `mgit`, `doctor`/
+rollback, container parity, compliance/observability tooling, the Java/
+Postgres toolchain, AI coding agent harness credentials, Nerd Font/prompt
+polish, agent-harness project scaffolding, bulk git tooling, secrets
+backup/restore, and advanced `local.nix` overrides. See each spec's
+`spec.md` for its exact requirements.
 
 ## Installation
 
@@ -190,6 +180,10 @@ GIT_EMAIL=you@example.com
 
 GITHUB_TOKEN=ghp_yourToken
 GITLAB_TOKEN=
+
+ANTHROPIC_API_KEY=sk-ant-yourRealKey
+OPENAI_API_KEY=
+GEMINI_API_KEY=
 ```
 ```console
 $ workspaces-host-update
@@ -213,7 +207,8 @@ This file:
   script), writes your git name/email into a file git itself includes
   automatically, and drops each token into a per-command-scoped
   mechanism — a key is only ever visible to the one command that
-  actually needs it (`gh`/`glab`), never the rest of your shell.
+  actually needs it (`gh`/`glab`, or an AI harness CLI — see "Setting up
+  AI harness credentials" below), never the rest of your shell.
 
 **Rotating a token**: edit the same line and run `workspaces-host-update`
 again — no encrypted file to regenerate, no old plaintext left behind.
@@ -276,6 +271,39 @@ simple file. See `home/secrets.nix` for the exact option shape.
 - Get a short-lived token from GitHub/GitLab instead of a permanent one,
   and rotate it the same way, per above.
 
+### Setting up AI harness credentials
+
+Every profile installs `nodejs` (needed by every AI CLI below) and
+`aider-chat` (provider-agnostic, so it works with whichever API key you
+have — already on `PATH`, nothing to install). The fast-moving hosted
+CLIs below aren't packaged in this flake's pinned nixpkgs — install them
+with their own `npm install -g`, same as upstream documents:
+
+```console
+$ npm install -g @anthropic-ai/claude-code   # provides: claude
+$ npm install -g @openai/codex               # provides: codex
+$ npm install -g @google/gemini-cli          # provides: gemini
+$ gh extension install github/gh-copilot     # GitHub Copilot CLI, via gh
+```
+
+`doctor` checks whether each is installed and whether it has a key to
+use. Give one its key by adding it to
+`~/.config/workspaces-host/credentials` (above) and running
+`workspaces-host-update`:
+
+```dotenv
+ANTHROPIC_API_KEY=sk-ant-yourRealKey
+```
+
+`claude`/`codex`/`gemini`/`aider`/`gh`/`glab` each get their own bash
+function of the same name (`home/ai-harness.nix`) that looks for their
+matching key and sets it only for that one invocation — the same
+per-invocation-scoped mechanism as everything else in this file. If a CLI
+supports its own browser-based `login` command instead (Claude Code and
+Gemini CLI both do), that works too — the wrapper is a transparent
+no-op when no matching credential is configured, and `doctor` only warns
+if neither a configured credential nor an existing login is present.
+
 ## Your shell
 
 This setup uses **bash**, not a different shell — on purpose: it's what
@@ -322,6 +350,21 @@ is silenced correctly instead (`disable_notice` in `home/shell.nix`) — a
 cosmetic setting, not a version change. Want a newer oh-my-posh? That's a
 nixpkgs pin bump in this flake, the same as updating any other tool.
 
+### Fonts for the prompt icons
+
+The prompt uses small icons (branch name, folder, a clock, ...) from a
+"Nerd Font" - a regular monospace font with extra symbols added. Every
+profile installs the font file itself (`home/fonts.nix`); this step is
+about telling your actual terminal window to use it, which is a setting
+in the terminal app itself, not something Nix can turn on for you.
+
+- **Check the font is actually there** first: `fc-list | grep "JetBrainsMono Nerd Font Mono"` should print several `.ttf` paths.
+- **The exact font name to pick**: `JetBrainsMono Nerd Font Mono` (also shown as `JetBrainsMono NFM`). Use the **Mono** variant specifically.
+- **On Windows (Windows Terminal)**: the font needs to be installed on the **Windows side** too. Download `JetBrainsMono.zip` from the [Nerd Fonts releases](https://github.com/ryanoasis/nerd-fonts/releases), install the `.ttf` files, then Windows Terminal → Settings → Profiles → Debian → Appearance → Font face → `JetBrainsMono NFM`.
+- **On Linux with GNOME Terminal**: Terminal → Preferences → your profile → Text → uncheck "Use the system fixed-width font" → Custom font → `JetBrainsMono Nerd Font Mono`.
+- **Any other terminal app** (kitty, Alacritty, Konsole, iTerm2, ...): the font is already installed and discoverable system-wide — just set that app's own font setting to the same name.
+- **Check it worked**: close and reopen your terminal window and look at your prompt — actual icons, not boxes or `?` marks.
+
 ## Managing your repos (`mgit`)
 
 Keep every project you work on under one predictable layout:
@@ -346,8 +389,26 @@ submodules and no vendoring.
 `/mnt` note in the Windows/WSL section above. `doctor` checks this for
 both `$HOME` and wherever you're currently standing.
 
-See spec 003 for the full requirements. Bulk changes across many repos at
-once (`git-extras`, `git-xargs`) are planned — see spec 011.
+See spec 003 for the full `mgit` requirements.
+
+### Bulk changes across many repos, and other git helpers
+
+`mgit` (above) governs *which* repos land under `~/workspaces`; a few
+more ported tools help make the same change *across* many of them, or do
+everyday multi-repo git tasks, at once (spec 011):
+
+- **`git-extras`** — a grab-bag of everyday `git <cmd>` subcommands
+  (`git summary`, `git changelog`, `git effort`, `git delete-merged-branches`, ...).
+- **`git-xargs`** ([gruntwork-io/git-xargs](https://github.com/gruntwork-io/git-xargs)) —
+  run a command, or a small Go callback, against many GitHub repos in one
+  shot and open a PR with the results in each:
+  ```console
+  $ git-xargs --repos repo1,repo2,repo3 --branch-name my-fix --commit-message "my fix" -- ./my-script.sh
+  ```
+- **`semtag`** — compute (and optionally apply) the next semantic version
+  git tag: `semtag current`, `semtag final -s minor -a`.
+- **`git-standup`** — list your commits since your last working day,
+  across one or more repos, for daily standups.
 
 ## Checking your environment (`doctor`) and rolling back
 
@@ -359,15 +420,18 @@ Prints one `PASS`/`WARN`/`FAIL` line per check and exits non-zero only if
 something actually failed. Covers: Nix/flakes, home-manager; the shell,
 prompt, and direnv integration, and whether this flake's own pinned bash
 actually is your login shell (not just installed); git and its identity;
-the credentials file's existence and permissions; GitHub/GitLab
-authentication for `gh`/`glab`; SSH key existence and permissions; `mgit`
-and the `~/workspaces` layout; every tool this repository installs;
-common pitfalls easy to hit if you're new to Linux/WSL — working under
-WSL's slower `/mnt` Windows filesystem by mistake (both `$HOME` and
-wherever you're standing), low disk space, a misconfigured locale, a
-plaintext `~/.netrc` with the wrong permissions, an overly permissive
-`umask`, and Docker group membership; and optionally `docker`, for
-building/running this flake's container images.
+the credentials file's existence and permissions; whether an advanced
+`local.nix` override is present (informational either way); GitHub/GitLab
+authentication for `gh`/`glab`; SSH key existence and permissions; common
+pitfalls easy to hit if you're new to Linux/WSL — working under WSL's
+slower `/mnt` Windows filesystem by mistake (both `$HOME` and wherever
+you're standing), low disk space, a misconfigured locale, a plaintext
+`~/.netrc` with the wrong permissions, an overly permissive `umask`, and
+Docker group membership; the AI harness CLIs and whether each has a
+credential configured; `mgit` and the `~/workspaces` layout; every tool
+this repository installs; compliance/observability tooling; PostgreSQL
+and Java toolchain setup; and optionally `docker`, for building/running
+this flake's container images.
 
 If an update ever breaks something, roll back with home-manager's own
 generation mechanism — no separate tooling needed:
@@ -413,6 +477,114 @@ allowlist, then drops to a non-root `agent` user before handing off to the
 workload. Set `FIREWALL_ALLOWED_DOMAINS` to override the default
 allowlist, or `SKIP_FIREWALL=1` as an explicit opt-out on a runtime that
 can't grant `NET_ADMIN`. See spec 005 for details.
+
+## Compliance & observability tooling
+
+This sandbox includes tooling for auditing itself — useful for SOC2 and
+similar compliance requirements, or just for understanding what's
+actually running on the machine. Every profile installs all five, ready
+to use with nothing extra to opt into (spec 006):
+
+- **`osqueryi`** (interactive) / `osqueryd` (daemon) — SQL-queryable
+  operating-system instrumentation. Linux-only (nixpkgs); `doctor` reports
+  this as an informational WARN, not a FAIL, on Darwin.
+- **`cnquery`** — Mondoo's cloud-native, graph-based asset inventory query
+  tool, across cloud/Kubernetes/API resources too, not just the local host.
+- **`steampipe`** — queries cloud, code, and log sources with plain SQL.
+- **`openobserve`** — a self-hostable logs/metrics/traces backend; a
+  binary on `PATH`, not a running service — start it yourself when you
+  actually want to ingest and query telemetry.
+- **`surveilr`** — walks files/databases/APIs and resource-surveils them
+  into a local SQLite database. Upstream only publishes `x86_64` release
+  binaries for Linux and Darwin; `doctor` reports its absence elsewhere as
+  an informational WARN.
+
+None of these run anything by default — they're audit/query tools you
+reach for, not background daemons this repository starts for you.
+
+## PostgreSQL credentials (`~/.pgpass`, `~/.psqlrc`, `pgpass`)
+
+Every profile ships `~/.psqlrc` (a full `psql` client config — colored
+prompt, sane defaults, admin queries like `settings`, `locks`, `dbsize`)
+and bootstraps an empty `~/.pgpass` (mode 600) on first activation (spec
+007). Add connections using a small comment-header convention:
+
+```console
+$ cat >> ~/.pgpass <<'EOF'
+# { id: "MYDB", description: "Purpose", boundary: "Network" }
+localhost:5432:mydb:myuser:mypassword
+EOF
+```
+
+Then look connections up by `id`:
+
+```console
+$ pgpass ls                                    # list every connection's id/description/host
+$ pgpass test                                  # validate the file, reporting any parse issues
+$ eval "$(pgpass env --conn-id=MYDB)"          # export PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD
+$ eval "$(pgpass psql --conn-id=MYDB)"         # runs "psql -h ... -p ... -d ... -U ..." for MYDB
+$ pgpass url --conn-id=MYDB                    # postgres://user:pass@host:port/db
+```
+
+`--conn-id` takes an extended regex, so `--conn-id=".*"` matches every
+connection.
+
+## Java toolchain
+
+Every profile installs a JDK (`java`) and Maven (`mvn`), with
+`JAVA_HOME` already set — no separate version manager needed (spec 007).
+Nix itself already pins reproducible versions for every tool in this
+setup, Java included, so a second version manager on top of it would just
+duplicate that job. Override `home/java.nix`'s `pkgs.jdk`/`pkgs.maven` in
+a fork for a different JDK version or vendor.
+
+## Scaffolding a project for an AI coding agent
+
+`scaffold-agent-harness` (spec 010) copies a fixed template
+(`AGENTS.md`, `.mcp.json`, `.claude/settings.json` + a `SessionStart`
+hook, `.claude/skills/README.md`) into a project directory, never
+overwriting a file that's already there:
+
+```console
+$ cd your-project
+$ scaffold-agent-harness
+```
+
+Every profile also installs `specify` ([GitHub Spec Kit](https://github.com/github/spec-kit))
+and `backlog` ([Backlog.md](https://github.com/MrLesk/Backlog.md)), so a
+scaffolded project can start spec-driven, task-tracked work immediately —
+`specify init` populates `.claude/skills/speckit-*` in the template's
+empty skills directory.
+
+## Backing up sensitive local directories (`sensitivectl`)
+
+For a local directory of genuinely sensitive material you want synced to
+your own remote storage — not the credentials file, which is handled
+above — `sensitivectl` (spec 012) backs it up to, and restores it from,
+any `rclone`-supported remote:
+
+```console
+$ cat ~/.config/workspaces-host/sensitivectl.json
+{ "profiles": { "notes": { "local": "/home/me/Sensitive", "remote": "myremote:backups/sensitive" } } }
+$ sensitivectl backup notes
+$ sensitivectl restore notes
+```
+
+Anything after `--` is passed straight through to the underlying `rclone
+sync` (e.g. `-- --dry-run`). `rclone` itself is configured with your
+remote's credentials out-of-band (`rclone config`) — this repo doesn't
+manage that.
+
+## Advanced: personal Nix-level overrides (`local.nix`)
+
+Most people never need this — the credentials file (above) is the
+recommended way to customize identity and tokens. For a genuinely
+Nix-level personal tweak (an extra package, a `workspacesHost.secrets`
+declaration) that a fork/PR isn't the right fit for, copy
+`local.nix.example` to `~/.config/workspaces-host/local.nix` (spec 013).
+Only the `current` profile picks it up — `default` and every other
+fixed-identity profile `nix flake check` builds are completely
+unaffected by its presence or absence, so it's always safe to have one.
 
 ## Development
 

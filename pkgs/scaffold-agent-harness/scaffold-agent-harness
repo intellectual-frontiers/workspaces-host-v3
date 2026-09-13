@@ -1,0 +1,51 @@
+#!/bin/sh
+# scaffold-agent-harness: materialize workspaces-host-v3's agent-harness
+# convention (AGENTS.md, .mcp.json, .claude/settings.json + hooks +
+# skills/) into a target project directory, without overwriting anything
+# that's already there.
+set -eu
+
+usage() {
+    cat <<'EOF'
+Usage: scaffold-agent-harness [DIR]
+
+Copies the agent-harness template (AGENTS.md, .mcp.json,
+.claude/settings.json, .claude/hooks/session-start.sh,
+.claude/skills/README.md) into DIR (default: current directory).
+
+Existing files are never overwritten - each is reported as "skipped
+(exists)" so you can merge manually if needed.
+EOF
+}
+
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+esac
+
+TARGET="${1:-.}"
+mkdir -p "$TARGET"
+
+if [ -z "${SCAFFOLD_TEMPLATE_DIR:-}" ]; then
+    echo "scaffold-agent-harness: SCAFFOLD_TEMPLATE_DIR is not set (this script is meant to be run via the Nix-wrapped binary)" >&2
+    exit 1
+fi
+
+copy_one() {
+    src="$1"
+    rel="$2"
+    dest="$TARGET/$rel"
+    if [ -e "$dest" ]; then
+        echo "skipped (exists): $rel"
+        return 0
+    fi
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+    [ -x "$src" ] && chmod +x "$dest" || true
+    echo "created: $rel"
+}
+
+cd "$SCAFFOLD_TEMPLATE_DIR"
+find . -type f | while IFS= read -r f; do
+    rel="${f#./}"
+    copy_one "$SCAFFOLD_TEMPLATE_DIR/$rel" "$rel"
+done

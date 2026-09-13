@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Draft (Backlog — not yet implemented; see constitution's spec-tiering policy)
+**Status**: Implemented
 
 **Input**: User description: "sensitivectl tool to back up and restore named local directories to
 and from an rclone remote"

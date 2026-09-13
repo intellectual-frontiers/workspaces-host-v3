@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-13
 
-**Status**: Draft (Backlog — not yet implemented; see constitution's spec-tiering policy)
+**Status**: Implemented
 
 **Input**: User description: "Scoped provisioning of AI coding agent (Claude Code, Codex, etc.)
 credentials so an agent's own API keys follow the same never-unscoped secrets model"
