@@ -839,3 +839,8 @@ the non-negotiable principles, and run `nix flake check` before sending a
 change. A spec that no longer matches the code is worse than no spec — a
 follow-up fix updates that feature's own spec in the same change, not as
 a separate cleanup pass that may never happen.
+
+Prose documentation (this README, any `docs/` guide, a spec's own narrative sections) follows
+[`.specify/memory/writing-style.md`](.specify/memory/writing-style.md) — a spec's Functional
+Requirements/Acceptance Scenarios/Success Criteria stay in SpecKit's own precise, testable
+requirement language instead, per the constitution's "Documentation Voice" principle.

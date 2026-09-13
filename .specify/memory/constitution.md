@@ -45,6 +45,16 @@ belongs in a written spec in the backlog, not in code, until it is actually sche
 implementation. Carrying forward a prior version's tool, workaround, or abstraction MUST be
 justified on its own merits, never by "that's how it was done before."
 
+### VI. Documentation Voice
+All prose documentation this repository publishes for a human to read — `README.md`, any `docs/`
+guide, and the narrative sections of a spec (`Background`, rationale asides, `Assumptions`) — MUST
+follow [`.specify/memory/writing-style.md`](writing-style.md). This does NOT apply to a
+spec's or plan's structured, testable sections (Functional Requirements, Acceptance Scenarios,
+Success Criteria), which MUST stay in SpecKit's own precise, third-person, testable requirement
+language ("The system MUST...") — that precision is what makes a requirement verifiable, and the
+style guide's first-person, conversational voice would undermine it there. A documentation change
+that violates the style guide MUST be fixed in the same change that introduces it, not deferred.
+
 ## Additional Constraints
 
 - **Toolchain**: Nix flakes + home-manager are the single reproducibility engine for this
@@ -86,4 +96,4 @@ templates or guidance that the amendment makes inconsistent.
 All specs and plans MUST verify compliance with this constitution before implementation begins;
 any deviation must be justified in the plan's Complexity Tracking section or rejected.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-13 | **Last Amended**: 2026-09-13
+**Version**: 1.1.0 | **Ratified**: 2026-09-13 | **Last Amended**: 2026-09-13
