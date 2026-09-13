@@ -7,6 +7,11 @@ set -u
 
 FAILED=0
 
+# Where a credential ends up as a plain file named after its own
+# variable - see home/git-hosting.nix and workspaces-host-update. Used
+# by the GitHub/GitLab check below.
+secrets_env_dir="${XDG_STATE_HOME:-$HOME/.local/state}/workspaces-host/secrets/env"
+
 pass() { printf 'PASS  %s\n' "$1"; }
 warn() { printf 'WARN  %s\n' "$1"; }
 fail() { printf 'FAIL  %s\n' "$1"; FAILED=1; }
@@ -59,6 +64,20 @@ if [ -f "$HOME/.bashrc" ] && grep -q "blesh" "$HOME/.bashrc" 2>/dev/null; then
 else
     warn "blesh doesn't appear to be wired into ~/.bashrc (did home-manager switch run?)"
 fi
+if command -v getent >/dev/null 2>&1; then
+    bash_path="$HOME/.nix-profile/bin/bash"
+    login_shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
+    # $SHELL only reflects whatever shell you're actually running right
+    # now (the system's own /bin/bash, if you're reading doctor's
+    # output from a window opened before install.sh's chsh step ran) -
+    # /etc/passwd's own field is the only reliable source for "what
+    # will a brand-new window actually start in."
+    if [ "$login_shell" = "$bash_path" ]; then
+        pass "this flake's own pinned bash ($bash_path) is your login shell"
+    else
+        warn "your login shell is $login_shell, not this flake's pinned bash ($bash_path) - install.sh tries to set this automatically and may have failed (a locked-down /etc, no sudo); fix it yourself with 'chsh -s $bash_path' if you want the exact same bash version as everyone else on this setup"
+    fi
+fi
 
 echo
 echo "-- Git --"
@@ -100,6 +119,135 @@ else
 fi
 
 echo
+echo "-- GitHub/GitLab authentication --"
+check_cmd gh
+if command -v gh >/dev/null 2>&1; then
+    if gh auth status >/dev/null 2>&1; then
+        pass "gh is authenticated"
+    elif [ -f "$secrets_env_dir/GITHUB_TOKEN" ] &&
+        GITHUB_TOKEN="$(cat "$secrets_env_dir/GITHUB_TOKEN")" GH_TOKEN="$(cat "$secrets_env_dir/GITHUB_TOKEN")" \
+            gh auth status >/dev/null 2>&1; then
+        pass "gh is authenticated (via GITHUB_TOKEN in ~/.config/workspaces-host/credentials)"
+    else
+        warn "gh is not authenticated - add GITHUB_TOKEN to ~/.config/workspaces-host/credentials and run 'workspaces-host-update', or run 'gh auth login' directly"
+    fi
+fi
+check_cmd glab
+if command -v glab >/dev/null 2>&1; then
+    if glab auth status >/dev/null 2>&1; then
+        pass "glab is authenticated"
+    elif [ -f "$secrets_env_dir/GITLAB_TOKEN" ] &&
+        GITLAB_TOKEN="$(cat "$secrets_env_dir/GITLAB_TOKEN")" glab auth status >/dev/null 2>&1; then
+        pass "glab is authenticated (via GITLAB_TOKEN in ~/.config/workspaces-host/credentials)"
+    else
+        warn "glab is not authenticated - add GITLAB_TOKEN to ~/.config/workspaces-host/credentials and run 'workspaces-host-update', or run 'glab auth login' directly, if you use GitLab"
+    fi
+fi
+
+echo
+echo "-- Common pitfalls (SSH, WSL, disk, locale, plaintext creds) --"
+
+if [ -d "$HOME/.ssh" ]; then
+    ssh_dir_perm=$(stat -c '%a' "$HOME/.ssh" 2>/dev/null || stat -f '%Lp' "$HOME/.ssh" 2>/dev/null || echo '?')
+    if [ "$ssh_dir_perm" = "700" ]; then
+        pass "~/.ssh exists with mode 700"
+    else
+        warn "~/.ssh exists but mode is $ssh_dir_perm, not 700 - ssh may refuse to use it (chmod 700 ~/.ssh)"
+    fi
+    found_key=0
+    for key in "$HOME"/.ssh/id_*; do
+        [ -f "$key" ] || continue
+        case "$key" in
+        *.pub) continue ;;
+        esac
+        found_key=1
+        key_perm=$(stat -c '%a' "$key" 2>/dev/null || stat -f '%Lp' "$key" 2>/dev/null || echo '?')
+        if [ "$key_perm" = "600" ] || [ "$key_perm" = "400" ]; then
+            pass "$(basename "$key") exists with mode $key_perm"
+        else
+            warn "$(basename "$key") exists but mode is $key_perm, not 600 - ssh will refuse to use it (chmod 600 $key)"
+        fi
+    done
+    [ "$found_key" = "1" ] || warn "no SSH private key found in ~/.ssh (id_ed25519, id_rsa, ...) - 'ssh-keygen -t ed25519' if you use SSH-based git remotes"
+else
+    warn "~/.ssh does not exist - 'ssh-keygen -t ed25519' if you use SSH-based git remotes"
+fi
+
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    case "$HOME" in
+    /mnt/*)
+        warn "\$HOME ($HOME) is under /mnt - that's the Windows filesystem from inside WSL, which is much slower and has permissions quirks; keep your files on the Linux filesystem (e.g. under ~) instead"
+        ;;
+    *)
+        pass "\$HOME is on the Linux filesystem, not a slower /mnt/* Windows mount"
+        ;;
+    esac
+    # A correct $HOME doesn't guarantee every actual repo does too - the
+    # WSL "I/O intensive operation like git" slowness warning happens
+    # wherever you're actually standing when you run git, which is just
+    # as often a project manually cloned/opened under /mnt/c (a habit
+    # left over from before WSL, or a folder opened straight from
+    # Windows Explorer) as it is a misconfigured $HOME.
+    case "$PWD" in
+    /mnt/*)
+        warn "the current directory ($PWD) is under /mnt - that's the Windows filesystem from inside WSL, which is exactly what makes git (and other I/O-heavy commands) slow here; 'mgit ensure' clones repos under ~/workspaces (the Linux filesystem) instead - move or re-clone this one there"
+        ;;
+    *)
+        pass "the current directory is on the Linux filesystem, not a slower /mnt/* Windows mount"
+        ;;
+    esac
+fi
+
+if command -v df >/dev/null 2>&1; then
+    avail_kb=$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}')
+    case "$avail_kb" in
+    '' | *[!0-9]*) ;;
+    *)
+        if [ "$avail_kb" -lt 2097152 ]; then
+            warn "less than 2 GiB free on the filesystem holding \$HOME - if /nix is on the same disk, try 'nix-collect-garbage -d'"
+        else
+            pass "disk space looks fine ($((avail_kb / 1048576)) GiB+ free)"
+        fi
+        ;;
+    esac
+fi
+
+if command -v locale >/dev/null 2>&1 && locale 2>&1 | grep -qi "cannot set"; then
+    warn "locale is misconfigured (locale(1) reports it cannot set LC_*) - common on a fresh Debian/WSL install; 'sudo apt install -y locales && sudo dpkg-reconfigure locales', or add 'export LANG=C.UTF-8' to your shell config"
+else
+    pass "locale looks configured correctly"
+fi
+
+if [ -f "$HOME/.netrc" ]; then
+    netrc_perm=$(stat -c '%a' "$HOME/.netrc" 2>/dev/null || stat -f '%Lp' "$HOME/.netrc" 2>/dev/null || echo '?')
+    if [ "$netrc_perm" != "600" ]; then
+        warn "~/.netrc exists with mode $netrc_perm, not 600 - it likely holds plaintext credentials readable by others (chmod 600 ~/.netrc); prefer 'gh auth login' or a GITHUB_TOKEN in ~/.config/workspaces-host/credentials instead"
+    else
+        warn "~/.netrc exists - if it holds real credentials, prefer 'gh auth login' or ~/.config/workspaces-host/credentials over a hand-maintained ~/.netrc"
+    fi
+fi
+
+current_umask=$(umask)
+case "$current_umask" in
+0000 | 000)
+    warn "umask is $current_umask (new files are world-writable by default) - add 'umask 022' to your shell config"
+    ;;
+*)
+    pass "umask is $current_umask"
+    ;;
+esac
+
+if command -v docker >/dev/null 2>&1; then
+    if [ "$(id -u)" = "0" ]; then
+        pass "running as root (docker group membership doesn't apply)"
+    elif id -nG 2>/dev/null | grep -qw docker; then
+        pass "you're in the 'docker' group (docker commands don't need sudo)"
+    else
+        warn "docker is installed but you're not in the 'docker' group - 'sudo usermod -aG docker \$USER' then log out and back in avoids needing sudo for every docker command"
+    fi
+fi
+
+echo
 echo "-- Workspace repo management (~/workspaces, mgit) --"
 check_cmd mgit
 if [ -d "$HOME/workspaces" ]; then
@@ -115,7 +263,7 @@ fi
 
 echo
 echo "-- Ported CLI tools (home.packages) --"
-for c in rg fd jq bat eza mgit workspaces-host-update; do
+for c in rg fd jq bat eza gitleaks mgit workspaces-host-update; do
     check_cmd "$c"
 done
 

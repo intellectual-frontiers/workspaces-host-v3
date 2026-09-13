@@ -71,10 +71,22 @@ roll back; confirm the environment matches generation A again.
 
 - **FR-001**: A `doctor` command MUST be installed on `PATH` by the base profile, checking at
   minimum: Nix and flakes enabled; home-manager on `PATH`; the shell, prompt, and direnv
-  integration from spec 001; git on `PATH` and identity configured (WARN, not FAIL, if unset);
-  every tool this repository installs; `mgit` and the workspace layout from spec 003; the
-  credentials file's existence and permissions from spec 002; and `docker` on `PATH` (WARN only —
-  optional, for spec 005's container images).
+  integration from spec 001; whether this flake's own pinned bash is actually the caller's login
+  shell (via the real `/etc/passwd` entry, not `$SHELL`), not just installed; git on `PATH` and
+  identity configured (WARN, not FAIL, if unset); every tool this repository installs; `mgit` and
+  the workspace layout from spec 003; the credentials file's existence and permissions from spec
+  002; GitHub/GitLab authentication for `gh`/`glab` (spec 002 FR-008), counting either an existing
+  login or a configured token as authenticated; and `docker` on `PATH` (WARN only — optional, for
+  spec 005's container images).
+- **FR-001a**: `doctor` MUST also check, all as WARN rather than FAIL since none of them indicate
+  a broken *provisioning*, only an environment worth double-checking: SSH key existence and
+  `~/.ssh`/key file permissions; whether `$HOME` and the caller's current working directory are
+  under `/mnt` on WSL (the Windows filesystem, which is slow and the direct cause of git's own
+  "I/O intensive operation" warning — spec 003's rationale for keeping repos under
+  `~/workspaces`); low free disk space on the filesystem holding `$HOME`; a misconfigured locale;
+  a plaintext `~/.netrc` with the wrong permissions; an overly permissive `umask`; and, when
+  `docker` is installed, whether the caller can use it without `sudo` (root, or in the `docker`
+  group).
 - **FR-002**: `doctor` MUST print one PASS/WARN/FAIL line per check, MUST run every check
   regardless of earlier failures, and MUST exit non-zero if and only if at least one check FAILed.
 - **FR-003**: `doctor` MUST NOT be wrapped with a fixed `PATH` at packaging time — it must observe

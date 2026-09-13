@@ -112,6 +112,17 @@ it successfully.
 - **FR-007**: The environment health check (spec 004) MUST report the credentials file's
   existence and permissions, and MUST distinguish "field left blank" from "field still holding
   the placeholder value" as two different WARN messages.
+- **FR-008**: `credentials.example` MUST include `GITHUB_TOKEN`/`GITLAB_TOKEN`, and the base
+  profile MUST install `gh`/`glab`, each wrapped so a configured token is exported only for that
+  CLI's own invocation (the same per-invocation mechanism FR-005 requires) — needed for spec 003's
+  `mgit` to be practically usable against private repositories, not a separate concern.
+- **FR-009**: The base profile MUST install `gitleaks`, so an engineer can scan a repository for
+  accidentally-staged secrets before committing, as a concrete backstop alongside a project's own
+  `.gitignore` and reviewing `git diff --staged`.
+- **FR-010**: Every interactive shell MUST check, at most once per calendar day (tracked via a
+  stamp file, checked in the background so shell startup is never blocked), whether
+  `$WORKSPACES_HOST_REPO`'s `origin/main` has moved, and print an informational nudge naming the
+  commit count and the update command if so — this MUST NOT run the update itself, only inform.
 
 ### Key Entities
 

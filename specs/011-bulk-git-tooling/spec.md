@@ -1,0 +1,65 @@
+# Feature Specification: Bulk Git Tooling
+
+**Feature Branch**: `011-bulk-git-tooling`
+
+**Created**: 2026-09-13
+
+**Status**: Draft (Backlog — not yet implemented; see constitution's spec-tiering policy)
+
+**Input**: User description: "git-extras and git-xargs for making the same change across many
+repos under ~/workspaces at once"
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Land the same fix across many repos in one shot (Priority: P3)
+
+An engineer with several repos under `~/workspaces` (managed by `mgit`, spec 003) wants to apply
+the same script or command to every one of them and open a PR with the results, without a
+hand-written loop.
+
+**Independent Test**: Run the bulk tool against two repos with a trivial script; confirm both get
+a branch, commit, and PR.
+
+**Acceptance Scenarios**:
+
+1. **Given** a list of repos and a script, **When** the engineer runs the bulk-change command,
+   **Then** the script runs against each repo and a PR is opened per repo with the result.
+
+---
+
+### User Story 2 - Everyday multi-repo git shortcuts (Priority: P3)
+
+An engineer wants convenience git subcommands (`git summary`, `git changelog`, `git effort`,
+`git delete-merged-branches`, ...) available without hunting for a separate install.
+
+**Independent Test**: Run `git summary` in any repo and confirm it works with no separate install
+step.
+
+### Edge Cases
+
+- What happens when the bulk-change tool's own `git-standup`-style subcommand name collides with
+  another installed tool that ships a same-named binary? The collision must be resolved
+  predictably (one wins, documented), never a build failure.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+- **FR-001**: The base profile MUST install `git-extras`, a grab-bag of everyday `git <cmd>`
+  subcommands.
+- **FR-002**: The flake MUST package `git-xargs` (fetched from its GitHub releases for the
+  current system) and include it in the base profile's installed packages, to run a command or a
+  small callback against many GitHub repos at once and open a PR with the results in each.
+- **FR-003**: The environment health check (spec 004) MUST report both tools on `PATH`.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: An engineer can apply and PR the same change across 3+ repos with one command,
+  without writing a custom loop script.
+
+## Assumptions
+
+- `git-xargs`'s own documented flag set (repo selection, dry-run, PR title/body) is used as-is;
+  this spec only makes sure the binary is on `PATH`, not a wrapper around it.

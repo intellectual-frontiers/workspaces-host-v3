@@ -21,5 +21,10 @@ in
     bat
     eza
     blesh
+    # Scans a repo for anything that looks like a committed secret -
+    # `gitleaks detect --source . -v` - the practical backstop for
+    # "keeping credentials out of git history" (README) alongside a
+    # project's own .gitignore and reviewing `git diff --staged`.
+    gitleaks
   ]);
 }

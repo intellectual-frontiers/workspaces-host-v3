@@ -8,6 +8,7 @@
     ./tools.nix
     ./secrets.nix
     ./workspaces.nix
+    ./git-hosting.nix
   ];
 
   # home.username, home.homeDirectory, and home.stateVersion are supplied by

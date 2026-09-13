@@ -31,6 +31,34 @@
       (lib.mkOrder 10 ''
         source ${pkgs.blesh}/share/blesh/ble.sh --attach=none
       '')
+
+      ''
+        # Once a day, if $WORKSPACES_HOST_REPO is a real clone, check (in
+        # the background, so shell startup is never blocked or slowed by
+        # a network call) whether origin/main has moved and nudge the
+        # engineer to run workspaces-host-update - informational only,
+        # it never runs git pull/home-manager switch itself.
+        if [ -d "$WORKSPACES_HOST_REPO/.git" ]; then
+          state_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/workspaces-host"
+          stamp="$state_dir/last-update-check"
+          mkdir -p "$state_dir"
+          today=$(date +%Y-%m-%d)
+          last=""
+          [ -f "$stamp" ] && last=$(cat "$stamp")
+          if [ "$today" != "$last" ]; then
+            echo "$today" >"$stamp"
+            (
+              git -C "$WORKSPACES_HOST_REPO" fetch --quiet origin main 2>/dev/null || exit 0
+              behind=$(git -C "$WORKSPACES_HOST_REPO" rev-list --count HEAD..origin/main 2>/dev/null)
+              if [ -n "$behind" ] && [ "$behind" != "0" ]; then
+                echo "workspaces-host-v3: $behind commit(s) behind origin/main - run workspaces-host-update to pick up new features" >&2
+              fi
+            ) &
+            disown
+          fi
+        fi
+      ''
+
       (lib.mkOrder 2000 ''
         [[ ! ''${BLE_VERSION-} ]] || ble-attach
       '')
