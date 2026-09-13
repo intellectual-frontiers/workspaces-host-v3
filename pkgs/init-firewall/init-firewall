@@ -1,0 +1,71 @@
+#!/bin/sh
+# init-firewall: default-deny outbound network egress except an allowlist
+# of domains, modeled on Anthropic's reference Claude Code devcontainer
+# firewall (github.com/anthropics/claude-code's .devcontainer/init-firewall.sh).
+#
+# Must run as root (iptables/ipset need CAP_NET_ADMIN + CAP_NET_RAW),
+# before the workload drops to a non-root user - see
+# oci/sandboxed-entrypoint.sh.
+set -eu
+
+CHAIN=WORKSPACES-HOST-EGRESS
+SET=workspaces-host-allowed
+
+DEFAULT_ALLOWLIST="api.anthropic.com github.com objects.githubusercontent.com raw.githubusercontent.com registry.npmjs.org pypi.org files.pythonhosted.org cache.nixos.org releases.nixos.org"
+
+ALLOWLIST="${FIREWALL_ALLOWED_DOMAINS:-$DEFAULT_ALLOWLIST}"
+
+echo "init-firewall: allowlisted domains: $ALLOWLIST" >&2
+
+ipset destroy "$SET" 2>/dev/null || true
+ipset create "$SET" hash:net
+
+resolved_any=false
+for domain in $ALLOWLIST; do
+    ips=$(getent ahostsv4 "$domain" 2>/dev/null | awk '{print $1}' | sort -u || true)
+    if [ -z "$ips" ]; then
+        echo "init-firewall: warning: could not resolve $domain, skipping" >&2
+        continue
+    fi
+    for ip in $ips; do
+        ipset add "$SET" "$ip" 2>/dev/null || true
+        resolved_any=true
+    done
+done
+
+if [ "$resolved_any" = false ]; then
+    echo "init-firewall: no allowlisted domain resolved - refusing to enable a firewall with an empty allowlist (that would be indistinguishable from no firewall at all if misconfigured, or a total network lockout if not)" >&2
+    exit 1
+fi
+
+# Dedicated chain so this can be re-run idempotently without disturbing
+# any other OUTPUT rules the image might have.
+iptables -N "$CHAIN" 2>/dev/null || iptables -F "$CHAIN"
+iptables -D OUTPUT -j "$CHAIN" 2>/dev/null || true
+iptables -I OUTPUT -j "$CHAIN"
+
+iptables -A "$CHAIN" -o lo -j ACCEPT
+iptables -A "$CHAIN" -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A "$CHAIN" -p udp --dport 53 -j ACCEPT
+iptables -A "$CHAIN" -p tcp --dport 53 -j ACCEPT
+iptables -A "$CHAIN" -m set --match-set "$SET" dst -j ACCEPT
+iptables -A "$CHAIN" -j DROP
+
+echo "init-firewall: rules applied, running self-check" >&2
+
+# Self-check: a non-allowlisted domain must fail, and an allowlisted one
+# must succeed - if either assumption is violated, the firewall isn't
+# doing what it claims, so fail loudly rather than let a silent bug
+# masquerade as security.
+if curl -s -m 5 -o /dev/null "https://example.com" 2>/dev/null; then
+    echo "init-firewall: self-check FAILED - a non-allowlisted domain (example.com) was reachable" >&2
+    exit 1
+fi
+
+first_domain=$(echo "$ALLOWLIST" | awk '{print $1}')
+if ! curl -s -m 5 -o /dev/null "https://$first_domain"; then
+    echo "init-firewall: self-check FAILED - allowlisted domain ($first_domain) was NOT reachable" >&2
+    exit 1
+fi
+
+echo "init-firewall: self-check passed - egress is default-deny with $(echo "$ALLOWLIST" | wc -w) domain(s) allowed" >&2

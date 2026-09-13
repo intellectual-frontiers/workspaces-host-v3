@@ -1,0 +1,128 @@
+#!/bin/sh
+# workspaces-host-update: pull the latest workspaces-host-v3, wire up
+# your credentials file (git identity, tokens - see
+# ~/.config/workspaces-host/credentials and README's "Setting up your
+# credentials" section), re-activate, and check everything is OK. One
+# command instead of remembering "cd, git pull, edit some Nix,
+# home-manager switch --flake ..., doctor".
+set -eu
+
+# Some shells/environments don't export $USER even though `whoami` works
+# - the `current` profile below needs it to pick up your real identity
+# instead of the fixed "workspace" test identity.
+: "${USER:=$(whoami)}"
+export USER
+
+REPO="${WORKSPACES_HOST_REPO:-$HOME/.workspaces-host-v3}"
+PROFILE="${WORKSPACES_HOST_PROFILE:-current}"
+
+if [ ! -d "$REPO/.git" ]; then
+    cat >&2 <<EOF
+workspaces-host-update: no git repo at $REPO
+
+Set WORKSPACES_HOST_REPO to wherever you cloned workspaces-host-v3 (e.g.
+in your bash config: export WORKSPACES_HOST_REPO=~/path/to/workspaces-host-v3),
+or clone it to the default location:
+  git clone https://github.com/intellectual-frontiers/workspaces-host-v3.git "$REPO"
+EOF
+    exit 1
+fi
+
+echo "workspaces-host-update: pulling $REPO ..." >&2
+git -C "$REPO" pull --ff-only
+
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+CREDENTIALS_FILE="$CONFIG_HOME/workspaces-host/credentials"
+SECRETS_DIR="$STATE_HOME/workspaces-host/secrets"
+SECRETS_ENV_DIR="$SECRETS_DIR/env"
+GIT_IDENTITY_FILE="$CONFIG_HOME/workspaces-host/git-identity"
+
+# First run: hand the engineer a template to fill in, rather than
+# silently proceeding with no identity configured. Copied from this
+# checkout, not embedded here twice, so it can never drift from
+# credentials.example.
+if [ ! -f "$CREDENTIALS_FILE" ]; then
+    mkdir -p "$(dirname "$CREDENTIALS_FILE")"
+    cp "$REPO/credentials.example" "$CREDENTIALS_FILE"
+    chmod 600 "$CREDENTIALS_FILE"
+    cat >&2 <<EOF
+
+workspaces-host-update: created $CREDENTIALS_FILE
+
+Open it and fill in your name and email (leave the rest blank) - then
+run workspaces-host-update again.
+EOF
+    exit 0
+fi
+
+# Defensive, not optional: re-assert mode 600 every run, in case an
+# editor, a backup tool, or an inherited umask loosened it.
+chmod 600 "$CREDENTIALS_FILE"
+
+echo "workspaces-host-update: reading $CREDENTIALS_FILE ..." >&2
+mkdir -p "$SECRETS_ENV_DIR"
+chmod 700 "$SECRETS_DIR" "$SECRETS_ENV_DIR"
+
+git_name=""
+git_email=""
+
+# Plain KEY=value parsing, deliberately not `. "$CREDENTIALS_FILE"` -
+# this file is edited by hand and might contain a stray `` ` `` or
+# `$(...)` in a token; sourcing it as shell would execute that. "#"
+# starts a comment, blank lines are skipped, and anything that isn't a
+# bare KEY=value line is silently ignored rather than erroring, so a
+# beginner's typo in this file can't break their whole sandbox.
+while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+    '' | '#'*) continue ;;
+    *=*) ;;
+    *) continue ;;
+    esac
+    key=${line%%=*}
+    value=${line#*=}
+    case "$key" in
+    *[!A-Za-z0-9_]* | '') continue ;;
+    esac
+    # Strip one layer of matching quotes, since many people instinctively
+    # write KEY="a value with spaces" dotenv-style.
+    case "$value" in
+    \"*\") value=${value#\"} value=${value%\"} ;;
+    \'*\') value=${value#\'} value=${value%\'} ;;
+    esac
+    [ -n "$value" ] || continue
+    case "$key" in
+    GIT_NAME) git_name="$value" ;;
+    GIT_EMAIL) git_email="$value" ;;
+    *)
+        umask 077
+        printf '%s' "$value" >"$SECRETS_ENV_DIR/$key.tmp"
+        mv "$SECRETS_ENV_DIR/$key.tmp" "$SECRETS_ENV_DIR/$key"
+        ;;
+    esac
+done <"$CREDENTIALS_FILE"
+
+# home/git.nix's `programs.git.includes` points here unconditionally -
+# git silently ignores an `[include] path` that doesn't exist, so this
+# file simply not existing yet (nothing filled in) is a normal, harmless
+# state, not an error.
+mkdir -p "$(dirname "$GIT_IDENTITY_FILE")"
+if [ -n "$git_name" ] || [ -n "$git_email" ]; then
+    {
+        echo "[user]"
+        [ -n "$git_name" ] && printf '\tname = %s\n' "$git_name"
+        [ -n "$git_email" ] && printf '\temail = %s\n' "$git_email"
+    } >"$GIT_IDENTITY_FILE"
+    chmod 600 "$GIT_IDENTITY_FILE"
+fi
+
+echo "workspaces-host-update: switching to $PROFILE ..." >&2
+home-manager switch --flake "$REPO#$PROFILE" --impure
+
+echo >&2
+echo "workspaces-host-update: checking everything is OK ..." >&2
+if command -v doctor >/dev/null 2>&1; then
+    doctor || true
+else
+    echo "workspaces-host-update: 'doctor' isn't on PATH yet in this shell - open a new shell and run it." >&2
+fi

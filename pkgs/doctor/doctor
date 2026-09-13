@@ -1,0 +1,149 @@
+#!/bin/sh
+# doctor: a slim health check for a workspaces-host-v3 provisioned
+# environment. Prints one PASS/WARN/FAIL line per check; exits non-zero
+# only if something FAILs (a WARN is informational, e.g. "you haven't set
+# your git identity yet" rather than "the environment is broken").
+set -u
+
+FAILED=0
+
+pass() { printf 'PASS  %s\n' "$1"; }
+warn() { printf 'WARN  %s\n' "$1"; }
+fail() { printf 'FAIL  %s\n' "$1"; FAILED=1; }
+
+check_cmd() {
+    name="$1"
+    label="${2:-$name}"
+    if command -v "$name" >/dev/null 2>&1; then
+        pass "$label is on PATH ($(command -v "$name"))"
+    else
+        fail "$label is NOT on PATH"
+    fi
+}
+
+echo "workspaces-host doctor"
+echo "======================"
+
+echo
+echo "-- Nix --"
+if command -v nix >/dev/null 2>&1; then
+    pass "nix is on PATH ($(nix --version 2>/dev/null | head -1))"
+    if nix show-config 2>/dev/null | grep -q "experimental-features.*nix-command" && \
+       nix show-config 2>/dev/null | grep -q "experimental-features.*flakes"; then
+        pass "nix-command and flakes experimental features are enabled"
+    else
+        fail "nix-command/flakes experimental features are not both enabled (see README's install instructions)"
+    fi
+else
+    fail "nix is NOT on PATH - none of the checks below can work without it"
+fi
+
+check_cmd home-manager
+
+echo
+echo "-- Shell / prompt / direnv --"
+check_cmd bash
+check_cmd oh-my-posh
+check_cmd direnv
+check_cmd zoxide
+check_cmd fzf
+if command -v direnv >/dev/null 2>&1; then
+    if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/direnv/lib/hm-nix-direnv.sh" ]; then
+        pass "nix-direnv integration file present"
+    else
+        warn "nix-direnv integration file not found (did home-manager switch run?)"
+    fi
+fi
+if [ -f "$HOME/.bashrc" ] && grep -q "blesh" "$HOME/.bashrc" 2>/dev/null; then
+    pass "blesh (bash syntax highlighting/autosuggestions) is wired into ~/.bashrc"
+else
+    warn "blesh doesn't appear to be wired into ~/.bashrc (did home-manager switch run?)"
+fi
+
+echo
+echo "-- Git --"
+check_cmd git
+if command -v git >/dev/null 2>&1; then
+    email=$(git config --get user.email 2>/dev/null || true)
+    case "$email" in
+    "")
+        warn "git user.email is not set"
+        ;;
+    *@example.invalid)
+        warn "git user.email is still the placeholder ($email) - see README's 'Setting up your credentials' section"
+        ;;
+    *)
+        pass "git user.email is set ($email)"
+        ;;
+    esac
+    if command -v delta >/dev/null 2>&1; then
+        if git config --get core.pager 2>/dev/null | grep -q delta; then
+            pass "delta is wired in as git's diff pager"
+        else
+            warn "delta is installed but not set as git's pager (did home-manager switch run?)"
+        fi
+    fi
+fi
+
+echo
+echo "-- Credentials file (~/.config/workspaces-host/credentials) --"
+credentials_file="${XDG_CONFIG_HOME:-$HOME/.config}/workspaces-host/credentials"
+if [ -f "$credentials_file" ]; then
+    cred_perm=$(stat -c '%a' "$credentials_file" 2>/dev/null || stat -f '%Lp' "$credentials_file" 2>/dev/null || echo '?')
+    if [ "$cred_perm" = "600" ]; then
+        pass "~/.config/workspaces-host/credentials exists with mode 600"
+    else
+        warn "~/.config/workspaces-host/credentials exists but mode is $cred_perm, not 600 - run 'workspaces-host-update' to fix it automatically"
+    fi
+else
+    warn "~/.config/workspaces-host/credentials not found - run 'workspaces-host-update' once to create it from a template, then fill it in (see README's 'Setting up your credentials' section)"
+fi
+
+echo
+echo "-- Workspace repo management (~/workspaces, mgit) --"
+check_cmd mgit
+if [ -d "$HOME/workspaces" ]; then
+    pass "~/workspaces exists"
+    if [ -f "$HOME/workspaces/mgit.json" ]; then
+        pass "~/workspaces/mgit.json exists (edit it to declare repos, then run 'mgit ensure')"
+    else
+        warn "~/workspaces/mgit.json not found (did home-manager switch run?)"
+    fi
+else
+    warn "~/workspaces does not exist yet (did home-manager switch run?)"
+fi
+
+echo
+echo "-- Ported CLI tools (home.packages) --"
+for c in rg fd jq bat eza mgit workspaces-host-update; do
+    check_cmd "$c"
+done
+
+echo
+echo "-- Sandbox sync (workspaces-host-update) --"
+if [ -n "${WORKSPACES_HOST_REPO:-}" ]; then
+    if [ -d "$WORKSPACES_HOST_REPO/.git" ]; then
+        pass "\$WORKSPACES_HOST_REPO ($WORKSPACES_HOST_REPO) is a git clone - 'workspaces-host-update' will work"
+    else
+        warn "\$WORKSPACES_HOST_REPO ($WORKSPACES_HOST_REPO) is not a git clone yet - clone workspaces-host-v3 there, or override the variable"
+    fi
+else
+    warn "\$WORKSPACES_HOST_REPO is not set (did home-manager switch run?)"
+fi
+
+echo
+echo "-- Optional: container tooling (spec 005) --"
+if command -v docker >/dev/null 2>&1; then
+    pass "docker is on PATH (needed to run packages.<system>.oci-image*)"
+else
+    warn "docker is not on PATH (only needed to run the OCI images this flake builds, not for the host profile itself)"
+fi
+
+echo
+if [ "$FAILED" = "1" ]; then
+    echo "doctor: one or more checks FAILED - see above"
+    exit 1
+else
+    echo "doctor: all checks passed (WARNs, if any, are informational)"
+    exit 0
+fi

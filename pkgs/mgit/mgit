@@ -1,0 +1,193 @@
+#!/bin/sh
+# mgit: governed multi-repo workspace management under $WORKSPACES_HOME.
+#
+# One dependency-free POSIX-shell tool for the <git-host>/<org>/.../<repo>
+# directory convention: idempotent clone-or-pull, *.mgit.code-workspace
+# symlinking with recursive dependent-repo resolution ("VS Code monorepo"
+# composition), a status report, and a workspace inspection report.
+set -u
+
+WORKSPACES_HOME="${WORKSPACES_HOME:-$HOME/workspaces}"
+MGIT_CONFIG="${MGIT_CONFIG:-$WORKSPACES_HOME/mgit.json}"
+MGIT_VSCODE_WS_PATTERN="${MGIT_VSCODE_WS_PATTERN:-*.mgit.code-workspace}"
+
+usage() {
+    cat <<EOF
+Usage: mgit <command> [args...]
+
+Commands:
+  ensure                 Clone-or-pull every repo in \$MGIT_CONFIG into
+                          \$WORKSPACES_HOME, following the
+                          <git-host>/<org>/.../<repo> convention. Symlinks
+                          any *.mgit.code-workspace files found inside each
+                          repo to the workspace root, and recursively
+                          ensures any repos referenced by that workspace
+                          file's "folders" (VS Code multi-root "monorepo").
+  status [DEPTH]          Report git status (dirty/ahead/behind/no-upstream/
+                          clean) across every repo under \$WORKSPACES_HOME
+                          (DEPTH default 6, deep enough for nested
+                          GitLab group/subgroup layouts).
+  inspect                 List the git managers (github.com, gitlab.*, ...)
+                          and full repo list referenced by every
+                          *.mgit.code-workspace file under \$WORKSPACES_HOME.
+
+Environment:
+  WORKSPACES_HOME         Root of the managed workspace (default: \$HOME/workspaces)
+  MGIT_CONFIG             Repo list (default: \$WORKSPACES_HOME/mgit.json)
+  MGIT_VSCODE_WS_PATTERN  find(1) -name pattern for workspace files
+                          (default: *.mgit.code-workspace)
+
+Config file format (\$MGIT_CONFIG):
+  {
+    "repos": [
+      { "repo": "github.com/org/repo" },
+      { "repo": "github.com/org/other-repo", "fresh": true }
+    ]
+  }
+
+"fresh": true deletes and re-clones an already-cloned repo instead of
+pulling.
+EOF
+}
+
+HANDLED_FILE=$(mktemp)
+trap 'rm -f "$HANDLED_FILE"' EXIT INT TERM
+
+is_handled() {
+    grep -qxF "$1" "$HANDLED_FILE" 2>/dev/null
+}
+
+mark_handled() {
+    printf '%s\n' "$1" >>"$HANDLED_FILE"
+}
+
+# resolve_workspace_deps ABS_REPO_PATH
+# Finds *.mgit.code-workspace files inside a just-cloned/pulled repo,
+# symlinks each to the workspace root, and recursively ensures every repo
+# referenced by that file's .folders[].path.
+resolve_workspace_deps() {
+    abs="$1"
+    find "$abs" -type f -name "$MGIT_VSCODE_WS_PATTERN" 2>/dev/null | while IFS= read -r wsfile; do
+        name=$(basename "$wsfile")
+        target="$WORKSPACES_HOME/$name"
+        rel=$(realpath --relative-to="$WORKSPACES_HOME" "$wsfile")
+        echo "mgit:   symlinking $name -> $rel" >&2
+        rm -f "$target"
+        ln -s "$rel" "$target"
+
+        jq -r '.folders[]?.path // empty' "$wsfile" 2>/dev/null | while IFS= read -r dep; do
+            [ -n "$dep" ] || continue
+            ensure_repo "$dep" "false"
+        done
+    done
+}
+
+# ensure_repo REPO_PATH FRESH
+ensure_repo() {
+    repo_path="$1"
+    fresh="$2"
+    abs="$WORKSPACES_HOME/$repo_path"
+
+    is_handled "$abs" && return 0
+    mark_handled "$abs"
+
+    if [ -d "$abs" ]; then
+        if [ "$fresh" = "true" ]; then
+            echo "mgit: $repo_path found, forcing re-clone (removing $abs)" >&2
+            rm -rf "$abs"
+        else
+            echo "mgit: $repo_path found, pulling latest" >&2
+            if git -C "$abs" pull --quiet; then
+                resolve_workspace_deps "$abs"
+            else
+                echo "mgit: pull failed for $repo_path" >&2
+            fi
+            return 0
+        fi
+    fi
+
+    mkdir -p "$(dirname "$abs")"
+    echo "mgit: $repo_path not found, cloning" >&2
+    if git clone --quiet "https://$repo_path" "$abs"; then
+        resolve_workspace_deps "$abs"
+    else
+        echo "mgit: clone failed for $repo_path (not a valid managed git URL?)" >&2
+    fi
+}
+
+cmd_ensure() {
+    [ -f "$MGIT_CONFIG" ] || {
+        echo "mgit: no config at $MGIT_CONFIG - see 'mgit --help' for the format" >&2
+        exit 1
+    }
+    mkdir -p "$WORKSPACES_HOME"
+    jq -c '.repos[]' "$MGIT_CONFIG" | while IFS= read -r entry; do
+        repo=$(printf '%s' "$entry" | jq -r '.repo')
+        fresh=$(printf '%s' "$entry" | jq -r '.fresh // false')
+        ensure_repo "$repo" "$fresh"
+    done
+}
+
+# report_repo_status ABS_REPO_PATH
+report_repo_status() {
+    repo="$1"
+    branch=$(git -C "$repo" symbolic-ref --short -q HEAD || echo "(detached)")
+    status_flags=""
+
+    if [ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+        status_flags="dirty"
+    fi
+
+    upstream=$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    if [ -z "$upstream" ]; then
+        status_flags="${status_flags:+$status_flags, }no-upstream"
+    else
+        counts=$(git -C "$repo" rev-list --left-right --count "$upstream...HEAD" 2>/dev/null || printf '0\t0')
+        behind=$(printf '%s' "$counts" | cut -f1)
+        ahead=$(printf '%s' "$counts" | cut -f2)
+        [ "$ahead" != "0" ] && status_flags="${status_flags:+$status_flags, }ahead $ahead"
+        [ "$behind" != "0" ] && status_flags="${status_flags:+$status_flags, }behind $behind"
+    fi
+
+    [ -z "$status_flags" ] && status_flags="clean"
+
+    printf '%-45s [%s] %s\n' "$repo" "$branch" "$status_flags"
+}
+
+cmd_status() {
+    depth="${1:-6}"
+    find "$WORKSPACES_HOME" -maxdepth "$depth" -name .git -type d 2>/dev/null | while IFS= read -r gitdir; do
+        report_repo_status "$(dirname "$gitdir")"
+    done
+}
+
+cmd_inspect() {
+    repos=$(mktemp)
+    find "$WORKSPACES_HOME" -type f -name "$MGIT_VSCODE_WS_PATTERN" 2>/dev/null | while IFS= read -r wsfile; do
+        jq -r '.folders[]?.path // empty' "$wsfile" 2>/dev/null
+    done | sort -u >"$repos"
+
+    echo "Git Managers:"
+    cut -d/ -f1 "$repos" | sort -u | sed 's/^/  - /'
+    echo "All mgit repos referenced by *.mgit.code-workspace files:"
+    sed 's/^/  - /' "$repos"
+    rm -f "$repos"
+}
+
+[ $# -ge 1 ] || {
+    usage >&2
+    exit 1
+}
+cmd="$1"
+shift
+case "$cmd" in
+ensure) cmd_ensure "$@" ;;
+status) cmd_status "$@" ;;
+inspect) cmd_inspect "$@" ;;
+-h | --help) usage ;;
+*)
+    echo "mgit: unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
