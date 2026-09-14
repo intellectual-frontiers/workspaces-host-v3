@@ -10,11 +10,14 @@
 /* workspaces-host-v3 documentation site. One HTML shell (nav, chrome,
    the router below); the content for every page is a plain Markdown
    file under content/<tier>/<page>.md, fetched and rendered at
-   navigation time by vendor/marked.js - the one JS dependency this
-   site has, vendored (not loaded from a live CDN) so the site has no
-   third-party dependency at request time. This makes JavaScript
-   load-bearing for reading content (a deliberate tradeoff - see spec
-   018's Background for why). */
+   navigation time by vendor/marked.js. A second vendored library,
+   vendor/mermaid.min.js, renders diagrams on the few pages that have
+   one - it is loaded lazily, only when a page actually needs it (see
+   ensureMermaidLoaded below), since it is far too large to ship on
+   every page. Both are vendored (not loaded from a live CDN) so the
+   site has no third-party dependency at request time. This means
+   JavaScript is required to read any content (a deliberate tradeoff -
+   see spec 018's Background for why). */
 
 :root {
   --bg: #ffffff;
@@ -148,6 +151,10 @@ kbd {
   padding: 40px 24px 80px;
 }
 
+.page.no-sidebar {
+  grid-template-columns: 1fr;
+}
+
 .page-hero {
   max-width: 1040px;
   margin: 0 auto;
@@ -178,6 +185,57 @@ kbd {
 
 .mascot-wide {
   max-width: 780px;
+}
+
+/* ---------- splash page ---------- */
+
+#content.splash-content {
+  max-width: none;
+}
+
+.splash-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 8px 0 40px;
+}
+
+.splash-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 28px 26px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  text-decoration: none;
+}
+
+.splash-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.splash-btn-title {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.splash-btn-desc {
+  color: var(--text-soft);
+  font-size: 0.96em;
+  line-height: 1.5;
+}
+
+.splash-secondary {
+  display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .splash-buttons {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sidebar {
@@ -397,6 +455,23 @@ pre code {
   border-color: var(--accent);
 }
 
+/* ---------- Mermaid diagrams ---------- */
+
+.mermaid {
+  margin: 1.4em 0;
+  padding: 16px;
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
 /* ---------- callouts (from > [!TIP] / [!NOTE] / [!WARNING] etc.) ---------- */
 
 .callout {
@@ -538,7 +613,7 @@ footer.site-footer a {
 
 <nav class="site-nav">
   <div class="site-nav-inner">
-    <a class="brand" href="#getting-started/install"><img src="logo.png" alt="" width="128" height="128">Workspaces Host</a>
+    <a class="brand" href="#home"><img src="logo.png" alt="" width="128" height="128">Workspaces Host</a>
     <a class="nav-link" data-tier="getting-started" href="#getting-started/install">Getting Started</a>
     <a class="nav-link" data-tier="day-to-day" href="#day-to-day/personas">Day to Day</a>
     <a class="nav-link" data-tier="going-further" href="#going-further/local-nix">Going Further</a>
@@ -578,7 +653,7 @@ footer.site-footer a {
     "getting-started": {
       title: "Getting Started",
       lede: "Pick your platform. Run the commands. You'll have a working shell in a few minutes.",
-      mascot: { src: "mascot.jpg", alt: "Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned 'Same reproducible workspace everywhere.'", width: 900, height: 688, wide: false },
+      mascot: null,
       pages: [
         { slug: "install", title: "Install", file: "content/getting-started/install.md" },
         { slug: "first-day", title: "Verify it worked & your first day", file: "content/getting-started/first-day.md" }
@@ -587,7 +662,7 @@ footer.site-footer a {
     "day-to-day": {
       title: "Day to Day",
       lede: "Already installed? Here's what you'll actually reach for, day to day.",
-      mascot: { src: "mascot-workflows.jpg", alt: "Workhorse in Action: the mascot horse illustrated across eight everyday tasks - Develop, Explore, Guide, Automate, Recharge, Adapt, Stay Secure, and Go Further - captioned 'Different tasks. Same reliable companion.'", width: 1000, height: 485, wide: true },
+      mascot: null,
       pages: [
         { slug: "personas", title: "Combine personas for your role", file: "content/day-to-day/personas.md" },
         { slug: "credentials", title: "Authenticate & manage credentials", file: "content/day-to-day/credentials.md" },
@@ -620,10 +695,57 @@ footer.site-footer a {
     }
   };
 
-  var DEFAULT_HASH = "getting-started/install";
   var TIER_ORDER = ["getting-started", "day-to-day", "going-further", "faq"];
   var contentCache = {};
   var currentTier = null;
+
+  // The splash page (empty hash, or "#home"): the mascot's hero
+  // illustration plus one big button per tier, nothing else - the
+  // large graphics live only here now, so every content page stays
+  // lean. Each button's target is that tier's own first page.
+  var HOME_LINKS = [
+    { tierId: "getting-started", desc: "Install and get a working shell in a few minutes." },
+    { tierId: "day-to-day", desc: "Personas, credentials, repos, and everything you'll reach for daily." },
+    { tierId: "going-further", desc: "A light number of real advanced use cases, once the basics are second nature." },
+    { tierId: "faq", desc: "Why this repository works the way it does, and what it grew out of." }
+  ];
+
+  function renderHomePage() {
+    currentTier = null;
+
+    document.querySelectorAll(".nav-link").forEach(function (a) {
+      a.classList.remove("current");
+    });
+
+    var hero = document.getElementById("page-hero");
+    hero.innerHTML =
+      '<img class="mascot" src="mascot.jpg" alt="Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned \'Same reproducible workspace everywhere.\'" width="900" height="688">' +
+      "<h1>Workspaces Host</h1>" +
+      '<p class="lede">Same reproducible workspace everywhere. Pick where to start.</p>';
+
+    document.querySelector(".page").classList.add("no-sidebar");
+    document.getElementById("sidebar").innerHTML = "";
+
+    var content = document.getElementById("content");
+    content.classList.add("splash-content");
+    var html = '<div class="splash-buttons">';
+    HOME_LINKS.forEach(function (link) {
+      var tier = MANIFEST[link.tierId];
+      var firstPage = tier.pages[0];
+      html +=
+        '<a class="splash-btn" href="#' + link.tierId + "/" + firstPage.slug + '">' +
+        '<span class="splash-btn-title">' + tier.title + "</span>" +
+        '<span class="splash-btn-desc">' + link.desc + "</span>" +
+        "</a>";
+    });
+    html += "</div>";
+    html +=
+      '<img class="mascot mascot-wide splash-secondary" src="mascot-workflows.jpg" alt="Workhorse in Action: the mascot horse illustrated across eight everyday tasks - Develop, Explore, Guide, Automate, Recharge, Adapt, Stay Secure, and Go Further - captioned \'Different tasks. Same reliable companion.\'" width="1000" height="485">';
+    content.innerHTML = html;
+
+    document.title = "Workspaces Host";
+    window.scrollTo(0, 0);
+  }
 
   function findPage(tierId, pageSlug) {
     var tier = MANIFEST[tierId];
@@ -679,15 +801,20 @@ footer.site-footer a {
 
   function parseHash() {
     var raw = location.hash.replace(/^#/, "");
+    if (raw === "" || raw === "home") {
+      return { isHome: true };
+    }
     var parts = raw.split("/");
     var tierId = parts[0] || "";
     var pageSlug = parts[1] || "";
     var headingSlug = parts[2] || "";
     if (!MANIFEST[tierId] || !findPage(tierId, pageSlug)) {
-      var def = DEFAULT_HASH.split("/");
-      return { tierId: def[0], pageSlug: def[1], headingSlug: "" };
+      // An unrecognized hash (a typo, a stale bookmark) falls back to
+      // the splash page - the site's own front door - rather than
+      // guessing which tier the reader meant.
+      return { isHome: true };
     }
-    return { tierId: tierId, pageSlug: pageSlug, headingSlug: headingSlug };
+    return { tierId: tierId, pageSlug: pageSlug, headingSlug: headingSlug, isHome: false };
   }
 
   // GitHub-style alert blockquotes: `> [!TIP] ...` / `[!NOTE]` /
@@ -793,6 +920,60 @@ footer.site-footer a {
     hero.innerHTML = html;
   }
 
+  // vendor/mermaid.min.js is ~5.5MB - real, since it bundles its own
+  // layout engines, but far too much to load on every page when most
+  // pages have no diagram at all. Loaded once, lazily, only the first
+  // time a page actually needs it; cached after that for the rest of
+  // the session.
+  var mermaidLoadPromise = null;
+  function ensureMermaidLoaded() {
+    if (!mermaidLoadPromise) {
+      mermaidLoadPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement("script");
+        script.src = "vendor/mermaid.min.js";
+        script.onload = function () {
+          mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "strict" });
+          resolve();
+        };
+        script.onerror = function () {
+          mermaidLoadPromise = null;
+          reject(new Error("could not load vendor/mermaid.min.js"));
+        };
+        document.head.appendChild(script);
+      });
+    }
+    return mermaidLoadPromise;
+  }
+
+  // A fenced ```mermaid block renders as <pre><code
+  // class="language-mermaid">...</code></pre>; mermaid itself expects
+  // a plain <div class="mermaid"> holding the raw diagram source, so
+  // this swaps the two before handing the page's diagrams to
+  // mermaid.run(). Skipped entirely (no library ever loads) on a page
+  // with no diagram.
+  function renderMermaidBlocks(root) {
+    var blocks = root.querySelectorAll("code.language-mermaid");
+    if (!blocks.length) return;
+    var diagrams = [];
+    blocks.forEach(function (code) {
+      var pre = code.closest("pre");
+      var div = document.createElement("div");
+      div.className = "mermaid";
+      div.textContent = code.textContent;
+      pre.replaceWith(div);
+      diagrams.push(div);
+    });
+    ensureMermaidLoaded()
+      .then(function () {
+        return mermaid.run({ nodes: diagrams });
+      })
+      .catch(function (err) {
+        diagrams.forEach(function (d) {
+          d.outerHTML = '<p class="content-error">Diagram failed to render (' + err.message + ").</p>";
+        });
+      });
+  }
+
   // Re-run on every render: wraps each <pre> in a .code-block and adds
   // a Copy button. Purely additive - every block is already plain,
   // selectable text without it.
@@ -842,6 +1023,17 @@ footer.site-footer a {
 
   function render() {
     var loc = parseHash();
+
+    if (loc.isHome) {
+      renderHomePage();
+      return;
+    }
+
+    // Coming from the splash page (or back to a real page after it):
+    // undo its single-column, no-large-graphic layout.
+    document.querySelector(".page").classList.remove("no-sidebar");
+    document.getElementById("content").classList.remove("splash-content");
+
     var tier = MANIFEST[loc.tierId];
     var page = findPage(loc.tierId, loc.pageSlug);
 
@@ -859,6 +1051,7 @@ footer.site-footer a {
         content.innerHTML = marked.parse(markdown);
         applyCallouts(content);
         var toc = buildPageToc(content);
+        renderMermaidBlocks(content);
         enhanceCodeBlocks(content);
         content.insertAdjacentHTML("beforeend", renderPager(loc.tierId, loc.pageSlug));
         renderSidebar(loc.tierId, loc.pageSlug, toc);

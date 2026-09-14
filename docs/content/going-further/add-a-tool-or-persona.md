@@ -2,6 +2,15 @@
 
 Does every engineer need this on day one, or only someone doing a specific kind of work? The base profile (`home/`) answers the first question; a persona (`home/profiles/`) answers the second. That's Constitution Principle V, simplicity over completeness, applied directly - see [Why the base profile stays small](#faq/faq/why-personas) for the full reasoning.
 
+```mermaid
+flowchart TD
+  Q{Does every engineer<br>need this on day one?}
+  Q -->|Yes| Base[Add to the base profile<br>home/]
+  Q -->|No| Fit{Fits an existing<br>persona's concern?}
+  Fit -->|Yes| Extend[Extend that persona<br>home/profiles/name.nix]
+  Fit -->|No| New[Write a new persona<br>home/profiles/new-name.nix]
+```
+
 ## Adding a tool everyone needs
 
 Add the package to the right shared module under `home/` - `tools.nix` for a plain everyday CLI, or its own file if it needs real configuration (the way `git.nix`, `ai-harness.nix`, and `secrets.nix` each own one concern). A one-line addition:

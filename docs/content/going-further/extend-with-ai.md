@@ -17,6 +17,13 @@ Every feature in this repository follows [GitHub Spec Kit](https://github.com/gi
 
 Specs are tiered: **core** (001&ndash;005) is the minimum that has to exist for the "same environment everywhere" promise to hold at all; everything else is **backlog**, specified in full but only implemented once actually scheduled. A backlog spec has to stand on its own: implementable without rewriting a core spec.
 
+```mermaid
+flowchart LR
+  Spec["spec.md<br>(what and why)"] --> Plan["plan.md<br>(how, mapped to this repo)"]
+  Plan --> Code["code"]
+  Code -.->|"a change that breaks<br>a spec's claim"| Spec
+```
+
 ## Rules for an agent changing this repository
 
 1. **Read the constitution before changing anything.** It's short, and it answers most "should this go here" questions before you have to ask them.

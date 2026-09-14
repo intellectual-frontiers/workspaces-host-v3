@@ -1,5 +1,13 @@
 Both this repository's container images and its CI checks build from the exact same evaluated home-manager configuration as your host profile - not a hand-maintained Dockerfile or CI script that could quietly drift from what you actually run day to day (Constitution Principle IV: container and cloud-harness parity is required, not optional).
 
+```mermaid
+flowchart TD
+  Flake["flake.nix<br>(one evaluated config)"] --> Host["your host profile"]
+  Flake --> Image["oci-image"]
+  Flake --> Sandboxed["oci-image-sandboxed<br>(+ firewall, non-root)"]
+  Flake --> CI["CI checks"]
+```
+
 ## Building the container images
 
 ```

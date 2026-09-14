@@ -14,6 +14,13 @@ The base profile stays small: your shell, git, credentials, `ws-repos`, and AI c
 
 Personas are additive and they combine: everything the base profile gives you is still there, plus every persona's extras, plus each other's. Activate none and nothing changes. Activate `backend` and `fish` both, and every future `workspaces-host-update` builds both together, automatically, for as long as you keep them activated.
 
+```mermaid
+flowchart LR
+  A["ws-persona activate backend"] --> F["~/.config/workspaces-host/personas"]
+  F --> U["workspaces-host-update"]
+  U --> B["combined build:<br>base profile + every activated persona"]
+```
+
 > [!TIP]
 > The `fish` persona only makes `fish` and its config available. It never changes your login shell, the same way activating `networking` never joins a Tailscale mesh for you. To actually use it day to day, run these two commands (the same way on Linux generally, WSL included, and macOS - anywhere `chsh` validates against `/etc/shells`):
 >

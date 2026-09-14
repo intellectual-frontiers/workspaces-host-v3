@@ -30,6 +30,13 @@ $ /nix/store/7fa31...-home-manager-generation/activate
 
 Every `home-manager switch` (what `workspaces-host-update` runs under the hood) creates a new, numbered generation rather than editing anything in place - nothing is lost, so rolling back is always just pointing your profile symlink at an older one. There's no limit on how far back you can go as long as the old generation's Nix store paths haven't been garbage-collected.
 
+```mermaid
+flowchart LR
+  G5["generation 5 (good)"] --> G6["generation 6 (broken)"]
+  G6 -.->|"activate an older generation"| G5
+  G5 --> Profile["your profile symlink"]
+```
+
 ## Try with AI
 
 An update made things worse, and you want the previous state back.

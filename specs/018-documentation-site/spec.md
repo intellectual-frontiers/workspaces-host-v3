@@ -23,12 +23,17 @@ visually set apart within its sidebar; rename 'Technical Reference' to 'Contribu
 an 'Autocomplete UX' subsection to Getting Started explaining why bash's typing can feel slow and
 both fixes (a `bleopt` setting, or the new `fish` persona); document the `fish` persona in
 Personas and in a new FAQ entry. Then: add a mascot illustration as the project's visual identity,
-split across a hero panel and a 'Workhorse in Action' panel. Most recently, substantially revised:
+split across a hero panel and a 'Workhorse in Action' panel. Then, substantially revised:
 restructure the entire site into a graduated approach - Getting Started, Day to Day, and Going
 Further tiers, each use-case driven rather than organized by topic - and move every page's content
 out of the single HTML file into plain Markdown files, fetched and rendered client-side by one
 vendored library (the site's only dependency), so new pages and tiers can be added by writing a
-`.md` file rather than editing one enormous HTML document."
+`.md` file rather than editing one enormous HTML document. Most recently: move both mascot
+images off the Getting Started and Day to Day page heroes onto a new home splash page (the
+default, empty-hash landing spot) that shows just the hero image and one large button per tier;
+content pages now carry no large graphics. Add MermaidJS, a second vendored, lazily loaded
+library, so a content page that genuinely benefits from a diagram (a flow, a decision, an
+architecture relationship) can include one."
 
 ## Background
 
@@ -161,6 +166,35 @@ tell a sibling page from a heading within the page they're on by position and in
 the same way a file tree doesn't caption itself "Folders" and "Files." Both labels were dropped;
 the current page's own headings now nest directly beneath it as indented sub-items in one flat,
 unlabeled list.
+
+### Ninth revision: a home splash page, and MermaidJS diagrams
+
+The mascot's two images had been carrying two different jobs at once: identity (this is
+Workspaces Host) at the top of Getting Started, and a second, unrelated identity image atop Day
+to Day, while every other tier's pages stayed plain. Neither placement was really about that
+page's own content - a large hero illustration doesn't help someone mid-install any more than it
+helps someone reading about credentials. Both images moved to a new home splash page instead: the
+site's default landing spot (empty hash, or the explicit `#home`), showing only the hero
+illustration, a one-line lede, and one large button per tier linking straight into that tier's
+first page. The "Workhorse in Action" image, no longer needed as a second hero, now sits below the
+button grid on the same splash page. Every content page across every tier lost its large graphic;
+the splash page is the only place a reader sees one. An unrecognized hash now falls back to this
+splash page rather than Getting Started's Install page, since a typo or a stale bookmark shouldn't
+guess which tier the reader meant - the front door is a safer default than a guess.
+
+The same revision added [MermaidJS](https://mermaid.js.org/) as a second vendored library, so a
+content page that genuinely benefits from a diagram - a decision flow, a build/activation
+pipeline, a sequence of steps across machines - can include one, written as a fenced ```` ```mermaid
+```` code block directly in that page's Markdown, the same way GitHub itself renders Mermaid
+blocks. This keeps every page that has one readable and reviewable as plain text in a PR diff or
+directly on GitHub, matching FR-019's existing rule for page content generally, rather than adding
+a second authoring format for diagrams alone. The vendored file itself (`docs/vendor/mermaid.min.js`)
+is roughly 5.5MB, far too large to load on every page when most pages have no diagram at all, so
+it loads lazily: only the first time a page's rendered content actually contains a Mermaid code
+block, cached for the rest of the session once loaded. FR-018's earlier claim of "exactly one
+vendored JavaScript library" no longer holds; see FR-018's revised text below. Diagrams stay a
+deliberately light touch, added only where a diagram genuinely clarifies something a reader would
+otherwise have to hold in their head - not retrofitted onto every page as decoration.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -309,6 +343,31 @@ command to activate one, without reading any other page.
    already active, **Then** they find `ws-persona list`/`ws-persona current` and the exact
    activation command, with no need to construct a flake attribute by hand.
 
+---
+
+### User Story 7 - Land somewhere, then pick a starting point (Priority: P1)
+
+Someone who opens the site with no idea which tier they need sees the mascot and one large,
+clearly labeled button per tier, and picks the one that matches what they're trying to do, rather
+than landing straight in the middle of Getting Started's install steps with no orientation.
+
+**Why this priority**: The default landing page shapes every reader's first impression, and a
+reader who isn't installing for the first time (someone already running this sandbox, or someone
+just browsing) has no reason to land inside Getting Started specifically.
+
+**Independent Test**: Open the site with no URL fragment, see only the hero image, a one-line
+lede, and four large buttons (no sidebar, no tier content); click each button in turn and land on
+that tier's first page with its normal sidebar restored.
+
+**Acceptance Scenarios**:
+
+1. **Given** the site with no URL fragment, **When** it loads, **Then** the home splash page shows
+   (hero image, lede, four large tier buttons), not Getting Started's Install page.
+2. **Given** the home splash page, **When** a reader clicks a tier's button, **Then** that tier's
+   first page loads with its normal sidebar, hero, and pager restored.
+3. **Given** any content page, **When** a reader clicks the brand mark in the top navigation,
+   **Then** they return to the home splash page.
+
 ### Edge Cases
 
 - What happens when a reader's browser has JavaScript disabled? The page shell still loads, but
@@ -317,8 +376,9 @@ command to activate one, without reading any other page.
   `<noscript>` message MUST point the reader at the content files directly on GitHub instead of
   leaving a blank page with no explanation.
 - What happens when a URL fragment names a tier and page that don't exist (a typo, a stale
-  bookmark from before a page was renamed)? The router MUST fall back to the default page
-  (Getting Started's Install) rather than showing a blank page or a raw JavaScript error.
+  bookmark from before a page was renamed)? The router MUST fall back to the home splash page
+  rather than showing a blank page, a raw JavaScript error, or guessing which tier the reader
+  meant.
 - What happens when a URL fragment points at a sub-heading inside a page, not the page's own top
   (a three-segment hash, `#tier/page/heading-id`)? The named page MUST load and the browser MUST
   scroll to that heading once rendering finishes, the same as the old single-file site's
@@ -348,6 +408,12 @@ command to activate one, without reading any other page.
   AI CLI installed, no credential set)? The prompt itself doesn't handle that case; every prompt
   assumes "Use AI coding agents safely" (part of "Day to Day") is already done, and each prompt's
   page links there if it isn't the page itself.
+- What happens when `docs/vendor/mermaid.min.js` fails to load or a diagram fails to render (a
+  network hiccup, a malformed diagram)? That one diagram MUST show a clear, specific error in
+  place of the diagram, without blocking the rest of the page's content from rendering.
+- What happens on a page with no Mermaid diagram? `docs/vendor/mermaid.min.js` MUST NOT be
+  fetched at all - the lazy-load only triggers when a page's rendered content actually contains a
+  Mermaid code block.
 
 ## Requirements *(mandatory)*
 
@@ -355,8 +421,8 @@ command to activate one, without reading any other page.
 
 - **FR-001**: The repository MUST include a `docs/` directory whose page *chrome* (navigation,
   CSS, the content router) is one HTML shell, `docs/index.html`, with no build step, no
-  static-site generator, and no client-side routing/framework library of any kind beyond the one
-  Markdown renderer FR-018 names - suitable for GitHub Pages' "deploy from a branch" mode pointed
+  static-site generator, and no client-side routing/framework library of any kind beyond the
+  vendored libraries FR-018 names - suitable for GitHub Pages' "deploy from a branch" mode pointed
   at `main` / `docs`. Page *content* is plain Markdown, one file per page under
   `docs/content/<tier>/<page>.md` (FR-019); a plain static image asset referenced by an `<img>`
   tag (FR-017's mascot images, FR-022's `docs/logo.png`) is likewise outside the shell itself.
@@ -371,15 +437,17 @@ command to activate one, without reading any other page.
   page reload.
 - **FR-004**: The site MUST group its pages into three graduated tiers, in this order in the top
   navigation: **Getting Started** (FR-005), **Day to Day** (FR-006), **Going Further** (FR-007),
-  and **FAQ** (FR-008) as a fourth, non-graduated tier. Getting Started's Install page is the
-  default when no URL fragment is present.
+  and **FAQ** (FR-008) as a fourth, non-graduated tier. The home splash page (FR-024) is the
+  default when no URL fragment is present, or when the fragment names a tier/page that doesn't
+  exist.
 - **FR-005**: **Getting Started** MUST have exactly two pages: **Install** (Windows/WSL first,
   followed by Linux, then macOS, then a manual/step-by-step equivalent - "just the facts," minimal
   surrounding rationale) and **Verify it worked & your first day** (running `doctor`, the
   Autocomplete UX explanation and both its fixes - a `bleopt` setting or the `fish` persona -
   cloning a first repository, and where to go next). Personas MUST NOT be explained in full here;
   a pointer to Day to Day's personas page is enough, consistent with FR-011's one-canonical-answer
-  rule.
+  rule. Neither page carries a large hero graphic (see FR-024); the mascot's hero images live only
+  on the home splash page.
 - **FR-006**: **Day to Day** MUST have these pages, each genuinely task-shaped: **Combine personas
   for your role** (the persona table, `ws-persona list`/`current`/`activate`/`deactivate`,
   combining and persisting more than one), **Authenticate & manage credentials** (`gh`/`glab`
@@ -447,19 +515,26 @@ command to activate one, without reading any other page.
 - **FR-016**: (Reserved for the same reason as FR-014 - Autocomplete UX is now FR-015 above.)
 - **FR-017**: The repository MUST include the mascot illustration as two cropped images, each with
   real alt/description text (not a bare filename) - not a generic stock graphic, but this
-  repository's own: `docs/mascot.jpg` (the hero panel), shown at the top of Getting Started's hero
-  and as README.md's own banner image (the same file, not a duplicate); and
-  `docs/mascot-workflows.jpg` (the "Workhorse in Action" vignette grid), shown at the top of Day to
-  Day's hero, since that grid depicts ongoing, day-to-day use rather than a one-time install. A
-  landscape crop of the hero panel MUST exist as `docs/social-preview.jpg`, sized to GitHub's own
-  recommendation for a repository's social-preview image, for a human to upload via repository
-  Settings (see Assumptions for why that upload step can't be automated).
-- **FR-018**: The site MUST render Markdown content client-side using exactly one vendored
-  JavaScript library, [marked](https://github.com/markedjs/marked), committed at
-  `docs/vendor/marked.js` (with its license at `docs/vendor/marked.LICENSE.txt`) rather than
-  loaded from a live CDN - so the site has no third-party dependency at request time. Bumping the
-  vendored version MUST be a deliberate, reviewable file replacement (re-fetch the package,
-  re-copy `lib/marked.umd.js`), never an automatic or silent update.
+  repository's own: `docs/mascot.jpg` (the hero panel), shown at the top of the home splash page
+  (FR-024) and as README.md's own banner image (the same file, not a duplicate); and
+  `docs/mascot-workflows.jpg` (the "Workhorse in Action" vignette grid), shown below the home
+  splash page's button grid. Neither image appears on any tier or content page (see FR-005/FR-024)
+  - the splash page is the only place a reader sees a large graphic. A landscape crop of the hero
+  panel MUST exist as `docs/social-preview.jpg`, sized to GitHub's own recommendation for a
+  repository's social-preview image, for a human to upload via repository Settings (see
+  Assumptions for why that upload step can't be automated).
+- **FR-018**: The site MUST render Markdown content client-side using a vendored JavaScript
+  library, [marked](https://github.com/markedjs/marked), committed at `docs/vendor/marked.js`
+  (with its license at `docs/vendor/marked.LICENSE.txt`) rather than loaded from a live CDN, and
+  fetched eagerly (loading it is cheap and every page needs it). A second vendored library,
+  [Mermaid](https://mermaid.js.org/), committed at `docs/vendor/mermaid.min.js` (with its license
+  at `docs/vendor/mermaid.LICENSE.txt`), renders diagrams on the pages that have one (FR-025);
+  unlike marked, it MUST be fetched lazily, only the first time a page's rendered content actually
+  contains a Mermaid code block, and cached for the rest of the session once loaded, since the
+  file is roughly 5.5MB and most pages have no diagram at all. Both are vendored, not CDN-loaded,
+  so the site has no third-party dependency at request time. Bumping either vendored version MUST
+  be a deliberate, reviewable file replacement (re-fetch the package, re-copy the browser build),
+  never an automatic or silent update.
 - **FR-019**: Each page's content MUST be one plain Markdown file at
   `docs/content/<tier>/<page>.md`, readable and reviewable on its own (in a PR diff, or directly on
   GitHub) with no dependency on the HTML shell to make sense as prose. A page's headings MUST get
@@ -487,23 +562,43 @@ command to activate one, without reading any other page.
   repository slug (`workspaces-host-v3`) - the version qualifier is a technical implementation
   detail, not part of the project's name, and stays out of the one piece of brand-facing text on
   the page.
-- **FR-023**: The bottom of every page's content MUST show a "Previous"/"Next" pager, letting a
-  reader move linearly through the site (every page across every tier, in the same order as the
-  top navigation and each tier's own page list) without going back to the sidebar or top nav for
-  each step - reading the site front to back, the way a book's own page-turning works. Reaching
-  the last page of a tier and continuing MUST cross into the first page of the next tier (and the
-  reverse crossing back); the very first page overall (Getting Started's Install) MUST show no
-  "Previous," and the very last page overall (FAQ) MUST show no "Next," rather than wrapping
-  around or linking to nothing.
+- **FR-023**: The bottom of every content page (every page within Getting Started, Day to Day,
+  Going Further, or FAQ) MUST show a "Previous"/"Next" pager, letting a reader move linearly
+  through the site (every page across every tier, in the same order as the top navigation and each
+  tier's own page list) without going back to the sidebar or top nav for each step - reading the
+  site front to back, the way a book's own page-turning works. Reaching the last page of a tier and
+  continuing MUST cross into the first page of the next tier (and the reverse crossing back); the
+  very first page overall (Getting Started's Install) MUST show no "Previous," and the very last
+  page overall (FAQ) MUST show no "Next," rather than wrapping around or linking to nothing. The
+  home splash page (FR-024) is not part of this linear sequence and shows no pager.
+- **FR-024**: The site MUST have a home splash page, reachable at an empty URL fragment or the
+  explicit `#home`, showing only: the mascot's hero image (`docs/mascot.jpg`), a one-line lede,
+  one large button per tier (Getting Started, Day to Day, Going Further, FAQ) linking to that
+  tier's first page, and the "Workhorse in Action" image (`docs/mascot-workflows.jpg`) below the
+  button grid. The splash page MUST show no sidebar and no "Previous"/"Next" pager - it is not
+  part of any tier's own page list. It MUST be the default page (FR-004) and the fallback for any
+  URL fragment that names a tier or page that doesn't exist. The top navigation's brand mark MUST
+  link to it.
+- **FR-025**: Any content page MAY include a Mermaid diagram, written as a fenced ` ```mermaid `
+  code block in that page's Markdown, rendered client-side by FR-018's lazily loaded Mermaid
+  library. Diagrams are opt-in per page, not a requirement - a page adds one only where a
+  flow, decision, or architecture relationship genuinely benefits from a visual, consistent with
+  content pages otherwise staying free of large graphics (FR-017).
 
 ### Key Entities
 
 - **`docs/index.html`**: the page shell - navigation, CSS, and the router (manifest, fetch, render,
-  TOC generation, callout conversion, code-block enhancement). Contains no page content itself.
+  TOC generation, callout conversion, code-block enhancement, the home splash page). Contains no
+  page content itself.
 - **`docs/content/<tier>/<page>.md`**: one plain Markdown file per page - the actual content,
   readable on its own.
-- **`docs/vendor/marked.js`**: the one vendored JavaScript dependency, committed rather than
-  CDN-loaded.
+- **`docs/vendor/marked.js`**: the vendored Markdown-rendering dependency, loaded eagerly,
+  committed rather than CDN-loaded.
+- **`docs/vendor/mermaid.min.js`**: the second vendored dependency, diagram rendering, loaded
+  lazily only when a page needs it, committed rather than CDN-loaded.
+- **The home splash page**: the default landing page (`#home` or an empty/unrecognized fragment) -
+  the mascot's hero image, a lede, one large button per tier, and the "Workhorse in Action" image.
+  Not part of any tier's own page list.
 - **Getting Started / Day to Day / Going Further**: the three graduated tiers, each a `.md` file
   per page under `docs/content/`, use-case driven rather than topic-organized.
 - **FAQ**: the fourth, non-graduated tier - the "why" layer every other tier links into.
@@ -518,12 +613,20 @@ command to activate one, without reading any other page.
 - **SC-002**: Every tier is reachable from every other tier in exactly one click, and every page
   within a tier is reachable from that tier's sidebar in exactly one further click, with no full
   page reload.
-- **SC-003**: The site works with no network access beyond loading `docs/index.html`, the one
-  Markdown content file for the page being viewed, `docs/vendor/marked.js`, `docs/logo.png`, and
-  (Getting Started/Day to Day only) one mascot image - no external font/script/stylesheet
-  dependency, no live CDN, nothing fetched from a third-party host at request time. JavaScript IS
-  required to read content (a deliberate, documented departure from every prior revision's
-  guarantee; see Background).
+- **SC-003**: The site works with no network access beyond loading `docs/index.html`,
+  `docs/vendor/marked.js`, `docs/logo.png`, and either: the home splash page's own two mascot
+  images, or (any content page) the one Markdown content file for the page being viewed plus
+  `docs/vendor/mermaid.min.js` only if that page actually has a Mermaid diagram - no external
+  font/script/stylesheet dependency, no live CDN, nothing fetched from a third-party host at
+  request time. JavaScript IS required to read content (a deliberate, documented departure from
+  every prior revision's guarantee; see Background).
+- **SC-008**: Opening the site with no URL fragment (or an unrecognized one) shows the home splash
+  page, not any tier's content, with no sidebar and no pager; clicking any of its four buttons
+  reaches that tier's first page with its normal sidebar, hero, and pager restored - verified as an
+  actual click-through, not just read off the manifest.
+- **SC-009**: A page with no Mermaid diagram never triggers a `docs/vendor/mermaid.min.js` request;
+  a page that has one renders it as a real SVG with no console error, verified directly in a
+  browser, not assumed from the Markdown source alone.
 - **SC-004**: Every "this was deliberate" claim elsewhere on the site links to a real, substantive
   answer in FAQ, not a restatement of the same sentence.
 - **SC-005**: A reader with no prior knowledge of any earlier repository or tool this project grew

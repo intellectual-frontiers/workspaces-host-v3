@@ -7,6 +7,20 @@ The plain credentials file (see [Authenticate & manage credentials](#day-to-day/
 
 Each secret you declare is decrypted at **activation** time (every `home-manager switch`, never at build/eval time) into `$XDG_STATE_HOME/workspaces-host/secrets/`, so the plaintext never lands in the world-readable Nix store. This module intentionally does not manage decryption key material itself - provisioning the key is a deliberate, separate, human action (Constitution Principle III), the same category as a git identity or an API key.
 
+```mermaid
+sequenceDiagram
+  participant Author
+  participant Repo as Git repo
+  participant Machine as Your machine
+  participant Wrapper as Credential wrapper
+  Author->>Author: sops --encrypt
+  Author->>Repo: commit secrets/*.enc.yaml
+  Machine->>Repo: pull
+  Machine->>Machine: home-manager switch (activation)
+  Machine->>Machine: decrypt into $XDG_STATE_HOME/.../secrets/
+  Wrapper->>Machine: read plaintext, per invocation only
+```
+
 ## Declaring one
 
 In `~/.config/workspaces-host/local.nix` (see [Personalize with local.nix](#going-further/local-nix)):
