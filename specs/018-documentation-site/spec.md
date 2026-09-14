@@ -71,16 +71,24 @@ Personas already explains how to activate one. The Personas table and the FAQ bo
 `fish` entry to match.
 
 A sixth revision added a mascot illustration (a Clydesdale draft horse pulling a cart of "CODE",
-"CONFIG", and "TOOLS" crates) as the project's visual identity, shown at the top of Getting
-Started and as README.md's own banner. This is the one deliberate exception to FR-001's
-"self-contained, no separate file" rule: a plain static image referenced by an `<img>` tag adds
-none of the complexity that rule actually guards against (a build step, a JavaScript framework, an
-external CDN dependency), and a 2-3MB image re-encoded as a base64 string inside `index.html`
-would have made the page itself worse to load and maintain than a small separate file. A
-landscape crop of the same illustration, sized to GitHub's own recommendation, exists for the
-repository's social-preview image - uploading it is a manual, one-time repository-settings action
-this repository's own files cannot perform, the same category of exception FR-001's "one
-self-contained file" already carves out for enabling GitHub Pages itself (see Assumptions).
+"CONFIG", and "TOOLS" crates) as the project's visual identity. The source artwork is one tall
+poster with two distinct halves - a hero panel (the horse and cart, ending at the ground) above a
+"Workhorse in Action" grid of eight small vignettes (Develop, Explore, Guide, Automate, Recharge,
+Adapt, Stay Secure, Go Further) - and showing the whole poster in one place made the hero image
+too tall and the vignette grid too small to read. The two halves are cropped into two separate
+images instead: the hero panel (`docs/mascot.jpg`) at the top of Getting Started and as
+README.md's own banner, and the vignette grid (`docs/mascot-workflows.jpg`) at the top of "Using
+Your Sandbox" - a better fit there than Getting Started, since the eight vignettes depict ongoing,
+day-to-day tasks (that section's own subject) rather than a one-time install. Static images
+referenced by plain `<img>` tags are the one deliberate exception to FR-001's "self-contained, no
+separate file" rule: they add none of the complexity that rule actually guards against (a build
+step, a JavaScript framework, an external CDN dependency), and a multi-megabyte image re-encoded
+as a base64 string inside `index.html` would have made the page itself worse to load and maintain
+than a few small separate files. A landscape crop of the hero panel, sized to GitHub's own
+recommendation, exists for the repository's social-preview image - uploading it is a manual,
+one-time repository-settings action this repository's own files cannot perform, the same category
+of exception FR-001's "one self-contained file" already carves out for enabling GitHub Pages
+itself (see Assumptions).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -272,9 +280,9 @@ activate one without reading any other section.
   no separate stylesheet or script file, no external CDN, no build step, no static-site generator,
   and no client-side routing library or JavaScript framework of any kind (explicitly including,
   but not limited to, HTMx) - suitable for GitHub Pages' "deploy from a branch" mode pointed at
-  `main` / `docs`. A plain static image asset referenced by an `<img>` tag (FR-017's mascot) is
-  the one permitted exception: it introduces none of the build tooling, frameworks, or external
-  dependencies this rule exists to keep out.
+  `main` / `docs`. A plain static image asset referenced by an `<img>` tag (FR-017's mascot
+  images) is the one permitted exception: it introduces none of the build tooling, frameworks, or
+  external dependencies this rule exists to keep out.
 - **FR-002**: The site MUST include a `.nojekyll` marker so GitHub Pages serves the file as-is,
   without Jekyll processing.
 - **FR-003**: Navigation between the site's sections MUST be implemented in plain CSS (the
@@ -356,14 +364,17 @@ activate one without reading any other section.
   command and as a durable snippet for `~/.config/workspaces-host/local.nix`; and a pointer to the
   `fish` persona (FR-015) as the native alternative. "Using Your Sandbox"'s own shell subsection
   MUST link to this subsection rather than restate it.
-- **FR-017**: The repository MUST include a mascot illustration as `docs/mascot.jpg`, shown at
-  the top of Getting Started's hero (FR-004) and as README.md's own banner image (the same file,
-  not a duplicate), each with real alt/description text (not a bare filename) - not a generic
-  stock graphic, but this repository's own (a Clydesdale draft horse pulling a cart of "CODE",
-  "CONFIG", and "TOOLS" crates). A landscape crop of the same illustration MUST exist as
-  `docs/social-preview.jpg`, sized to GitHub's own recommendation for a repository's
-  social-preview image, for a human to upload via repository Settings (FR-001's one permitted
-  exception; see Assumptions for why that upload step can't be automated).
+- **FR-017**: The repository MUST include the mascot illustration as two cropped images, each
+  with real alt/description text (not a bare filename) - not a generic stock graphic, but this
+  repository's own: `docs/mascot.jpg` (the hero panel - a Clydesdale draft horse pulling a cart of
+  "CODE", "CONFIG", and "TOOLS" crates), shown at the top of Getting Started's hero (FR-004) and
+  as README.md's own banner image (the same file, not a duplicate); and
+  `docs/mascot-workflows.jpg` (the "Workhorse in Action" vignette grid - the same mascot shown
+  across eight everyday tasks), shown at the top of "Using Your Sandbox"'s hero (FR-005), since
+  that grid depicts ongoing, day-to-day use rather than a one-time install. A landscape crop of
+  the hero panel MUST exist as `docs/social-preview.jpg`, sized to GitHub's own recommendation for
+  a repository's social-preview image, for a human to upload via repository Settings (FR-001's one
+  permitted exception; see Assumptions for why that upload step can't be automated).
 
 ### Key Entities
 
@@ -381,9 +392,9 @@ activate one without reading any other section.
   working shell with no need to consult any other section.
 - **SC-002**: Every section is reachable from every other section in exactly one click, with no
   full page reload.
-- **SC-003**: The site works with no network access beyond loading `index.html` and its one local
-  image asset (FR-017's mascot) - no external font/script/stylesheet dependency, no external
-  library, nothing fetched from a third-party host - and with JavaScript disabled, including
+- **SC-003**: The site works with no network access beyond loading `index.html` and its local
+  image assets (FR-017's mascot images) - no external font/script/stylesheet dependency, no
+  external library, nothing fetched from a third-party host - and with JavaScript disabled, including
   section routing itself.
 - **SC-004**: Every "this was deliberate" claim elsewhere on the site links to a real, substantive
   answer in the "FAQ" section, not a restatement of the same sentence.
