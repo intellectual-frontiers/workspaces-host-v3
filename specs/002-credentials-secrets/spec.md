@@ -10,6 +10,25 @@
 local credentials file applied through home-manager/sops-nix, never exported unscoped to the
 shell"
 
+## Background
+
+### Follow-up: prefer `gh`/`glab` OAuth over a token in the credentials file (2026)
+
+Newbies were confused about GitHub/GitLab specifically: `credentials.example` listed
+`GITHUB_TOKEN`/`GITLAB_TOKEN` right next to `GIT_NAME`/`GIT_EMAIL`, as if creating a personal
+access token were a normal, expected step, and `doctor`'s own WARN message led with "add
+GITHUB_TOKEN" before mentioning `gh auth login` at all. In reality `gh auth login`/`glab auth
+login` (an OAuth device-flow login, no token to create) is simpler for a newcomer *and*
+sufficient on its own - one command authenticates the CLI and git together, which a
+`GITHUB_TOKEN` alone does not (FR-008a already required documenting that gap; the mistake was
+also treating the token as the default rather than the fallback). A raw `GITHUB_TOKEN`/
+`GITLAB_TOKEN` value is only genuinely needed for something *other than* `gh`/`glab` itself: a
+script, or a project's own `.envrc` via direnv. Every place this repository mentions GitHub/
+GitLab credentials - `credentials.example`, `doctor`'s messages, the generated
+`~/workspaces/README.md`, and the docs site - now leads with `gh auth login`/`glab auth login`
+and documents the token fields as the secondary, only-if-you-need-it path, not the other way
+around.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Fill in one file, get everything configured (Priority: P1)
@@ -87,6 +106,10 @@ it successfully.
 - What happens when a declared secret's source is missing or fails to decrypt at activation time?
   Activation must fail loudly for that secret rather than silently producing an empty file that a
   consuming tool would treat as "configured."
+- What happens when an engineer has both run `gh auth login` and filled in `GITHUB_TOKEN`? Either
+  authenticates `gh`, so `doctor` (spec 004) MUST report PASS from whichever one actually works,
+  never asking the engineer to remove one in favor of the other - the two are not in conflict, and
+  only the *documentation's* framing (which one to reach for first) is what this follow-up fixes.
 
 ## Requirements *(mandatory)*
 
@@ -112,15 +135,21 @@ it successfully.
 - **FR-007**: The environment health check (spec 004) MUST report the credentials file's
   existence and permissions, and MUST distinguish "field left blank" from "field still holding
   the placeholder value" as two different WARN messages.
-- **FR-008**: `credentials.example` MUST include `GITHUB_TOKEN`/`GITLAB_TOKEN`, and the base
-  profile MUST install `gh`/`glab`, each wrapped so a configured token is exported only for that
-  CLI's own invocation (the same per-invocation mechanism FR-005 requires) — needed for spec 003's
-  `ws-repos` to be practically usable against private repositories, not a separate concern.
-- **FR-008a**: Documentation (this site, `~/workspaces/README.md`) MUST explain that a
-  `GITHUB_TOKEN`/`GITLAB_TOKEN` credential alone authenticates `gh`/`glab` commands but not git
-  itself, and MUST give the one-time command that also authenticates git (`gh auth login`, `glab
-  auth login`), including the `--hostname` form for a private, self-hosted GitLab instance, since
-  `ws-repos ensure`'s plain `git clone` depends on that separate step for a private repository.
+- **FR-008**: `credentials.example` MUST include `GITHUB_TOKEN`/`GITLAB_TOKEN`, clearly labeled as
+  optional and secondary to `gh auth login`/`glab auth login` (FR-008a) rather than presented
+  alongside `GIT_NAME`/`GIT_EMAIL` as an expected default, and the base profile MUST install
+  `gh`/`glab`, each wrapped so a configured token is exported only for that CLI's own invocation
+  (the same per-invocation mechanism FR-005 requires) — needed for spec 003's `ws-repos` to be
+  practically usable against private repositories, not a separate concern.
+- **FR-008a**: `gh auth login`/`glab auth login` (an OAuth device-flow login, no token to create)
+  MUST be documented as the preferred, default way to authenticate GitHub/GitLab everywhere this
+  repository mentions it - `credentials.example`, `doctor`'s own check messages, the generated
+  `~/workspaces/README.md`, and the docs site - since one command authenticates both the
+  `gh`/`glab` CLI and git itself (including the `--hostname` form for a private, self-hosted
+  GitLab instance), which a `GITHUB_TOKEN`/`GITLAB_TOKEN` credential alone does not. A raw token
+  in the credentials file MUST be documented as the secondary path, only for a case that
+  genuinely needs the raw value outside `gh`/`glab` (a script, a project's own `.envrc`), never as
+  the first or only option shown.
 - **FR-009**: The base profile MUST install `gitleaks`, so an engineer can scan a repository for
   accidentally-staged secrets before committing, as a concrete backstop alongside a project's own
   `.gitignore` and reviewing `git diff --staged`.

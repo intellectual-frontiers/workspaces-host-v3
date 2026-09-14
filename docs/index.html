@@ -669,7 +669,8 @@ $ ./result/activate</code></pre>
       <p class="eyebrow">On this page</p>
       <ul>
         <li><a href="#credentials">Setting up credentials</a></li>
-        <li class="sub"><a href="#gh-glab-auth">Authenticating gh/glab</a></li>
+        <li class="sub"><a href="#gh-glab-auth">GitHub/GitLab: one command</a></li>
+        <li class="sub"><a href="#credentials-file">Name, email &amp; API keys</a></li>
         <li><a href="#shell">Your shell</a></li>
         <li><a href="#repos">Managing your repos</a></li>
         <li><a href="#doctor">Checking your environment</a></li>
@@ -683,34 +684,36 @@ $ ./result/activate</code></pre>
     <main class="content">
 
       <h2 id="credentials">Setting up credentials</h2>
-      <p>Your git name/email and your GitHub/GitLab tokens go in one plain text file, outside the repository entirely: <code>~/.config/workspaces-host/credentials</code>. Just <code>KEY=value</code> lines. No Nix syntax, no encryption tool to learn first. (Curious why a plain file? See <a href="#why-credentials-file">Why a plain credentials file</a>.)</p>
-      <pre><code>$ nano ~/.config/workspaces-host/credentials</code></pre>
-      <pre><code>GIT_NAME=Your Name
-GIT_EMAIL=you@example.com
 
-GITHUB_TOKEN=ghp_yourToken
-GITLAB_TOKEN=
-
-ANTHROPIC_API_KEY=sk-ant-yourRealKey</code></pre>
-      <pre><code>$ workspaces-host-update</code></pre>
-      <p>That one command applies your changes and runs <code>doctor</code> right after, so you see immediately whether it worked. Rotating a token later is the same two steps: edit the line, run <code>workspaces-host-update</code> again.</p>
-
-      <div class="callout">
-        <p>Need a credential this file doesn't have a line for (a cloud token, a project API key)? Add it with whatever name makes sense. <code>workspaces-host-update</code> writes anything that isn't <code>GIT_NAME</code>/<code>GIT_EMAIL</code> into <code>~/.local/state/workspaces-host/secrets/env/&lt;NAME&gt;</code>, ready for a project's own <code>.envrc</code>.</p>
-      </div>
-
-      <p>Before committing anything, check what's staged (<code>git diff --staged</code>) and scan for secrets with the tool that's already installed:</p>
-      <pre><code>$ gitleaks detect --source . -v</code></pre>
-
-      <h3 id="gh-glab-auth">Authenticating gh and glab</h3>
-      <p>A <code>GITHUB_TOKEN</code>/<code>GITLAB_TOKEN</code> in your credentials file is enough for <code>gh</code>/<code>glab</code> commands themselves, but cloning a private repo (what <code>ws-repos ensure</code> does under the hood) needs git's own credentials set up too. Do that once, per host:</p>
+      <h3 id="gh-glab-auth">GitHub and GitLab: one command, no token to manage</h3>
+      <p>Run this once, per host:</p>
       <pre><code>$ gh auth login       # answer yes when it asks to authenticate git
 $ glab auth login     # same prompt, for gitlab.com</code></pre>
+      <p>That's it. One command authenticates the <code>gh</code>/<code>glab</code> CLIs and git together, so cloning a private repo (what <code>ws-repos ensure</code> does under the hood) just works. No token to create, copy, or paste anywhere - this is the preferred way, and all most people ever need.</p>
       <p>Using a private, self-hosted GitLab instead of gitlab.com? Point <code>glab</code> at it by hostname:</p>
       <pre><code>$ glab auth login --hostname gitlab.mycompany.com</code></pre>
       <p>Add that host's repos to <code>ws-repos.json</code> the same way, using the hostname instead of <code>gitlab.com</code>:</p>
       <pre><code>{ "repo": "gitlab.mycompany.com/team/project" }</code></pre>
       <p><code>doctor</code> reports whether <code>gh</code>/<code>glab</code> are authenticated (see <a href="#doctor">Checking your environment</a>).</p>
+
+      <h3 id="credentials-file">Your name, email, and any API keys</h3>
+      <p>Everything else, your git name/email and things like an AI coding agent's API key, goes in one plain text file, outside the repository entirely: <code>~/.config/workspaces-host/credentials</code>. Just <code>KEY=value</code> lines. No Nix syntax, no encryption tool to learn first. (Curious why a plain file? See <a href="#why-credentials-file">Why a plain credentials file</a>.)</p>
+      <pre><code>$ nano ~/.config/workspaces-host/credentials</code></pre>
+      <pre><code>GIT_NAME=Your Name
+GIT_EMAIL=you@example.com
+
+ANTHROPIC_API_KEY=sk-ant-yourRealKey</code></pre>
+      <pre><code>$ workspaces-host-update</code></pre>
+      <p>That one command applies your changes and runs <code>doctor</code> right after, so you see immediately whether it worked. Rotating a key later is the same two steps: edit the line, run <code>workspaces-host-update</code> again.</p>
+
+      <div class="callout">
+        <p>Need a credential this file doesn't have a line for (a cloud token, a project API key)? Add it with whatever name makes sense. <code>workspaces-host-update</code> writes anything that isn't <code>GIT_NAME</code>/<code>GIT_EMAIL</code> into <code>~/.local/state/workspaces-host/secrets/env/&lt;NAME&gt;</code>, ready for a project's own <code>.envrc</code>.</p>
+      </div>
+
+      <p>This file also has <code>GITHUB_TOKEN</code>/<code>GITLAB_TOKEN</code> lines. Skip them unless something <em>other than</em> <code>gh</code>/<code>glab</code> specifically needs a raw token value, a script, or a project's own <code>.envrc</code>. <code>gh auth login</code>/<code>glab auth login</code> above already covers <code>gh</code>, <code>glab</code>, and git; filling these in is a second credential to create and keep track of, not a requirement.</p>
+
+      <p>Before committing anything, check what's staged (<code>git diff --staged</code>) and scan for secrets with the tool that's already installed:</p>
+      <pre><code>$ gitleaks detect --source . -v</code></pre>
 
       <h2 id="shell">Your shell</h2>
       <p>Bash, on purpose. It's what every tutorial already assumes. A few things are added on top:</p>
@@ -808,8 +811,8 @@ $ npm install -g @google/gemini-cli          # provides: gemini</code></pre>
       <pre><code>Run doctor --all in my sandbox, explain any FAIL or WARN lines in plain language, and tell me exactly what to do to fix each one.</code></pre>
 
       <h2 id="ai-credential">Add or rotate a credential</h2>
-      <p>You have a new token or key and don't want to hand-edit a config file wrong.</p>
-      <pre><code>Open my ~/.config/workspaces-host/credentials file, add a line for GITHUB_TOKEN with the value I give you next, then run workspaces-host-update and show me the doctor output.</code></pre>
+      <p>You have a new key (an AI coding agent's API key, say) and don't want to hand-edit a config file wrong. For GitHub/GitLab specifically, skip this and just run <code>gh auth login</code>/<code>glab auth login</code> yourself - no file to edit.</p>
+      <pre><code>Open my ~/.config/workspaces-host/credentials file, add a line for ANTHROPIC_API_KEY with the value I give you next, then run workspaces-host-update and show me the doctor output.</code></pre>
 
       <h2 id="ai-rollback">Undo a broken update</h2>
       <p>An update made things worse, and you want the previous state back.</p>

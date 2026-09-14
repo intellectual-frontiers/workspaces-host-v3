@@ -123,9 +123,12 @@ summary, if it reports an authentication problem.
 
 ## Secrets, in short
 
-Your GitHub/GitLab tokens and git identity go in one plain file, outside every repo you clone
-here: `~/.config/workspaces-host/credentials`. Edit it, then run `workspaces-host-update` to
-apply it.
+For GitHub/GitLab, `gh auth login`/`glab auth login` (above) is all you need - it authenticates
+the CLI and git together, no token to create or manage.
+
+Your name/email, and anything else that genuinely needs a raw token value (a script, a project's
+own `.envrc`, not gh/glab themselves), go in one plain file, outside every repo you clone here:
+`~/.config/workspaces-host/credentials`. Edit it, then run `workspaces-host-update` to apply it.
 
 ```
 $ nano ~/.config/workspaces-host/credentials

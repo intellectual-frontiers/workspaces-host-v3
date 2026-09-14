@@ -247,7 +247,7 @@ if command -v gh >/dev/null 2>&1; then
             gh auth status >/dev/null 2>&1; then
         pass "gh is authenticated (via GITHUB_TOKEN in ~/.config/workspaces-host/credentials)"
     else
-        warn "gh is not authenticated - add GITHUB_TOKEN to ~/.config/workspaces-host/credentials and run 'workspaces-host-update', or run 'gh auth login' directly"
+        warn "gh is not authenticated - run 'gh auth login' (answer yes when it asks to authenticate git too); a GITHUB_TOKEN in ~/.config/workspaces-host/credentials also works but is only needed if something other than gh/glab needs the raw token"
     fi
 fi
 check_cmd glab
@@ -258,7 +258,7 @@ if command -v glab >/dev/null 2>&1; then
         GITLAB_TOKEN="$(cat "$secrets_env_dir/GITLAB_TOKEN")" glab auth status >/dev/null 2>&1; then
         pass "glab is authenticated (via GITLAB_TOKEN in ~/.config/workspaces-host/credentials)"
     else
-        warn "glab is not authenticated - add GITLAB_TOKEN to ~/.config/workspaces-host/credentials and run 'workspaces-host-update', or run 'glab auth login' directly, if you use GitLab"
+        warn "glab is not authenticated - if you use GitLab, run 'glab auth login' (answer yes when it asks to authenticate git too); a GITLAB_TOKEN in ~/.config/workspaces-host/credentials also works but is only needed if something other than gh/glab needs the raw token"
     fi
 fi
 
