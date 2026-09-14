@@ -70,6 +70,18 @@ editor instead - and this subsection is where a reader hits that choice, right n
 Personas already explains how to activate one. The Personas table and the FAQ both gained a
 `fish` entry to match.
 
+A sixth revision added a mascot illustration (a Clydesdale draft horse pulling a cart of "CODE",
+"CONFIG", and "TOOLS" crates) as the project's visual identity, shown at the top of Getting
+Started and as README.md's own banner. This is the one deliberate exception to FR-001's
+"self-contained, no separate file" rule: a plain static image referenced by an `<img>` tag adds
+none of the complexity that rule actually guards against (a build step, a JavaScript framework, an
+external CDN dependency), and a 2-3MB image re-encoded as a base64 string inside `index.html`
+would have made the page itself worse to load and maintain than a small separate file. A
+landscape crop of the same illustration, sized to GitHub's own recommendation, exists for the
+repository's social-preview image - uploading it is a manual, one-time repository-settings action
+this repository's own files cannot perform, the same category of exception FR-001's "one
+self-contained file" already carves out for enabling GitHub Pages itself (see Assumptions).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Get running with no rationale in the way (Priority: P1)
@@ -260,7 +272,9 @@ activate one without reading any other section.
   no separate stylesheet or script file, no external CDN, no build step, no static-site generator,
   and no client-side routing library or JavaScript framework of any kind (explicitly including,
   but not limited to, HTMx) - suitable for GitHub Pages' "deploy from a branch" mode pointed at
-  `main` / `docs`.
+  `main` / `docs`. A plain static image asset referenced by an `<img>` tag (FR-017's mascot) is
+  the one permitted exception: it introduces none of the build tooling, frameworks, or external
+  dependencies this rule exists to keep out.
 - **FR-002**: The site MUST include a `.nojekyll` marker so GitHub Pages serves the file as-is,
   without Jekyll processing.
 - **FR-003**: Navigation between the site's sections MUST be implemented in plain CSS (the
@@ -342,6 +356,14 @@ activate one without reading any other section.
   command and as a durable snippet for `~/.config/workspaces-host/local.nix`; and a pointer to the
   `fish` persona (FR-015) as the native alternative. "Using Your Sandbox"'s own shell subsection
   MUST link to this subsection rather than restate it.
+- **FR-017**: The repository MUST include a mascot illustration as `docs/mascot.jpg`, shown at
+  the top of Getting Started's hero (FR-004) and as README.md's own banner image (the same file,
+  not a duplicate), each with real alt/description text (not a bare filename) - not a generic
+  stock graphic, but this repository's own (a Clydesdale draft horse pulling a cart of "CODE",
+  "CONFIG", and "TOOLS" crates). A landscape crop of the same illustration MUST exist as
+  `docs/social-preview.jpg`, sized to GitHub's own recommendation for a repository's
+  social-preview image, for a human to upload via repository Settings (FR-001's one permitted
+  exception; see Assumptions for why that upload step can't be automated).
 
 ### Key Entities
 
@@ -359,9 +381,10 @@ activate one without reading any other section.
   working shell with no need to consult any other section.
 - **SC-002**: Every section is reachable from every other section in exactly one click, with no
   full page reload.
-- **SC-003**: The site works with no network access beyond loading the one file (no external
-  font/script/stylesheet dependency, no external library), and with JavaScript disabled -
-  including section routing itself.
+- **SC-003**: The site works with no network access beyond loading `index.html` and its one local
+  image asset (FR-017's mascot) - no external font/script/stylesheet dependency, no external
+  library, nothing fetched from a third-party host - and with JavaScript disabled, including
+  section routing itself.
 - **SC-004**: Every "this was deliberate" claim elsewhere on the site links to a real, substantive
   answer in the "FAQ" section, not a restatement of the same sentence.
 - **SC-005**: A reader with no prior knowledge of any earlier repository or tool this project grew
@@ -374,6 +397,10 @@ activate one without reading any other section.
 - Enabling GitHub Pages itself (repository Settings → Pages → source: Deploy from a branch → `main`
   / `docs`) is a one-time, human, repository-settings action this spec's files cannot perform -
   outside what any file in this repository can configure.
+- Setting the repository's social-preview image (Settings → General → Social preview → Edit →
+  Upload an image) is the same category of one-time, human, repository-settings action - GitHub
+  exposes no API for it, so `docs/social-preview.jpg` (FR-017) exists in the repository ready to
+  upload, but the upload step itself is outside what any file here can perform.
 - The site's content is derived from, and MUST stay consistent with, this repository's specs and
   actual behavior; it does not introduce any capability the flake itself doesn't already have.
 - `:has()` is assumed to be supported by the reader's browser (universal in actively updated

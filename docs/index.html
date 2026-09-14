@@ -190,6 +190,15 @@ body:not(:has(:target)) #getting-started {
   margin: 0;
 }
 
+.mascot {
+  display: block;
+  max-width: 340px;
+  width: 100%;
+  height: auto;
+  margin: 0 0 24px;
+  border-radius: 12px;
+}
+
 .sidebar {
   position: sticky;
   top: calc(var(--nav-height) + 24px);
@@ -497,6 +506,7 @@ footer.site-footer a {
 <!-- ============================== Getting Started ============================== -->
 <section id="getting-started" class="page-section">
   <header class="page-hero">
+    <img class="mascot" src="mascot.jpg" alt="Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned 'Same reproducible workspace everywhere.'" width="900" height="1125">
     <h1>Getting Started</h1>
     <p class="lede">Pick your platform. Run the commands. You'll have a working shell in a few minutes.</p>
   </header>
