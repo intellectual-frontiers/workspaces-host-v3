@@ -487,6 +487,14 @@ command to activate one, without reading any other page.
   repository slug (`workspaces-host-v3`) - the version qualifier is a technical implementation
   detail, not part of the project's name, and stays out of the one piece of brand-facing text on
   the page.
+- **FR-023**: The bottom of every page's content MUST show a "Previous"/"Next" pager, letting a
+  reader move linearly through the site (every page across every tier, in the same order as the
+  top navigation and each tier's own page list) without going back to the sidebar or top nav for
+  each step - reading the site front to back, the way a book's own page-turning works. Reaching
+  the last page of a tier and continuing MUST cross into the first page of the next tier (and the
+  reverse crossing back); the very first page overall (Getting Started's Install) MUST show no
+  "Previous," and the very last page overall (FAQ) MUST show no "Next," rather than wrapping
+  around or linking to nothing.
 
 ### Key Entities
 
@@ -526,6 +534,9 @@ command to activate one, without reading any other page.
   href across every `.md` file) resolves to a real page and, where a heading id is named, a real
   heading on that page - verified directly, not assumed, since nothing else enforces this once
   content lives in separate files.
+- **SC-007**: Starting at Getting Started's Install page and clicking only "Next" reaches every
+  page on the site exactly once, in nav order, ending at FAQ with no "Next" left to click -
+  verified as an actual click-through, not just read off the manifest.
 
 ## Assumptions
 

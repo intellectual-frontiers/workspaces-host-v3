@@ -281,6 +281,71 @@ main.content strong {
   padding: 8px 0 40px;
 }
 
+/* ---------- prev/next pager ---------- */
+
+.page-pager {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 3em 0 1em;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.pager-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.pager-link.pager-empty {
+  border: none;
+}
+
+.pager-next {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.pager-link:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pager-label {
+  font-size: 0.78em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+}
+
+.pager-title {
+  font-size: 1.02em;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+@media (max-width: 520px) {
+  .page-pager {
+    grid-template-columns: 1fr;
+  }
+
+  .pager-next {
+    text-align: left;
+    align-items: flex-start;
+  }
+}
+
 /* ---------- code blocks ---------- */
 
 .code-block {
@@ -556,6 +621,7 @@ footer.site-footer a {
   };
 
   var DEFAULT_HASH = "getting-started/install";
+  var TIER_ORDER = ["getting-started", "day-to-day", "going-further", "faq"];
   var contentCache = {};
   var currentTier = null;
 
@@ -566,6 +632,49 @@ footer.site-footer a {
       if (tier.pages[i].slug === pageSlug) return tier.pages[i];
     }
     return null;
+  }
+
+  // Every page across every tier, in nav order - the site's own
+  // "book" order, so a reader can move linearly front to back with
+  // the pager at the bottom of each page instead of only jumping
+  // around via the sidebar/nav.
+  function flattenedPages() {
+    var flat = [];
+    TIER_ORDER.forEach(function (tierId) {
+      var tier = MANIFEST[tierId];
+      if (!tier) return;
+      tier.pages.forEach(function (p) {
+        flat.push({ tierId: tierId, tierTitle: tier.title, slug: p.slug, title: p.title });
+      });
+    });
+    return flat;
+  }
+
+  function renderPager(tierId, pageSlug) {
+    var flat = flattenedPages();
+    var idx = -1;
+    for (var i = 0; i < flat.length; i++) {
+      if (flat[i].tierId === tierId && flat[i].slug === pageSlug) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) return "";
+    var prev = idx > 0 ? flat[idx - 1] : null;
+    var next = idx < flat.length - 1 ? flat[idx + 1] : null;
+    var html = '<nav class="page-pager" aria-label="Page navigation">';
+    if (prev) {
+      html += '<a class="pager-link pager-prev" href="#' + prev.tierId + "/" + prev.slug + '"><span class="pager-label">&larr; Previous</span><span class="pager-title">' + prev.title + "</span></a>";
+    } else {
+      html += '<span class="pager-link pager-empty"></span>';
+    }
+    if (next) {
+      html += '<a class="pager-link pager-next" href="#' + next.tierId + "/" + next.slug + '"><span class="pager-label">Next &rarr;</span><span class="pager-title">' + next.title + "</span></a>";
+    } else {
+      html += '<span class="pager-link pager-empty"></span>';
+    }
+    html += "</nav>";
+    return html;
   }
 
   function parseHash() {
@@ -751,6 +860,7 @@ footer.site-footer a {
         applyCallouts(content);
         var toc = buildPageToc(content);
         enhanceCodeBlocks(content);
+        content.insertAdjacentHTML("beforeend", renderPager(loc.tierId, loc.pageSlug));
         renderSidebar(loc.tierId, loc.pageSlug, toc);
         document.title = page.title + " | " + tier.title + " | workspaces-host-v3";
         if (loc.headingSlug) {
