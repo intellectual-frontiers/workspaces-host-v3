@@ -65,29 +65,38 @@ kbd {
   position: sticky;
   top: 0;
   z-index: 20;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-nav-inner {
   height: var(--nav-height);
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 20px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: saturate(180%) blur(8px);
-  border-bottom: 1px solid var(--border);
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 24px;
   overflow-x: auto;
   white-space: nowrap;
 }
 
 .site-nav .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
-  margin-right: 20px;
+  margin-right: 16px;
   font-size: 1.02em;
 }
 
-.site-nav .brand code {
-  font-weight: 700;
-  color: var(--accent);
+.site-nav .brand img {
+  width: 28px;
+  height: 28px;
+  display: block;
 }
 
 .site-nav a.nav-link {
@@ -179,19 +188,6 @@ kbd {
   overflow-y: auto;
 }
 
-.sidebar .eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.72em;
-  font-weight: 700;
-  color: var(--text-soft);
-  margin: 0 0 10px;
-}
-
-.sidebar .eyebrow:not(:first-child) {
-  margin-top: 20px;
-}
-
 .sidebar ul {
   list-style: none;
   margin: 0;
@@ -226,7 +222,11 @@ kbd {
 
 .sidebar .sub {
   padding-left: 28px;
-  font-size: 0.98em;
+  font-size: 0.88em;
+}
+
+.sidebar .sub-heading-3 {
+  padding-left: 42px;
 }
 
 main.content {
@@ -426,7 +426,8 @@ footer.site-footer a {
     border-left: none;
   }
 
-  .sidebar .sub {
+  .sidebar .sub,
+  .sidebar .sub-heading-3 {
     padding-left: 0;
   }
 
@@ -442,6 +443,9 @@ footer.site-footer a {
 @media (max-width: 640px) {
   .site-nav {
     position: static;
+  }
+
+  .site-nav-inner {
     height: auto;
     flex-wrap: wrap;
     white-space: normal;
@@ -468,13 +472,15 @@ footer.site-footer a {
 <body>
 
 <nav class="site-nav">
-  <a class="brand" href="#getting-started/install"><code>workspaces-host-v3</code></a>
-  <a class="nav-link" data-tier="getting-started" href="#getting-started/install">Getting Started</a>
-  <a class="nav-link" data-tier="day-to-day" href="#day-to-day/personas">Day to Day</a>
-  <a class="nav-link" data-tier="going-further" href="#going-further/local-nix">Going Further</a>
-  <a class="nav-link" data-tier="faq" href="#faq/faq">FAQ</a>
-  <span class="spacer"></span>
-  <a class="gh-link" href="https://github.com/intellectual-frontiers/workspaces-host-v3">GitHub &#8599;</a>
+  <div class="site-nav-inner">
+    <a class="brand" href="#getting-started/install"><img src="logo.png" alt="" width="128" height="128">Workspaces Host</a>
+    <a class="nav-link" data-tier="getting-started" href="#getting-started/install">Getting Started</a>
+    <a class="nav-link" data-tier="day-to-day" href="#day-to-day/personas">Day to Day</a>
+    <a class="nav-link" data-tier="going-further" href="#going-further/local-nix">Going Further</a>
+    <a class="nav-link" data-tier="faq" href="#faq/faq">FAQ</a>
+    <span class="spacer"></span>
+    <a class="gh-link" href="https://github.com/intellectual-frontiers/workspaces-host-v3">GitHub &#8599;</a>
+  </div>
 </nav>
 
 <header class="page-hero" id="page-hero">
@@ -640,22 +646,26 @@ footer.site-footer a {
     return toc;
   }
 
+  // One flat nav list per tier: every page, and - directly under
+  // whichever page is current - that page's own headings nested in as
+  // sub-items. No "Pages"/"On this page" labels: the nesting itself is
+  // what tells a reader which links are sibling pages and which are
+  // places within the page they're already on.
   function renderSidebar(tierId, pageSlug, pageToc) {
     var tier = MANIFEST[tierId];
     var sidebar = document.getElementById("sidebar");
-    var html = '<p class="eyebrow">Pages</p><ul>';
+    var html = "<ul>";
     tier.pages.forEach(function (p) {
-      var cls = p.slug === pageSlug ? ' class="current-page"' : "";
+      var isCurrent = p.slug === pageSlug;
+      var cls = isCurrent ? ' class="current-page"' : "";
       html += '<li><a' + cls + ' href="#' + tierId + "/" + p.slug + '">' + p.title + "</a></li>";
+      if (isCurrent) {
+        pageToc.forEach(function (h) {
+          html += '<li class="sub' + (h.level === 3 ? " sub-heading-3" : "") + '"><a href="#' + tierId + "/" + pageSlug + "/" + h.id + '">' + h.text + "</a></li>";
+        });
+      }
     });
     html += "</ul>";
-    if (pageToc.length) {
-      html += '<p class="eyebrow">On this page</p><ul>';
-      pageToc.forEach(function (h) {
-        html += '<li' + (h.level === 3 ? ' class="sub"' : "") + '><a href="#' + tierId + "/" + pageSlug + "/" + h.id + '">' + h.text + "</a></li>";
-      });
-      html += "</ul>";
-    }
     sidebar.innerHTML = html;
   }
 

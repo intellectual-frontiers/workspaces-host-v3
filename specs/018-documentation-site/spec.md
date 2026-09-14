@@ -139,6 +139,29 @@ than working around it - fetching and rendering a file's content is not somethin
 do. A `<noscript>` fallback points a JavaScript-disabled reader at the content files directly on
 GitHub instead of failing silently.
 
+### Eighth revision: brand polish and a merged sidebar
+
+Two rough edges from the graduated-tier restructuring got cleaned up once real screenshots made
+them obvious. The top navigation stretched edge to edge regardless of viewport width, while every
+page's own content stayed constrained to a centered 1040px column beneath it - the two no longer
+visually agreed at anything wider than that column. The nav's actual content (brand mark, tier
+links, GitHub link) now sits inside its own inner wrapper sharing `.page`/`.page-hero`'s exact
+max-width and centering, so the nav and the content beneath it always share the same left and
+right edges. The brand mark itself changed from the plain repository slug
+(`workspaces-host-v3`, in `<code>`) to the project's own logo - the icon-only crop of the mascot's
+head, `docs/logo.png`, sized for inline nav use, since the full badge-with-text logo bakes
+"WORKSPACES HOST" into the image at a scale illegible in a 28px mark - paired with the plain text
+"Workspaces Host." The version qualifier was never part of the project's actual name; it stays in
+the repository slug (the GitHub link, the page `<title>`) and out of the one piece of text meant to
+read as a brand.
+
+Separately, the two-group sidebar ("Pages" above a page list, "On this page" above that page's own
+headings) turned out to state the obvious with a label neither list actually needed - a reader can
+tell a sibling page from a heading within the page they're on by position and indentation alone,
+the same way a file tree doesn't caption itself "Folders" and "Files." Both labels were dropped;
+the current page's own headings now nest directly beneath it as indented sub-items in one flat,
+unlabeled list.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Get running with no rationale in the way (Priority: P1)
@@ -336,7 +359,8 @@ command to activate one, without reading any other page.
   Markdown renderer FR-018 names - suitable for GitHub Pages' "deploy from a branch" mode pointed
   at `main` / `docs`. Page *content* is plain Markdown, one file per page under
   `docs/content/<tier>/<page>.md` (FR-019); a plain static image asset referenced by an `<img>`
-  tag (FR-017's mascot images) is likewise outside the shell itself. Together these are the only
+  tag (FR-017's mascot images, FR-022's `docs/logo.png`) is likewise outside the shell itself.
+  Together these are the only
   exceptions to "one file" - none of them introduces the build tooling, a JavaScript framework, or
   a live external dependency the "no library/CDN/framework" half of this rule exists to keep out.
 - **FR-002**: The site MUST include a `.nojekyll` marker so GitHub Pages serves every file
@@ -446,13 +470,23 @@ command to activate one, without reading any other page.
   `> [!WARNING]`, `> [!IMPORTANT]`, or `> [!CAUTION]`), which the site converts to its own styled
   callout at render time - chosen specifically because that convention already renders sensibly
   when the same file is read directly on GitHub, unlike a raw HTML `<div>`.
-- **FR-020**: Every page's sidebar MUST show two groups: every other page in the same tier (with
-  the current page visually marked), and an "On this page" list generated from that page's own
-  rendered `h2`/`h3` headings - never hand-maintained, so a heading edit can't drift out of sync
-  with the sidebar the way the single-file era's hand-copied lists could.
+- **FR-020**: Every page's sidebar MUST be one unified, unlabeled list: every page in the same
+  tier, with the current page's own headings (generated from its actual rendered `h2`/`h3`
+  elements, never hand-maintained) nested directly beneath it as indented sub-items. No "Pages" or
+  "On this page" label - the nesting itself, not a heading above each group, is what distinguishes
+  a sibling page from a place within the page the reader is already on.
 - **FR-021**: Every fenced code block MUST get a "Copy" button after rendering, matching the prior
   single-file site's behavior, re-applied on every navigation (since content is replaced, not
   static).
+- **FR-022**: The top navigation's content (the brand mark, the four tier links, the GitHub link)
+  MUST be constrained to the same max-width and centered the same way as every page's own content
+  (`.page`/`.page-hero`) - not stretched edge to edge - so the nav visually aligns with the content
+  beneath it at every viewport width. The brand mark MUST show the project's own logo (the
+  icon-only crop, `docs/logo.png`, sized for a small inline mark - not the full badge-with-text
+  version, which is illegible at nav-bar scale) next to the plain text "Workspaces Host," never the
+  repository slug (`workspaces-host-v3`) - the version qualifier is a technical implementation
+  detail, not part of the project's name, and stays out of the one piece of brand-facing text on
+  the page.
 
 ### Key Entities
 
@@ -477,11 +511,11 @@ command to activate one, without reading any other page.
   within a tier is reachable from that tier's sidebar in exactly one further click, with no full
   page reload.
 - **SC-003**: The site works with no network access beyond loading `docs/index.html`, the one
-  Markdown content file for the page being viewed, `docs/vendor/marked.js`, and (Getting
-  Started/Day to Day only) one local mascot image - no external font/script/stylesheet dependency,
-  no live CDN, nothing fetched from a third-party host at request time. JavaScript IS required to
-  read content (a deliberate, documented departure from every prior revision's guarantee; see
-  Background).
+  Markdown content file for the page being viewed, `docs/vendor/marked.js`, `docs/logo.png`, and
+  (Getting Started/Day to Day only) one mascot image - no external font/script/stylesheet
+  dependency, no live CDN, nothing fetched from a third-party host at request time. JavaScript IS
+  required to read content (a deliberate, documented departure from every prior revision's
+  guarantee; see Background).
 - **SC-004**: Every "this was deliberate" claim elsewhere on the site links to a real, substantive
   answer in FAQ, not a restatement of the same sentence.
 - **SC-005**: A reader with no prior knowledge of any earlier repository or tool this project grew
