@@ -189,6 +189,19 @@ kbd {
 
 /* ---------- splash page ---------- */
 
+.page-hero.home-hero {
+  padding-bottom: 0;
+}
+
+.splash-hero-img {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  border-radius: 12px;
+}
+
 #content.splash-content {
   max-width: none;
 }
@@ -718,10 +731,9 @@ footer.site-footer a {
     });
 
     var hero = document.getElementById("page-hero");
+    hero.classList.add("home-hero");
     hero.innerHTML =
-      '<img class="mascot" src="mascot.jpg" alt="Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned \'Same reproducible workspace everywhere.\'" width="900" height="688">' +
-      "<h1>Workspaces Host</h1>" +
-      '<p class="lede">Same reproducible workspace everywhere. Pick where to start.</p>';
+      '<img class="splash-hero-img" src="mascot.jpg" alt="Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned \'Same reproducible workspace everywhere.\'" width="900" height="688">';
 
     document.querySelector(".page").classList.add("no-sidebar");
     document.getElementById("sidebar").innerHTML = "";
@@ -969,6 +981,10 @@ footer.site-footer a {
       })
       .catch(function (err) {
         diagrams.forEach(function (d) {
+          // The reader may have already navigated to another page while
+          // mermaid.min.js was still loading - a detached node has
+          // nothing left to show an error into.
+          if (!d.isConnected) return;
           d.outerHTML = '<p class="content-error">Diagram failed to render (' + err.message + ").</p>";
         });
       });
@@ -1033,6 +1049,7 @@ footer.site-footer a {
     // undo its single-column, no-large-graphic layout.
     document.querySelector(".page").classList.remove("no-sidebar");
     document.getElementById("content").classList.remove("splash-content");
+    document.getElementById("page-hero").classList.remove("home-hero");
 
     var tier = MANIFEST[loc.tierId];
     var page = findPage(loc.tierId, loc.pageSlug);

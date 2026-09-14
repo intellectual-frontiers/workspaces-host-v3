@@ -196,6 +196,27 @@ vendored JavaScript library" no longer holds; see FR-018's revised text below. D
 deliberately light touch, added only where a diagram genuinely clarifies something a reader would
 otherwise have to hold in their head - not retrofitted onto every page as decoration.
 
+### Tenth revision: splash page polish, and a `ws-repos` layout diagram
+
+The splash page's headline and lede duplicated what the hero illustration already says in its own
+caption - "Workspaces Host," "Same reproducible workspace everywhere" - so both were dropped, and
+the hero image itself now fills the full content width instead of the 520px cap every other
+`.mascot` image on the site uses, with the button grid sitting directly beneath it. This is the
+only place on the site the hero image runs full width; FR-024 is revised below to match.
+
+The same revision added a Mermaid diagram to Day to Day's "Work across multiple git hosts" page,
+showing the actual directory shape `ws-repos` produces
+(`~/workspaces/<git-host>/<org>/<repo>`) for a multi-host example already on that page - a concrete
+picture of the layout the surrounding prose describes in words.
+
+Adding that diagram also surfaced a real bug in the lazy-load path: `mermaid.min.js` (roughly
+5.5MB) can still be loading when a reader navigates to a different page, and the diagram `<div>`
+its failure handler was about to write an error message into had already been removed from the
+document by that navigation. Setting `.outerHTML` on a detached node throws. The fix checks
+`.isConnected` before touching the node - a diagram that's no longer on the page has nothing left
+to show an error into, so the failure handler now does nothing in that case rather than throwing
+into the console.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Get running with no rationale in the way (Priority: P1)
@@ -355,14 +376,15 @@ than landing straight in the middle of Getting Started's install steps with no o
 reader who isn't installing for the first time (someone already running this sandbox, or someone
 just browsing) has no reason to land inside Getting Started specifically.
 
-**Independent Test**: Open the site with no URL fragment, see only the hero image, a one-line
-lede, and four large buttons (no sidebar, no tier content); click each button in turn and land on
-that tier's first page with its normal sidebar restored.
+**Independent Test**: Open the site with no URL fragment, see only the full-width hero image and
+four large buttons directly beneath it (no headline, no lede, no sidebar, no tier content); click
+each button in turn and land on that tier's first page with its normal sidebar restored.
 
 **Acceptance Scenarios**:
 
 1. **Given** the site with no URL fragment, **When** it loads, **Then** the home splash page shows
-   (hero image, lede, four large tier buttons), not Getting Started's Install page.
+   the full-width hero image and four large tier buttons directly beneath it, with no headline or
+   lede text, not Getting Started's Install page.
 2. **Given** the home splash page, **When** a reader clicks a tier's button, **Then** that tier's
    first page loads with its normal sidebar, hero, and pager restored.
 3. **Given** any content page, **When** a reader clicks the brand mark in the top navigation,
@@ -453,7 +475,8 @@ that tier's first page with its normal sidebar restored.
   combining and persisting more than one), **Authenticate & manage credentials** (`gh`/`glab`
   OAuth login as the preferred path, the plain credentials file, `GITHUB_TOKEN`/`GITLAB_TOKEN` as
   the secondary path), **Work across multiple git hosts** (`ws-repos`, multi-host `ws-repos.json`,
-  `fresh`, `status`, `inspect`), **Stay in sync & recover** (`doctor`, `workspaces-host-update`,
+  `fresh`, `status`, `inspect`, a Mermaid diagram of the `~/workspaces/<git-host>/<org>/<repo>`
+  layout `ws-repos` produces), **Stay in sync & recover** (`doctor`, `workspaces-host-update`,
   home-manager generation rollback), **Use AI coding agents safely** (installing the hosted CLIs,
   per-invocation credential scoping, `scaffold-agent-harness`), and **Everyday tools** (shell
   features, `lefthook`, `sensitivectl`, and the rest). Each page's relevant AI-agent prompt(s) MUST
@@ -572,13 +595,14 @@ that tier's first page with its normal sidebar restored.
   page overall (FAQ) MUST show no "Next," rather than wrapping around or linking to nothing. The
   home splash page (FR-024) is not part of this linear sequence and shows no pager.
 - **FR-024**: The site MUST have a home splash page, reachable at an empty URL fragment or the
-  explicit `#home`, showing only: the mascot's hero image (`docs/mascot.jpg`), a one-line lede,
-  one large button per tier (Getting Started, Day to Day, Going Further, FAQ) linking to that
-  tier's first page, and the "Workhorse in Action" image (`docs/mascot-workflows.jpg`) below the
-  button grid. The splash page MUST show no sidebar and no "Previous"/"Next" pager - it is not
-  part of any tier's own page list. It MUST be the default page (FR-004) and the fallback for any
-  URL fragment that names a tier or page that doesn't exist. The top navigation's brand mark MUST
-  link to it.
+  explicit `#home`, showing only: the mascot's hero image (`docs/mascot.jpg`), rendered at the
+  full width of the page's content column (no headline or lede text - the hero image's own caption
+  already carries that), one large button per tier (Getting Started, Day to Day, Going Further,
+  FAQ) directly beneath the hero image, linking to that tier's first page, and the "Workhorse in
+  Action" image (`docs/mascot-workflows.jpg`) below the button grid. The splash page MUST show no
+  sidebar and no "Previous"/"Next" pager - it is not part of any tier's own page list. It MUST be
+  the default page (FR-004) and the fallback for any URL fragment that names a tier or page that
+  doesn't exist. The top navigation's brand mark MUST link to it.
 - **FR-025**: Any content page MAY include a Mermaid diagram, written as a fenced ` ```mermaid `
   code block in that page's Markdown, rendered client-side by FR-018's lazily loaded Mermaid
   library. Diagrams are opt-in per page, not a requirement - a page adds one only where a

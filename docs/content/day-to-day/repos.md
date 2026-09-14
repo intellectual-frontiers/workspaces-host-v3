@@ -11,6 +11,16 @@ $ ws-repos inspect                   # list git hosts and repos referenced by wo
 
 Every repo lands at `~/workspaces/<git-host>/<org>/<repo>`, the same path segments as its HTTPS clone URL, so it stays predictable and greppable no matter how many hosts you work across.
 
+```mermaid
+flowchart LR
+  W["~/workspaces"] --> GH["github.com"]
+  W --> GL["gitlab.com"]
+  W --> SH["gitlab.mycompany.com"]
+  GH --> GH1["acme/billing-api"]
+  GL --> GL1["acme/payments"]
+  SH --> SH1["platform/infra"]
+```
+
 > [!NOTE]
 > On WSL: keep repos under `~/workspaces`, not `/mnt/c/Users/...`. Crossing the Windows/Linux filesystem boundary is slow, git especially. `doctor` checks for this too.
 
