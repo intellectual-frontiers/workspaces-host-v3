@@ -19,10 +19,16 @@ copy/paste, natural-language prompts a newbie can hand to an AI coding agent ins
 commands themselves; add a 'Personas' section. Then: fold 'Personas' into 'Getting Started' (a
 reader who just got a working shell is the natural moment to offer a specialized toolset too);
 merge 'Why?' and 'Inspiration' into one unified 'FAQ' section, with the Inspiration entries
-visually set apart within its sidebar; rename 'Technical Reference' to 'Contributing'. Most
-recently: add an 'Autocomplete UX' subsection to Getting Started explaining why bash's typing can
-feel slow and both fixes (a `bleopt` setting, or the new `fish` persona); document the `fish`
-persona in Personas and in a new FAQ entry."
+visually set apart within its sidebar; rename 'Technical Reference' to 'Contributing'. Then: add
+an 'Autocomplete UX' subsection to Getting Started explaining why bash's typing can feel slow and
+both fixes (a `bleopt` setting, or the new `fish` persona); document the `fish` persona in
+Personas and in a new FAQ entry. Then: add a mascot illustration as the project's visual identity,
+split across a hero panel and a 'Workhorse in Action' panel. Most recently, substantially revised:
+restructure the entire site into a graduated approach - Getting Started, Day to Day, and Going
+Further tiers, each use-case driven rather than organized by topic - and move every page's content
+out of the single HTML file into plain Markdown files, fetched and rendered client-side by one
+vendored library (the site's only dependency), so new pages and tiers can be added by writing a
+`.md` file rather than editing one enormous HTML document."
 
 ## Background
 
@@ -75,80 +81,136 @@ A sixth revision added a mascot illustration (a Clydesdale draft horse pulling a
 poster with two distinct halves - a hero panel (the horse and cart, ending at the ground) above a
 "Workhorse in Action" grid of eight small vignettes (Develop, Explore, Guide, Automate, Recharge,
 Adapt, Stay Secure, Go Further) - and showing the whole poster in one place made the hero image
-too tall and the vignette grid too small to read. The two halves are cropped into two separate
-images instead: the hero panel (`docs/mascot.jpg`) at the top of Getting Started and as
-README.md's own banner, and the vignette grid (`docs/mascot-workflows.jpg`) at the top of "Using
-Your Sandbox" - a better fit there than Getting Started, since the eight vignettes depict ongoing,
-day-to-day tasks (that section's own subject) rather than a one-time install. Static images
-referenced by plain `<img>` tags are the one deliberate exception to FR-001's "self-contained, no
-separate file" rule: they add none of the complexity that rule actually guards against (a build
-step, a JavaScript framework, an external CDN dependency), and a multi-megabyte image re-encoded
-as a base64 string inside `index.html` would have made the page itself worse to load and maintain
-than a few small separate files. A landscape crop of the hero panel, sized to GitHub's own
-recommendation, exists for the repository's social-preview image - uploading it is a manual,
-one-time repository-settings action this repository's own files cannot perform, the same category
-of exception FR-001's "one self-contained file" already carves out for enabling GitHub Pages
-itself (see Assumptions).
+too tall and the vignette grid too small to read. The two halves were cropped into two separate
+images instead: the hero panel (`docs/mascot.jpg`) and the vignette grid (`docs/mascot-workflows.jpg`).
+A landscape crop of the hero panel exists as `docs/social-preview.jpg`, sized to GitHub's own
+recommendation for a repository's social-preview image, for a human to upload via repository
+Settings (see Assumptions).
+
+### Seventh revision: a graduated structure, and content moved out of the HTML
+
+The site had grown to five flat sections, and every one of them except "Contributing" was aimed
+at a newcomer - there was no path for an engineer who already had a working sandbox and wanted a
+real, task-shaped answer to something beyond the basics (combining personas for a specific role,
+personalizing with `local.nix`, team secrets, writing a new persona, container/CI parity). And
+"Contributing" itself conflated two different readers: someone wanting to *use* this sandbox more
+deeply, and someone about to *change the repository itself*. Organizing by topic (credentials,
+shell, repos, doctor...) rather than by task also meant a reader had to already know which topic
+their goal fell under before they could find it.
+
+This revision restructures the site into three graduated tiers, each genuinely use-case driven -
+a heading names a task ("Combine personas for your role," "Add a tool or write a new persona"),
+not a topic:
+
+- **Getting Started**: install, verify, and a true first day - unchanged in spirit from every
+  earlier revision, trimmed to stop once the reader has a working shell, one repo cloned, and a
+  green `doctor`.
+- **Day to Day** (renamed from "Using Your Sandbox"): the ongoing tasks an engineer actually
+  returns to - personas, credentials, working across git hosts, staying in sync and recovering
+  from a bad update, AI coding agents, everyday tools. "Try with AI"'s prompts moved into their
+  matching task on each page instead of staying a separate section, so a reader finds the prompt
+  right next to the command it replaces rather than in a second place entirely.
+- **Going Further** (renamed from "Contributing," and no longer only for someone about to modify
+  the flake): a light, deliberately short number of real advanced use cases - personalizing with
+  `local.nix`, adding a tool or writing a new persona, team secrets with `sops`, container/CI
+  parity, and extending the repository with an AI agent (which absorbs the old "Contributing"
+  content, since a reader who wants to add a persona or a tool is, in effect, extending the repo
+  either way). The pure architecture-tour material (what Nix/a flake/home-manager actually are,
+  the repository's file layout) that doesn't fit a task shape stays here too, as its own page,
+  rather than forcing it into an artificial task or adding a fourth nav destination just for
+  reference material.
+- **FAQ**: unchanged in role - the "why" layer every tier still links into, Inspiration included.
+
+Splitting five sections' worth of hand-authored HTML into roughly fifteen graduated pages made
+maintaining one enormous `index.html` file, and a sidebar that had to be hand-kept in sync with
+whatever headings happened to be in it, the wrong tradeoff. Page content moved to plain Markdown
+files under `docs/content/<tier>/<page>.md`, fetched and rendered at navigation time by
+[marked](https://github.com/markedjs/marked) - vendored into `docs/vendor/marked.js` (not loaded
+from a live CDN), so the site still has no third-party dependency at request time, matching the
+spirit of the "no external CDN" rule the single-file era enforced literally. `docs/index.html`
+is now a thin shell (nav, CSS, a small router) rather than the content itself; a page's own
+sidebar "On this page" list is generated from its actual rendered headings, so it can never drift
+out of sync with a heading the way a hand-copied list could.
+
+The real, accepted cost: JavaScript is now required to read any content. The previous
+architecture's CSS-only routing specifically guaranteed the opposite (FR-003/FR-010/SC-003 in
+every prior revision of this spec), and this revision deliberately drops that guarantee rather
+than working around it - fetching and rendering a file's content is not something plain CSS can
+do. A `<noscript>` fallback points a JavaScript-disabled reader at the content files directly on
+GitHub instead of failing silently.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Get running with no rationale in the way (Priority: P1)
 
-Someone who just wants to get a working shell opens the site's Getting Started section and finds
-their platform's exact steps, in order, with nothing to read except what to type.
+Someone who just wants to get a working shell opens Getting Started and finds their platform's
+exact steps, in order, with nothing to read except what to type.
 
 **Why this priority**: This is the single most common reason anyone opens the site at all.
 
-**Independent Test**: Open the site (no URL fragment), land on Getting Started by default, and
-follow only the WSL subsection top to bottom, with no need to read any other section.
+**Independent Test**: Open the site (no URL fragment), land on Getting Started's Install page by
+default, and follow only the WSL subsection top to bottom, with no need to read any other page.
 
 **Acceptance Scenarios**:
 
-1. **Given** the site with no URL fragment, **When** it loads, **Then** the Getting Started
-   section is the one visible by default.
-2. **Given** the Getting Started section, **When** a Windows/WSL reader reads only that
-   subsection, **Then** they have every command needed to reach a working shell, in run order.
-3. **Given** the Getting Started section, **When** a Linux or macOS reader reads their platform's
-   subsection instead, **Then** they find the equivalent steps with no WSL-specific content mixed
-   in.
+1. **Given** the site with no URL fragment, **When** it loads, **Then** Getting Started's Install
+   page is the one shown by default.
+2. **Given** the Install page, **When** a Windows/WSL reader reads only that subsection, **Then**
+   they have every command needed to reach a working shell, in run order.
+3. **Given** the Install page, **When** a Linux or macOS reader reads their platform's subsection
+   instead, **Then** they find the equivalent steps with no WSL-specific content mixed in.
 
 ---
 
-### User Story 2 - Look up how to do something day to day (Priority: P2)
+### User Story 2 - Do a real, ongoing task without re-reading everything (Priority: P1)
 
-An engineer already running this sandbox wants to remember how to add a credential, activate a
-persona, or roll back a bad update, without re-reading everything.
+An engineer already running this sandbox wants a direct, task-shaped answer for something they
+do repeatedly: combine two personas, authenticate against a new git host, recover from a bad
+update, use an AI agent safely - not a topic-organized reference they have to search.
 
-**Independent Test**: From the site's top navigation, reach the "Using Your Sandbox" section in
-one click from anywhere on the page; from that section's own sidebar, reach credentials,
-`ws-repos`, `doctor`, sync, and personas each in one further click.
+**Why this priority**: This is the tier most engineers spend the most time in, and the one the
+old topic-organized "Using Your Sandbox" section served worst.
+
+**Independent Test**: From the top navigation, reach "Day to Day" in one click from any tier; from
+its own sidebar, reach every one of its pages (personas, credentials, repos, sync-recover,
+ai-agents, everyday-tools) each in one further click, and find that page's own AI-agent prompt (if
+it has one) alongside the manual steps, not in a separate section.
 
 **Acceptance Scenarios**:
 
-1. **Given** the site open on any section, **When** the reader clicks "Using Your Sandbox" in the
-   top navigation, **Then** that section becomes visible with no full page reload, and the browser
+1. **Given** the site open on any tier, **When** the reader clicks "Day to Day" in the top
+   navigation, **Then** that tier's default page loads with no full page reload, and the browser
    URL updates to a bookmarkable fragment.
+2. **Given** a Day to Day page that has a matching AI-agent prompt, **When** the reader reaches
+   the bottom of that page, **Then** the prompt is right there, not on a separate "Try with AI"
+   page.
 
 ---
 
-### User Story 3 - Understand the machinery, or point an AI agent at it (Priority: P2)
+### User Story 3 - A light number of real advanced use cases (Priority: P2)
 
-An engineer who wants to actually understand Nix/flakes/home-manager, or who wants to hand this
-repository to Claude Code/Codex/another agent and have it make a correct change, reads the
-Contributing section first.
+An engineer comfortable with the basics wants to personalize their setup, add a tool or write a
+new persona, use team secrets, or point an AI agent at the repository to extend it - genuine
+advanced tasks, not a repository-internals tour for someone who happens to be curious.
 
-**Independent Test**: The Contributing section explains the flake/home-manager/persona
-architecture and the spec-driven workflow, and gives concrete instructions for pointing an AI
-coding agent at this repository.
+**Why this priority**: These are real, if less frequent, needs; keeping this tier deliberately
+short (a handful of pages, not an exhaustive reference) matches how rarely most engineers actually
+need it.
+
+**Independent Test**: From "Going Further," reach every one of its pages (local-nix,
+add-a-tool-or-persona, team-secrets, container-ci, extend-with-ai, architecture) in one click each;
+follow "Add a tool or write a new persona" end to end and have everything needed to register a new
+persona, with no separate lookup required.
 
 **Acceptance Scenarios**:
 
-1. **Given** the Contributing section, **When** an engineer wants to add a new tool or persona,
-   **Then** the section explains where that change belongs (a persona module vs. the base profile)
-   and which repository files govern the decision.
-2. **Given** the Contributing section, **When** an engineer wants an AI agent to make a change to
-   this repository, **Then** the section names the constitution, the writing-style guide, the
-   SpecKit lifecycle, and this site's own comprehensive-docs role as things that agent must follow.
+1. **Given** "Going Further," **When** an engineer wants to add a new tool or persona, **Then**
+   that page explains where the change belongs (base profile vs. a persona) and gives the concrete
+   steps, including registering it with `ws-persona`.
+2. **Given** "Going Further," **When** an engineer wants an AI agent to make a change to this
+   repository, **Then** its "Extend the repo with an AI agent" page names the constitution, the
+   writing-style guide, the SpecKit lifecycle, and this site's own comprehensive-docs role as
+   things that agent must follow.
 
 ---
 
@@ -162,246 +224,274 @@ intent from code or commit history.
 **Why this priority**: A design decision without a recorded reason gets silently re-litigated or
 accidentally reversed by someone (human or agent) who never knew it was deliberate.
 
-**Independent Test**: From the "FAQ" section's own sidebar, reach the rationale for any real
-design decision described elsewhere on the site (credentials, secret scoping, personas, `ws-repos`
-naming, v1-roadmap tools, prompt/Java tooling choices, the spec-driven workflow itself, and the
-docs/README split) in one click.
+**Independent Test**: From "FAQ"'s own sidebar, reach the rationale for any real design decision
+described elsewhere on the site (credentials, secret scoping, personas, `ws-repos` naming,
+v1-roadmap tools, prompt/Java tooling choices, the spec-driven workflow itself, this site's own
+Markdown-fetching architecture, and the docs/README split) in one click.
 
 **Acceptance Scenarios**:
 
 1. **Given** a claim elsewhere on the site that a choice was deliberate (e.g. "personas keep the
-   base profile small"), **When** the reader follows that claim's link, **Then** they land on the
-   "FAQ" section's matching subsection with the actual reasoning, not a restatement of the claim.
+   base profile small"), **When** the reader follows that claim's link, **Then** they land on
+   "FAQ"'s matching entry with the actual reasoning, not a restatement of the claim.
 
 ---
 
-### User Story 5 - Do a task by asking AI instead of typing the command (Priority: P2)
-
-A newbie who doesn't yet know (or doesn't want to type) the exact command for a common task, like
-adding a repository to their workspace, opens "Try with AI," copies a ready-made prompt, and pastes
-it into their already-configured AI coding agent.
-
-**Why this priority**: The whole point of this repository is a low barrier to entry; a reader who
-can describe what they want in plain language shouldn't have to learn a CLI first.
-
-**Independent Test**: From "Try with AI," copy the prompt for adding a repository to
-`~/workspaces` and paste it, unmodified except for the repository's own URL, into a working AI
-coding agent; the agent completes the task using commands this site itself documents.
-
-**Acceptance Scenarios**:
-
-1. **Given** the "Try with AI" section, **When** a reader wants to accomplish a task this site
-   documents elsewhere (adding a repo, diagnosing a problem, rotating a credential, rolling back an
-   update, activating a persona, scaffolding a project), **Then** they find a natural-language
-   prompt for it, not a raw shell command to type themselves.
-
----
-
-### User Story 6 - See what this repository grew out of, without needing to (Priority: P3)
+### User Story 5 - See what this repository grew out of, without needing to (Priority: P3)
 
 A reader curious about this project's history, or trying to understand why `ws-repos` isn't called
 `mgit`, opens "FAQ" and finds, in a visually distinct "Inspiration" group within its sidebar, the
 earlier repositories and tools this one continues, framed as a lineage this repository builds on
 rather than a compatibility promise it has to keep.
 
-**Why this priority**: This context helps a curious reader, but no other section, and no actual
-task on this site, requires it.
+**Why this priority**: This context helps a curious reader, but no other page, and no actual task
+on this site, requires it.
 
-**Independent Test**: Read every section other than "FAQ" end to end with no prior knowledge of
-any earlier repository or tool, and complete every task each section describes; separately, open
-"FAQ" and find the same historical detail, set apart from the design-rationale entries, without
-needing it for anything else on the site.
+**Independent Test**: Read every tier other than "FAQ" end to end with no prior knowledge of any
+earlier repository or tool, and complete every task each page describes; separately, open "FAQ"
+and find the same historical detail, set apart from the design-rationale entries, without needing
+it for anything else on the site.
 
 **Acceptance Scenarios**:
 
-1. **Given** any section other than "FAQ," **When** it makes a claim or names a design decision,
+1. **Given** any tier other than "FAQ," **When** it makes a claim or names a design decision,
    **Then** it does so without requiring the reader to know any earlier repository or tool this one
    grew out of.
-2. **Given** the "FAQ" section, **When** a reader wants to know the earlier work this repository
-   continues, **Then** its sidebar shows an "Inspiration" group, visually set apart from the
-   design-rationale entries above it, naming and linking each one (a first version of this
-   repository, a separate multi-repo tool, and a second version) as inspiration this repository
-   builds on rather than a strict port of.
+2. **Given** "FAQ," **When** a reader wants to know the earlier work this repository continues,
+   **Then** its sidebar shows an "Inspiration" group, visually set apart from the design-rationale
+   entries above it, naming and linking each one (a first version of this repository, a separate
+   multi-repo tool, and a second version) as inspiration this repository builds on rather than a
+   strict port of.
 
 ---
 
-### User Story 7 - Find and activate a specialized toolset without reading Nix (Priority: P2)
+### User Story 6 - Find and activate a specialized toolset without reading Nix (Priority: P1)
 
 A reader who just finished Getting Started wants a specialized toolset (Java, Python, Postgres,
 Tailscale, and so on) and wants to know what's available and how to turn it on, without reading
 `flake.nix` or learning the `nix build`/flake-attribute syntax first.
 
 **Why this priority**: Personas exist specifically to serve engineers who aren't Nix-literate;
-burying "how do I get one" several sections after Getting Started works against that goal.
+burying "how do I get one" several pages deep works against that goal.
 
-**Independent Test**: From Getting Started's own sidebar, reach "Personas" in one click, right
-after "Verify it worked"; from there, name every available persona and the exact command to
-activate one without reading any other section.
+**Independent Test**: From "Day to Day"'s own sidebar, reach "Combine personas for your role" in
+one click; from there, name every available persona, how to check what's active, and the exact
+command to activate one, without reading any other page.
 
 **Acceptance Scenarios**:
 
-1. **Given** Getting Started's own sidebar, **When** a reader looks for personas, **Then**
-   "Personas" appears there, between "Verify it worked" and "What's next."
-2. **Given** the "Personas" content, **When** a reader wants to know what's available or what's
+1. **Given** "Day to Day"'s own sidebar, **When** a reader looks for personas, **Then** "Combine
+   personas for your role" is the tier's first page.
+2. **Given** that page's content, **When** a reader wants to know what's available or what's
    already active, **Then** they find `ws-persona list`/`ws-persona current` and the exact
    activation command, with no need to construct a flake attribute by hand.
 
 ### Edge Cases
 
-- What happens when a reader's browser has JavaScript disabled? Section routing itself MUST still
-  work (it is implemented in CSS, not JavaScript); only the active-nav-link highlight, tab-title
-  update, and code-block copy buttons are absent, with no error.
-- What happens when a URL fragment points at a sub-heading inside a section, not the section's own
-  top-level id (e.g. `#doctor`, which lives inside the "Using Your Sandbox" section)? The
-  containing section MUST become visible (not just the sub-heading's immediate element), and the
-  browser MUST still scroll to and reveal that sub-heading.
-- What happens on a narrow (phone-width) screen? Top navigation and each section's own local table
-  of contents must remain usable, not clipped, overflowing, or overlapping content.
+- What happens when a reader's browser has JavaScript disabled? The page shell still loads, but
+  reading any actual content requires JavaScript (fetch + render) - a deliberate, accepted
+  regression from every prior revision's CSS-only-routing guarantee (see Background). A
+  `<noscript>` message MUST point the reader at the content files directly on GitHub instead of
+  leaving a blank page with no explanation.
+- What happens when a URL fragment names a tier and page that don't exist (a typo, a stale
+  bookmark from before a page was renamed)? The router MUST fall back to the default page
+  (Getting Started's Install) rather than showing a blank page or a raw JavaScript error.
+- What happens when a URL fragment points at a sub-heading inside a page, not the page's own top
+  (a three-segment hash, `#tier/page/heading-id`)? The named page MUST load and the browser MUST
+  scroll to that heading once rendering finishes, the same as the old single-file site's
+  sub-heading deep links.
+- What happens when a `.md` file fails to fetch (a typo in the manifest, a network hiccup, the
+  file genuinely missing)? The content area MUST show a clear, specific error naming what failed,
+  with a link to the same content read directly on GitHub, rather than a blank page or a raw
+  fetch exception.
+- What happens when two headings on the same page would produce the same auto-slugified id (two
+  headings that happen to share wording)? The router MUST disambiguate automatically (append a
+  counter) rather than silently overwriting one heading's anchor with another's; a page's own
+  heading that needs a stable, short cross-reference target independent of its exact wording MAY
+  pin one explicitly with a trailing `{#exact-id}` (Pandoc/kramdown-style header attribute).
+- What happens on a narrow (phone-width) screen? Top navigation and each page's own two-part
+  sidebar (its tier's other pages, then "On this page") must remain usable, not clipped,
+  overflowing, or overlapping content.
 - What happens if GitHub Pages is not yet enabled for this repository? The site's source must be
   fully correct and complete in the repository regardless; enabling Pages itself is a one-time
   repository-settings action outside this repository's own files (documented in this spec's
   Assumptions).
-- What happens when a section other than "FAQ" would otherwise need to justify a naming or scoping
-  choice that traces back to an earlier repository or tool? That section states the current,
+- What happens when a page other than "FAQ" would otherwise need to justify a naming or scoping
+  choice that traces back to an earlier repository or tool? That page states the current,
   present-tense fact (the name, the scope, the behavior) and links to "FAQ" for the reasoning,
   which in turn links to its own "Inspiration" entries for the earlier work behind it, rather than
   restating that history itself.
-- What happens if a reader pastes a "Try with AI" prompt into an agent that isn't yet configured
-  (no AI CLI installed, no credential set)? The prompt itself doesn't handle that case; "Try with
-  AI" assumes "Setting up AI coding agents" (part of "Using Your Sandbox") is already done, and
-  links there.
+- What happens if a reader pastes an AI-agent prompt into an agent that isn't yet configured (no
+  AI CLI installed, no credential set)? The prompt itself doesn't handle that case; every prompt
+  assumes "Use AI coding agents safely" (part of "Day to Day") is already done, and each prompt's
+  page links there if it isn't the page itself.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The repository MUST include a `docs/` directory whose entire site is one
-  self-contained `index.html` file (HTML, CSS, and JavaScript all inlined in that one file) -
-  no separate stylesheet or script file, no external CDN, no build step, no static-site generator,
-  and no client-side routing library or JavaScript framework of any kind (explicitly including,
-  but not limited to, HTMx) - suitable for GitHub Pages' "deploy from a branch" mode pointed at
-  `main` / `docs`. A plain static image asset referenced by an `<img>` tag (FR-017's mascot
-  images) is the one permitted exception: it introduces none of the build tooling, frameworks, or
-  external dependencies this rule exists to keep out.
-- **FR-002**: The site MUST include a `.nojekyll` marker so GitHub Pages serves the file as-is,
-  without Jekyll processing.
-- **FR-003**: Navigation between the site's sections MUST be implemented in plain CSS (the
-  `:target` and `:has()` selectors), not JavaScript - so it keeps working with JavaScript
-  disabled - and MUST update the browser's URL fragment so a section (or a sub-heading within one)
-  is directly linkable and works with the browser's back button.
-- **FR-004**: The site MUST have a Getting Started section, visible by default when the page loads
-  with no URL fragment, presenting installation instructions with minimal surrounding rationale
-  ("just the facts"): Windows/WSL first, followed by Linux, then macOS, then a manual/step-by-step
-  equivalent, then how to verify the install worked, then Autocomplete UX (FR-016), then Personas
-  (FR-015), then what to do next.
-- **FR-005**: The site MUST have a "Using Your Sandbox" section for newbie, day-to-day usage:
-  credentials (including authenticating `gh`/`glab` for private repositories), shell features,
-  `ws-repos`, `doctor`/rollback, and keeping in sync, written for someone who has already finished
-  Getting Started. It MUST keep only a short pointer to Getting Started's "Personas" content
-  (FR-015), not a second copy of it.
-- **FR-006**: The site MUST have a "Contributing" section covering: what Nix/flakes/home-manager
-  actually are, this repository's own module layout (`flake.nix`, `home/`, `pkgs/`, `specs/`,
-  personas), the spec-driven (SpecKit) workflow and the constitution's role, and concrete guidance
-  for pointing an AI coding agent at this repository (which files govern its behavior, and where a
-  given kind of change belongs).
-- **FR-007**: The site MUST have a "FAQ" section giving the actual reasoning behind every real
-  design decision described elsewhere on the site or in the README (at minimum: why this
-  repository exists at all; why Nix/home-manager over alternative toolchains; why a plain
-  credentials file; why secrets are scoped per invocation; why the AI harness CLIs aren't
-  Nix-packaged; why the base profile stays small and personas exist; why `ws-repos` is named that;
-  why the v1-roadmap tools - Deno, Lefthook, Tailscale/Nebula - are provisioned the way they are;
-  why oh-my-posh doesn't self-update; why there's no Java version manager; why every feature gets a
-  spec; why the documentation lives on this site rather than in the README; and why fish is a
-  persona rather than the default shell), and, within the
-  same section but visually set apart in its own sidebar group (FR-014), an "Inspiration" set of
-  entries. Every other section that makes a "this was deliberate" claim MUST link to that claim's
-  matching "FAQ" subsection.
-- **FR-008**: The site MUST share one consistent top navigation (reachable from every section, in
-  the same position, without a full page reload between sections) and one consistent visual style,
-  so moving between sections never feels like a different page.
-- **FR-009**: The site's prose MUST follow `.specify/memory/writing-style.md`, per the
-  constitution's Documentation Voice principle, since it is exactly the kind of `docs/` guide that
-  principle names.
-- **FR-010**: The site MUST render correctly with JavaScript disabled (FR-003's routing already
-  guarantees this); any JavaScript enhancement (the active-nav-link highlight, the tab-title
-  update, copy buttons on code blocks) MUST be strictly additive, never required to read or
-  navigate the content.
-- **FR-011**: The site MUST be usable at phone width (no horizontal scrolling of page content;
-  navigation remains reachable, wrapping onto additional lines rather than overflowing).
-- **FR-012**: The README MUST stay a short overview (purpose, core concepts, a link to this site)
+- **FR-001**: The repository MUST include a `docs/` directory whose page *chrome* (navigation,
+  CSS, the content router) is one HTML shell, `docs/index.html`, with no build step, no
+  static-site generator, and no client-side routing/framework library of any kind beyond the one
+  Markdown renderer FR-018 names - suitable for GitHub Pages' "deploy from a branch" mode pointed
+  at `main` / `docs`. Page *content* is plain Markdown, one file per page under
+  `docs/content/<tier>/<page>.md` (FR-019); a plain static image asset referenced by an `<img>`
+  tag (FR-017's mascot images) is likewise outside the shell itself. Together these are the only
+  exceptions to "one file" - none of them introduces the build tooling, a JavaScript framework, or
+  a live external dependency the "no library/CDN/framework" half of this rule exists to keep out.
+- **FR-002**: The site MUST include a `.nojekyll` marker so GitHub Pages serves every file
+  (`index.html`, the `.md` content files, `vendor/marked.js`) as-is, without Jekyll processing.
+- **FR-003**: Navigation MUST use hash-based URLs of the form `#<tier>/<page>` (optionally
+  `#<tier>/<page>/<heading-id>` for a sub-heading), kept in sync with the browser's back/forward
+  history and directly bookmarkable/shareable, and MUST update on every navigation without a full
+  page reload.
+- **FR-004**: The site MUST group its pages into three graduated tiers, in this order in the top
+  navigation: **Getting Started** (FR-005), **Day to Day** (FR-006), **Going Further** (FR-007),
+  and **FAQ** (FR-008) as a fourth, non-graduated tier. Getting Started's Install page is the
+  default when no URL fragment is present.
+- **FR-005**: **Getting Started** MUST have exactly two pages: **Install** (Windows/WSL first,
+  followed by Linux, then macOS, then a manual/step-by-step equivalent - "just the facts," minimal
+  surrounding rationale) and **Verify it worked & your first day** (running `doctor`, the
+  Autocomplete UX explanation and both its fixes - a `bleopt` setting or the `fish` persona -
+  cloning a first repository, and where to go next). Personas MUST NOT be explained in full here;
+  a pointer to Day to Day's personas page is enough, consistent with FR-011's one-canonical-answer
+  rule.
+- **FR-006**: **Day to Day** MUST have these pages, each genuinely task-shaped: **Combine personas
+  for your role** (the persona table, `ws-persona list`/`current`/`activate`/`deactivate`,
+  combining and persisting more than one), **Authenticate & manage credentials** (`gh`/`glab`
+  OAuth login as the preferred path, the plain credentials file, `GITHUB_TOKEN`/`GITLAB_TOKEN` as
+  the secondary path), **Work across multiple git hosts** (`ws-repos`, multi-host `ws-repos.json`,
+  `fresh`, `status`, `inspect`), **Stay in sync & recover** (`doctor`, `workspaces-host-update`,
+  home-manager generation rollback), **Use AI coding agents safely** (installing the hosted CLIs,
+  per-invocation credential scoping, `scaffold-agent-harness`), and **Everyday tools** (shell
+  features, `lefthook`, `sensitivectl`, and the rest). Each page's relevant AI-agent prompt(s) MUST
+  live on that same page, not in a separate section.
+- **FR-007**: **Going Further** MUST have a light number of pages, each a real advanced use case:
+  **Personalize with `local.nix`** (a durable `bleopt` tweak, a git-identity override, a
+  machine-only package), **Add a tool or write a new persona** (the base-profile-vs-persona
+  decision, concrete steps including registering a new persona with `flake.nix` and `ws-persona`),
+  **Team secrets with `sops`** (`workspacesHost.secrets`, a full encrypt/declare/apply walkthrough),
+  **Container & CI parity** (`oci-image`/`oci-image-sandboxed`, using the same closure in a
+  pipeline, the `nix flake check`/scratch-activation validation loop), **Extend the repo with an AI
+  agent** (the constitution, the spec-driven workflow, concrete rules for an agent changing this
+  repository - this absorbs what the prior "Contributing" section covered), and **How it's built**
+  (Nix/flakes/home-manager in plain terms, the repository's file layout, how personas mechanically
+  combine, how this site itself works) - reference material that doesn't fit a task shape, kept
+  here rather than as a separate nav destination.
+- **FR-008**: **FAQ** MUST give the actual reasoning behind every real design decision described
+  elsewhere on the site or in the README (at minimum: why this repository exists at all; why
+  Nix/home-manager over alternative toolchains; why a plain credentials file; why secrets are
+  scoped per invocation; why the AI harness CLIs aren't Nix-packaged; why the base profile stays
+  small and personas exist; why fish is a persona rather than the default shell; why `ws-repos` is
+  named that; why the v1-roadmap tools - Deno, Lefthook, Tailscale/Nebula - are provisioned the way
+  they are; why oh-my-posh doesn't self-update; why there's no Java version manager; why every
+  feature gets a spec; why the documentation lives on this site rather than in the README; and why
+  this site fetches Markdown instead of staying one static HTML file), and, within the same page
+  but visually set apart in its own sidebar group (FR-014), an "Inspiration" set of entries. Every
+  other page that makes a "this was deliberate" claim MUST link to that claim's matching FAQ entry.
+- **FR-009**: The site MUST share one consistent top navigation (reachable from every page, in the
+  same position, without a full page reload between pages) and one consistent visual style, so
+  moving between pages never feels like a different site.
+- **FR-010**: The site's prose (every `.md` content file) MUST follow
+  `.specify/memory/writing-style.md`, per the constitution's Documentation Voice principle.
+- **FR-011**: The README MUST stay a short overview (purpose, core concepts, a link to this site)
   rather than a comprehensive walkthrough; this site, not the README, MUST be the comprehensive,
   always-current documentation. A change that affects installation, day-to-day usage, or the
-  technical architecture MUST update this site in the same commit; the README MUST only change
-  when the short overview itself stops being accurate.
-- **FR-013**: The site MUST have a "Try with AI" section giving copy/paste, natural-language
-  prompts (not raw shell commands) for common tasks a newbie would otherwise have to look up and
-  type themselves (at minimum: adding a repository to `~/workspaces`, diagnosing a problem with
-  `doctor`, adding or rotating a credential, rolling back a broken update, activating a persona,
-  and scaffolding a new project). Each prompt MUST assume "Setting up AI coding agents" is already
-  done and MUST link to it.
-- **FR-014**: Within "FAQ" (FR-007), an "Inspiration" group of entries MUST name and link every
+  technical architecture MUST update this site (the relevant `.md` file(s)) in the same commit; the
+  README MUST only change when the short overview itself stops being accurate.
+- **FR-012**: The site MUST be usable at phone width (no horizontal scrolling of page content;
+  navigation and the two-part sidebar remain reachable, wrapping or stacking rather than
+  overflowing).
+- **FR-013**: Within FAQ (FR-008), an "Inspiration" group of entries MUST name and link every
   earlier repository or tool this project's own lineage includes (a first version of this
   repository, the separate multi-repository tool `ws-repos` takes its pattern from, and a second
-  version), framing this repository as their spiritual successor, not a strict port or a promise
-  of behavioral compatibility with any of them, and MUST be visually set apart from "FAQ"'s
-  design-rationale entries in the section's own sidebar (a distinct labeled group, not interleaved
-  with them). Every other section on the site MUST describe this repository entirely on its own,
+  version), framing this repository as their spiritual successor, not a strict port or a promise of
+  behavioral compatibility with any of them, and MUST be visually set apart from FAQ's
+  design-rationale entries in the page's own sidebar (a distinct labeled group, not interleaved
+  with them). Every other page on the site MUST describe this repository entirely on its own,
   present-tense terms, with no reader needing to know any of that history to install, use, or
-  understand it; a section whose reasoning traces back to that history MUST link to "FAQ"'s
-  Inspiration entries rather than restate the history itself.
-- **FR-015**: Getting Started (FR-004) MUST include a "Personas" subsection, positioned after
-  "Autocomplete UX" (FR-016) and before "What's next," giving: every persona and what it adds
-  (the same table spec 014 requires, including `fish`), how to discover and check personas
-  (`ws-persona list`/`ws-persona current`), and the exact command to activate one. "Using Your
-  Sandbox" MUST keep only a short pointer to it (not a second copy of the table or the activation
-  command), consistent with FR-012's one-canonical-answer rule. It MUST also state that activating
-  the `fish` persona never changes the reader's login shell, and MUST give the exact `chsh` command
-  for anyone who wants to make it their shell.
-- **FR-016**: Getting Started (FR-004) MUST include an "Autocomplete UX" subsection, positioned
-  after verifying the install worked and before "Personas" (FR-015), explaining why bash's typing
-  can feel slow (`blesh`'s default auto-triggering of full completion on almost every keystroke)
-  and giving both fixes: the exact `bleopt` setting to disable, shown both as a live, session-only
-  command and as a durable snippet for `~/.config/workspaces-host/local.nix`; and a pointer to the
-  `fish` persona (FR-015) as the native alternative. "Using Your Sandbox"'s own shell subsection
-  MUST link to this subsection rather than restate it.
-- **FR-017**: The repository MUST include the mascot illustration as two cropped images, each
-  with real alt/description text (not a bare filename) - not a generic stock graphic, but this
-  repository's own: `docs/mascot.jpg` (the hero panel - a Clydesdale draft horse pulling a cart of
-  "CODE", "CONFIG", and "TOOLS" crates), shown at the top of Getting Started's hero (FR-004) and
-  as README.md's own banner image (the same file, not a duplicate); and
-  `docs/mascot-workflows.jpg` (the "Workhorse in Action" vignette grid - the same mascot shown
-  across eight everyday tasks), shown at the top of "Using Your Sandbox"'s hero (FR-005), since
-  that grid depicts ongoing, day-to-day use rather than a one-time install. A landscape crop of
-  the hero panel MUST exist as `docs/social-preview.jpg`, sized to GitHub's own recommendation for
-  a repository's social-preview image, for a human to upload via repository Settings (FR-001's one
-  permitted exception; see Assumptions for why that upload step can't be automated).
+  understand it; a page whose reasoning traces back to that history MUST link to FAQ's Inspiration
+  entries rather than restate the history itself.
+- **FR-014**: (Reserved - merged into FR-013's own numbering above to keep the Inspiration
+  requirement's cross-references from earlier revisions valid; see FR-013.)
+- **FR-015**: Getting Started's "Verify it worked & your first day" page (FR-005) MUST explain why
+  bash's typing can feel slow (`blesh`'s default auto-triggering of full completion on almost
+  every keystroke) and give both fixes: the exact `bleopt` setting to disable, shown both as a
+  live, session-only command and as a durable snippet for `~/.config/workspaces-host/local.nix`;
+  and a pointer to Day to Day's personas page for the `fish` persona as the native alternative.
+  Day to Day's "Everyday tools" page MUST link to this explanation rather than restate it.
+- **FR-016**: (Reserved for the same reason as FR-014 - Autocomplete UX is now FR-015 above.)
+- **FR-017**: The repository MUST include the mascot illustration as two cropped images, each with
+  real alt/description text (not a bare filename) - not a generic stock graphic, but this
+  repository's own: `docs/mascot.jpg` (the hero panel), shown at the top of Getting Started's hero
+  and as README.md's own banner image (the same file, not a duplicate); and
+  `docs/mascot-workflows.jpg` (the "Workhorse in Action" vignette grid), shown at the top of Day to
+  Day's hero, since that grid depicts ongoing, day-to-day use rather than a one-time install. A
+  landscape crop of the hero panel MUST exist as `docs/social-preview.jpg`, sized to GitHub's own
+  recommendation for a repository's social-preview image, for a human to upload via repository
+  Settings (see Assumptions for why that upload step can't be automated).
+- **FR-018**: The site MUST render Markdown content client-side using exactly one vendored
+  JavaScript library, [marked](https://github.com/markedjs/marked), committed at
+  `docs/vendor/marked.js` (with its license at `docs/vendor/marked.LICENSE.txt`) rather than
+  loaded from a live CDN - so the site has no third-party dependency at request time. Bumping the
+  vendored version MUST be a deliberate, reviewable file replacement (re-fetch the package,
+  re-copy `lib/marked.umd.js`), never an automatic or silent update.
+- **FR-019**: Each page's content MUST be one plain Markdown file at
+  `docs/content/<tier>/<page>.md`, readable and reviewable on its own (in a PR diff, or directly on
+  GitHub) with no dependency on the HTML shell to make sense as prose. A page's headings MUST get
+  their anchor ids automatically, slugified from the heading text, unless the heading pins an
+  explicit id with a trailing `{#exact-id}` (used when a stable cross-reference target needs to
+  survive a heading-wording edit). A callout (an aside, tip, warning, or note set visually apart
+  from body text) MUST be written as a GitHub-style alert blockquote (`> [!TIP]`, `> [!NOTE]`,
+  `> [!WARNING]`, `> [!IMPORTANT]`, or `> [!CAUTION]`), which the site converts to its own styled
+  callout at render time - chosen specifically because that convention already renders sensibly
+  when the same file is read directly on GitHub, unlike a raw HTML `<div>`.
+- **FR-020**: Every page's sidebar MUST show two groups: every other page in the same tier (with
+  the current page visually marked), and an "On this page" list generated from that page's own
+  rendered `h2`/`h3` headings - never hand-maintained, so a heading edit can't drift out of sync
+  with the sidebar the way the single-file era's hand-copied lists could.
+- **FR-021**: Every fenced code block MUST get a "Copy" button after rendering, matching the prior
+  single-file site's behavior, re-applied on every navigation (since content is replaced, not
+  static).
 
 ### Key Entities
 
-- **`docs/index.html`**: the entire site - one self-contained file GitHub Pages serves directly.
-- **Getting Started / Using Your Sandbox / Try with AI / Contributing / FAQ**: the five sections
-  this spec requires, each targeting a different reader intent, implemented as CSS-routed regions
-  of the same document rather than separate pages. "Personas" lives inside Getting Started;
-  "Inspiration" lives inside FAQ, visually set apart from its design-rationale entries.
+- **`docs/index.html`**: the page shell - navigation, CSS, and the router (manifest, fetch, render,
+  TOC generation, callout conversion, code-block enhancement). Contains no page content itself.
+- **`docs/content/<tier>/<page>.md`**: one plain Markdown file per page - the actual content,
+  readable on its own.
+- **`docs/vendor/marked.js`**: the one vendored JavaScript dependency, committed rather than
+  CDN-loaded.
+- **Getting Started / Day to Day / Going Further**: the three graduated tiers, each a `.md` file
+  per page under `docs/content/`, use-case driven rather than topic-organized.
+- **FAQ**: the fourth, non-graduated tier - the "why" layer every other tier links into.
+  "Inspiration" lives inside it, visually set apart from its design-rationale entries.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: A reader following only the Getting Started section's WSL subsection reaches a
-  working shell with no need to consult any other section.
-- **SC-002**: Every section is reachable from every other section in exactly one click, with no
-  full page reload.
-- **SC-003**: The site works with no network access beyond loading `index.html` and its local
-  image assets (FR-017's mascot images) - no external font/script/stylesheet dependency, no
-  external library, nothing fetched from a third-party host - and with JavaScript disabled, including
-  section routing itself.
+- **SC-001**: A reader following only Getting Started's Install page's WSL subsection reaches a
+  working shell with no need to consult any other page.
+- **SC-002**: Every tier is reachable from every other tier in exactly one click, and every page
+  within a tier is reachable from that tier's sidebar in exactly one further click, with no full
+  page reload.
+- **SC-003**: The site works with no network access beyond loading `docs/index.html`, the one
+  Markdown content file for the page being viewed, `docs/vendor/marked.js`, and (Getting
+  Started/Day to Day only) one local mascot image - no external font/script/stylesheet dependency,
+  no live CDN, nothing fetched from a third-party host at request time. JavaScript IS required to
+  read content (a deliberate, documented departure from every prior revision's guarantee; see
+  Background).
 - **SC-004**: Every "this was deliberate" claim elsewhere on the site links to a real, substantive
-  answer in the "FAQ" section, not a restatement of the same sentence.
+  answer in FAQ, not a restatement of the same sentence.
 - **SC-005**: A reader with no prior knowledge of any earlier repository or tool this project grew
-  out of can read every section, and every part of "FAQ" except its "Inspiration" group, and
-  complete every task those sections describe with no gap in understanding; "Inspiration" is the
-  only part of the site that names or links that earlier work.
+  out of can read every tier, and every part of FAQ except its Inspiration group, and complete
+  every task those pages describe with no gap in understanding; Inspiration is the only part of
+  the site that names or links that earlier work.
+- **SC-006**: Every internal cross-reference link (every `#tier/page` and `#tier/page/heading-id`
+  href across every `.md` file) resolves to a real page and, where a heading id is named, a real
+  heading on that page - verified directly, not assumed, since nothing else enforces this once
+  content lives in separate files.
 
 ## Assumptions
 
@@ -414,6 +504,8 @@ activate one without reading any other section.
   upload, but the upload step itself is outside what any file here can perform.
 - The site's content is derived from, and MUST stay consistent with, this repository's specs and
   actual behavior; it does not introduce any capability the flake itself doesn't already have.
-- `:has()` is assumed to be supported by the reader's browser (universal in actively updated
-  Chrome, Edge, Safari, and Firefox as of this writing). A browser old enough to lack it is out of
-  scope, the same way this repository doesn't target unsupported OS versions elsewhere.
+- The reader's browser has JavaScript enabled to read content (see Background and SC-003) and
+  supports the `fetch` API, template literals, and `Array.prototype.forEach` on a `NodeList` -
+  universal in actively updated Chrome, Edge, Safari, and Firefox as of this writing. A browser
+  old enough to lack these is out of scope, the same way this repository doesn't target
+  unsupported OS versions elsewhere.

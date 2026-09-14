@@ -18,7 +18,7 @@ need.
 has everything: installation for Windows (WSL), Linux, and macOS; day-to-day usage; the technical
 architecture; and the reasoning behind every real design decision. That site is the comprehensive,
 always-current documentation. This README stays short on purpose (the site's own
-[Why the docs live here, not in the README](https://intellectual-frontiers.github.io/workspaces-host-v3/#why-docs-architecture)
+[Why the docs live here, not in the README](https://intellectual-frontiers.github.io/workspaces-host-v3/#faq/faq/why-docs-architecture)
 explains why).
 
 ## For contributors

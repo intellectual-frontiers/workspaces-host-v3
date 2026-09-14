@@ -1,0 +1,33 @@
+Both this repository's container images and its CI checks build from the exact same evaluated home-manager configuration as your host profile - not a hand-maintained Dockerfile or CI script that could quietly drift from what you actually run day to day (Constitution Principle IV: container and cloud-harness parity is required, not optional).
+
+## Building the container images
+
+```
+$ nix build .#oci-image             # same shell/tools/dotfiles as the host profile
+$ docker load < result
+$ docker run -it workspaces-host:latest
+
+$ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, non-root user
+```
+
+The sandboxed variant runs `init-firewall` as root, verifies its own allowlist, then drops to a non-root user before handing off to the workload - the shape you'd actually want for an autonomous AI-agent session with no human watching each command.
+
+## Using it in a real pipeline
+
+Because the image is built from the same flake output as `homeConfigurations.default`, a CI job that builds `.#oci-image` and runs your test suite inside it is testing the same tool versions, the same shell, the same everything an engineer's machine has - not a parallel environment that happens to be close enough. A minimal pipeline step:
+
+```
+$ nix build .#oci-image
+$ docker load < result
+$ docker run --rm workspaces-host:latest sh -c 'cd /workspace && your-test-command'
+```
+
+## Validating a change before you call it done
+
+```
+$ nix flake check --all-systems              # evaluates + builds the base activation, every system
+$ nix build ".#homeConfigurations.default.activationPackage"
+$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure
+```
+
+`nix flake check` evaluating cleanly is not the same claim as "activation actually works" - for a real change to `home/` or a persona, also do a scratch-`$HOME` activation and run `doctor --all` against it, expecting zero unexpected `FAIL`s. This is exactly what the repository's own CI workflow does on every push and pull request.

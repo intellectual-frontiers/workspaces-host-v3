@@ -7,11 +7,14 @@
 <meta name="description" content="Install, use, and understand workspaces-host-v3: a reproducible engineering sandbox built on Nix and home-manager." />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#9107;</text></svg>" />
 <style>
-/* workspaces-host-v3 documentation site. One file: no build step, no
-   external CDN, no JS framework, no library. Navigation between
-   sections is plain CSS (:target / :has()) - it works with JavaScript
-   disabled. The one script at the bottom is progressive enhancement
-   only: it highlights the active nav link and updates the tab title. */
+/* workspaces-host-v3 documentation site. One HTML shell (nav, chrome,
+   the router below); the content for every page is a plain Markdown
+   file under content/<tier>/<page>.md, fetched and rendered at
+   navigation time by vendor/marked.js - the one JS dependency this
+   site has, vendored (not loaded from a live CDN) so the site has no
+   third-party dependency at request time. This makes JavaScript
+   load-bearing for reading content (a deliberate tradeoff - see spec
+   018's Background for why). */
 
 :root {
   --bg: #ffffff;
@@ -23,6 +26,7 @@
   --code-bg: #f6f8fa;
   --code-border: #e3e6ea;
   --nav-height: 60px;
+  --tier-nav-height: 48px;
   --content-max: 780px;
   --sidebar-width: 230px;
 }
@@ -33,7 +37,7 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: calc(var(--nav-height) + 16px);
+  scroll-padding-top: calc(var(--nav-height) + var(--tier-nav-height) + 16px);
 }
 
 body {
@@ -55,43 +59,7 @@ kbd {
   font-size: 0.88em;
 }
 
-/* ---------- section routing (pure CSS, no JS required) ---------- */
-
-.page-section {
-  display: none;
-}
-
-/* Deep-linking to a sub-heading (e.g. #doctor inside #usage) works
-   because :has(:target) matches an ancestor of the actual target, not
-   just the target itself. */
-#getting-started:target,
-#getting-started:has(:target) {
-  display: block;
-}
-#usage:target,
-#usage:has(:target) {
-  display: block;
-}
-#technical:target,
-#technical:has(:target) {
-  display: block;
-}
-#try-ai:target,
-#try-ai:has(:target) {
-  display: block;
-}
-#faq:target,
-#faq:has(:target) {
-  display: block;
-}
-
-/* Landing state: nothing in the document is the current target (a
-   fresh visit, no hash) - show Getting Started by default. */
-body:not(:has(:target)) #getting-started {
-  display: block;
-}
-
-/* ---------- top nav ---------- */
+/* ---------- top nav (tier) ---------- */
 
 .site-nav {
   position: sticky;
@@ -160,7 +128,7 @@ body:not(:has(:target)) #getting-started {
   color: var(--accent);
 }
 
-/* ---------- page shell: sidebar + content ---------- */
+/* ---------- page shell: hero + sidebar + content ---------- */
 
 .page {
   display: grid;
@@ -250,6 +218,12 @@ body:not(:has(:target)) #getting-started {
   border-left-color: var(--accent);
 }
 
+.sidebar a.current-page {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
 .sidebar .sub {
   padding-left: 28px;
   font-size: 0.98em;
@@ -295,6 +269,16 @@ main.content a {
 
 main.content strong {
   font-weight: 600;
+}
+
+.content-loading {
+  color: var(--text-soft);
+  padding: 8px 0 40px;
+}
+
+.content-error {
+  color: #b42318;
+  padding: 8px 0 40px;
 }
 
 /* ---------- code blocks ---------- */
@@ -348,7 +332,7 @@ pre code {
   border-color: var(--accent);
 }
 
-/* ---------- callouts ---------- */
+/* ---------- callouts (from > [!TIP] / [!NOTE] / [!WARNING] etc.) ---------- */
 
 .callout {
   margin: 1.4em 0;
@@ -389,23 +373,6 @@ th {
   font-size: 0.85em;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-}
-
-/* ---------- platform cards (Getting Started) ---------- */
-
-.platform-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 22px 24px;
-  margin: 1.4em 0 2.2em;
-}
-
-.platform-card h3 {
-  margin-top: 0;
-}
-
-.platform-card ol {
-  margin-bottom: 0;
 }
 
 /* ---------- footer ---------- */
@@ -455,6 +422,10 @@ footer.site-footer a {
     border-left: none;
   }
 
+  .sidebar a.current-page {
+    border-left: none;
+  }
+
   .sidebar .sub {
     padding-left: 0;
   }
@@ -497,650 +468,295 @@ footer.site-footer a {
 <body>
 
 <nav class="site-nav">
-  <a class="brand" href="#getting-started"><code>workspaces-host-v3</code></a>
-  <a class="nav-link" data-nav="getting-started" href="#getting-started">Getting Started</a>
-  <a class="nav-link" data-nav="usage" href="#usage">Using Your Sandbox</a>
-  <a class="nav-link" data-nav="try-ai" href="#try-ai">Try with AI</a>
-  <a class="nav-link" data-nav="technical" href="#technical">Contributing</a>
-  <a class="nav-link" data-nav="faq" href="#faq">FAQ</a>
+  <a class="brand" href="#getting-started/install"><code>workspaces-host-v3</code></a>
+  <a class="nav-link" data-tier="getting-started" href="#getting-started/install">Getting Started</a>
+  <a class="nav-link" data-tier="day-to-day" href="#day-to-day/personas">Day to Day</a>
+  <a class="nav-link" data-tier="going-further" href="#going-further/local-nix">Going Further</a>
+  <a class="nav-link" data-tier="faq" href="#faq/faq">FAQ</a>
   <span class="spacer"></span>
   <a class="gh-link" href="https://github.com/intellectual-frontiers/workspaces-host-v3">GitHub &#8599;</a>
 </nav>
 
-<!-- ============================== Getting Started ============================== -->
-<section id="getting-started" class="page-section">
-  <header class="page-hero">
-    <img class="mascot" src="mascot.jpg" alt="Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned 'Same reproducible workspace everywhere.'" width="900" height="688">
-    <h1>Getting Started</h1>
-    <p class="lede">Pick your platform. Run the commands. You'll have a working shell in a few minutes.</p>
-  </header>
-
-  <div class="page">
-    <aside class="sidebar">
-      <p class="eyebrow">On this page</p>
-      <ul>
-        <li><a href="#wsl">Windows (via WSL)</a></li>
-        <li class="sub"><a href="#wsl-vscode">Using VS Code</a></li>
-        <li><a href="#linux">Linux</a></li>
-        <li><a href="#macos">macOS</a></li>
-        <li><a href="#manual">Manual, step by step</a></li>
-        <li><a href="#verify">Verify it worked</a></li>
-        <li><a href="#autocomplete-ux">Autocomplete UX</a></li>
-        <li><a href="#personas">Personas</a></li>
-        <li class="sub"><a href="#personas-discover">Finding and checking personas</a></li>
-        <li class="sub"><a href="#personas-activate">Activating one</a></li>
-        <li><a href="#next">What's next</a></li>
-      </ul>
-    </aside>
-
-    <main class="content">
-
-      <h2 id="wsl">Windows, via WSL</h2>
-      <p>Most people reading this are on Windows. WSL runs a real Linux system next to your normal Windows apps. Everything below happens inside that Linux system, except step 1.</p>
-
-      <div class="platform-card">
-        <h3>Steps</h3>
-        <ol>
-          <li>
-            Open PowerShell as Administrator. Run:
-            <pre><code>wsl --install -d Debian</code></pre>
-            This may ask you to restart your computer.
-          </li>
-          <li>Open "Debian" from the Start menu. The first time it opens, pick a Linux username and password (different from your Windows login).</li>
-          <li>
-            From inside that Debian window, run this one line:
-            <pre><code>$ cd && sudo apt-get update && sudo apt-get install -y curl git && sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"</code></pre>
-            <code>sudo</code> asks for the password from step 2. That's the only password prompt in the whole process. It takes a few minutes the first time; safe to run again later.
-          </li>
-          <li>
-            Fill in your credentials and apply them:
-            <pre><code>$ nano ~/.config/workspaces-host/credentials
-$ workspaces-host-update</code></pre>
-          </li>
-          <li>Close this window and open a new one. Look for the new prompt and autosuggestions as you type. That's your confirmation it worked.</li>
-        </ol>
-      </div>
-
-      <div class="callout">
-        <p>New window looks the same as the old one? Run <code>doctor</code>. It names the exact problem and the exact fix. See <a href="#doctor">Checking your environment</a>.</p>
-      </div>
-
-      <h3 id="wsl-vscode">Using VS Code with WSL</h3>
-      <ol>
-        <li>Install VS Code on <strong>Windows</strong> (not inside Debian): <a href="https://code.visualstudio.com/">code.visualstudio.com</a>.</li>
-        <li>Install the <strong>"WSL" extension</strong> in that Windows VS Code (published by Microsoft).</li>
-        <li>From your Debian window, in any project folder, run <code>code .</code> The first time, this installs a small VS Code Server inside WSL and opens a normal VS Code window running entirely inside Linux.</li>
-      </ol>
-
-      <h2 id="linux">Linux</h2>
-      <p>Open a regular terminal. Most VM/cloud images already have <code>curl</code>/<code>git</code>/<code>xz</code>; a bare-bones one won't.</p>
-      <pre><code>$ sudo apt-get install -y curl git xz-utils   # Debian/Ubuntu
-$ sudo dnf install -y curl git xz             # RHEL/Fedora/CentOS
-$ sudo pacman -Sy --noconfirm curl git xz     # Arch</code></pre>
-      <p>Then run:</p>
-      <pre><code>$ sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"</code></pre>
-      <p><code>install.sh</code> auto-detects which of those three families you're on for anything else it needs. Want to build or run this repo's container images too?</p>
-      <pre><code>$ sudo apt install -y docker.io   # Debian/Ubuntu; see docs.docker.com for other distros</code></pre>
-
-      <h2 id="macos">macOS</h2>
-      <p><code>curl</code>, <code>git</code>, and <code>xz</code> are already there. Apple Silicon or Intel, run the same one-liner:</p>
-      <pre><code>$ sh -c "$(curl -fsSL https://raw.githubusercontent.com/intellectual-frontiers/workspaces-host-v3/main/install.sh)"</code></pre>
-      <p>Container sandboxing (the network-restricted image) doesn't run on macOS. Everything else does.</p>
-
-      <h2 id="manual">Manual, step by step</h2>
-      <p>If you'd rather run each step yourself instead of the one-liner:</p>
-      <pre><code>$ sudo apt update && sudo apt install -y curl git xz-utils   # skip on macOS
-$ sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon
-$ mkdir -p ~/.config/nix
-$ echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
-$ git clone https://github.com/intellectual-frontiers/workspaces-host-v3.git ~/.workspaces-host-v3
-$ cd ~/.workspaces-host-v3
-$ nix build ".#homeConfigurations.current.activationPackage" --impure
-$ export HOME_MANAGER_BACKUP_EXT=pre-workspaces-host-backup
-$ ./result/activate</code></pre>
-      <p><code>install.sh</code> in the repository is the real source of truth for these steps.</p>
-
-      <h2 id="verify">Verify it worked</h2>
-      <pre><code>$ doctor</code></pre>
-      <p>One <code>PASS</code>/<code>WARN</code>/<code>FAIL</code> line per check. Exits non-zero only if something's actually broken. A <code>WARN</code> for anything you haven't configured yet (like a blank credential) is normal.</p>
-
-      <h2 id="autocomplete-ux">Autocomplete UX</h2>
-      <p>This repository uses <strong>bash</strong> by default. Bash here gets fish-like real-time syntax highlighting and history autosuggestions from <code>blesh</code>, layered on top of plain bash so every tutorial and copy-pasted snippet still works unchanged. If typing feels slower than you'd expect, here's why, and two ways to fix it.</p>
-      <p><code>blesh</code>'s default configuration auto-triggers full completion, not just the lightweight grey suggestion, on almost every keystroke. That's the expensive part: it can shell out to real completion scripts (git, docker, and so on) before you've even pressed Tab.</p>
-      <p><strong>Option (a): turn off just that one setting.</strong> Tab-completion itself is unaffected; you only lose the auto-popup that runs before you press Tab. Try it in your current shell first:</p>
-      <pre><code>$ bleopt complete_auto_complete=</code></pre>
-      <p>That change lasts for the current shell only. To make it permanent, add it to your personal, machine-specific override file (never touched by <code>workspaces-host-update</code>, so it survives every sync):</p>
-      <pre><code>$ nano ~/.config/workspaces-host/local.nix</code></pre>
-      <pre><code>{ ... }:
-{
-  programs.bash.initExtra = ''
-    bleopt complete_auto_complete=
-  '';
-}</code></pre>
-      <p>Then run <code>workspaces-host-update</code> to apply it.</p>
-      <p><strong>Option (b): switch to the <code>fish</code> persona.</strong> If you want the real thing instead of a workaround, fish's own line editor (fish 4.x is written in Rust) does highlighting and suggestions natively, with nothing layered on top. It also gives you a few things <code>blesh</code> doesn't try to replicate: richer tab-completion generated straight from a command's own man page (no separate <code>bash-completion</code> package to install), simpler scripting syntax (real arrays, no <code>[[ ]]</code>), and a visual settings tool (<code>fish_config</code>) for tweaking colors and prompt options in a browser tab instead of editing config by hand. See <a href="#personas">Personas</a> below for the exact command.</p>
-
-      <h2 id="personas">Personas</h2>
-      <p>The base profile stays small: your shell, git, credentials, <code>ws-repos</code>, and AI coding agent tooling. A persona adds one more specialized set of tools on top, when you actually need it. (Curious why the base profile stays small instead of including all of this? See <a href="#why-personas">Why the base profile stays small</a>.)</p>
-      <table>
-        <tr><th>Persona</th><th>Adds</th></tr>
-        <tr><td><code>backend</code></td><td>Java+Maven, PostgreSQL client/<code>pgpass</code>, Redis, docker-compose, httpie</td></tr>
-        <tr><td><code>data</code></td><td>python3, uv, duckdb</td></tr>
-        <tr><td><code>mobile</code></td><td>android-tools (adb/fastboot), watchman</td></tr>
-        <tr><td><code>agent-ops</code></td><td>act, semtag/git-standup/git-extras, gopass, deno, llm</td></tr>
-        <tr><td><code>compliance</code></td><td>osquery, cnquery, steampipe, openobserve, surveilr</td></tr>
-        <tr><td><code>networking</code></td><td>Tailscale, Nebula</td></tr>
-        <tr><td><code>fish</code></td><td>fish shell, with the same aliases and prompt bash gets</td></tr>
-      </table>
-      <p>Personas are additive and they combine: everything the base profile gives you is still there, plus every persona's extras, plus each other's. Activate none and nothing changes. Activate <code>backend</code> and <code>fish</code> both, and every future <code>workspaces-host-update</code> builds both together, automatically, for as long as you keep them activated.</p>
-      <div class="callout">
-        <p>The <code>fish</code> persona only makes <code>fish</code> and its config available. It never changes your login shell, the same way activating <code>networking</code> never joins a Tailscale mesh for you. To actually use it day to day, run these two commands (the same way on Linux generally, WSL included, and macOS - anywhere <code>chsh</code> validates against <code>/etc/shells</code>):</p>
-        <pre><code>$ echo "$(which fish)" | sudo tee -a /etc/shells
-$ chsh -s $(which fish)</code></pre>
-        <p>The first line is required: a Nix-installed shell isn't in <code>/etc/shells</code> by default, and <code>chsh</code> refuses any shell that isn't. Then close this window and open a new one. <code>doctor</code> checks for either bash or fish as your login shell, so switching never shows up as a problem.</p>
-      </div>
-
-      <h3 id="personas-discover">Finding and checking personas</h3>
-      <p>Don't want to remember the table above? <code>ws-persona</code> prints it for you, along with the exact command to turn each one on:</p>
-      <pre><code>$ ws-persona list</code></pre>
-      <p>Not sure what you already have active?</p>
-      <pre><code>$ ws-persona current</code></pre>
-      <p>This shows two things, and they can briefly disagree: what's <strong>activated</strong> (recorded in <code>~/.config/workspaces-host/personas</code>, applied on your next <code>workspaces-host-update</code>) and what's <strong>detected</strong> (one marker tool per persona, like <code>mvn</code> for <code>backend</code>, actually on your <code>PATH</code> right now). Activate a persona and it shows as activated immediately, but not detected until you actually rebuild.</p>
-      <div class="callout">
-        <p>Detection is a quick signal, not a certainty - it can occasionally miss or over-report if you've installed something similar yourself, outside this flake. Run <code>doctor --all</code> for the full, authoritative picture.</p>
-      </div>
-
-      <h3 id="personas-activate">Activating one (or several)</h3>
-      <p>Record it, then update:</p>
-      <pre><code>$ ws-persona activate backend
-$ workspaces-host-update</code></pre>
-      <p><code>workspaces-host-update</code> runs <code>doctor</code> right after, so you see immediately whether it worked. Activate as many as you want the same way; each one adds to the others rather than replacing them, and the choice sticks - no environment variable to remember on your next update, next week or next year.</p>
-      <p>Changed your mind about one?</p>
-      <pre><code>$ ws-persona deactivate backend
-$ workspaces-host-update</code></pre>
-      <p>Want to try a persona once without committing to it - build it in isolation, see if you like it, without touching your activated list?</p>
-      <pre><code>$ WORKSPACES_HOST_PROFILE=current-backend workspaces-host-update</code></pre>
-      <p>That one-off build ignores your activated list entirely (it's just <code>backend</code>, nothing else), and doesn't change it either. Prefer the plain Nix commands instead of <code>workspaces-host-update</code> for that one-off?</p>
-      <pre><code>$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure
-$ ./result/activate</code></pre>
-
-      <h2 id="next">What's next</h2>
-      <p>Head to <a href="#usage">Using Your Sandbox</a> for credentials, your shell, managing repos, and everything else you'll touch day to day. New to the command line? <a href="#try-ai">Try with AI</a> has copy/paste prompts that hand the typing to an AI agent instead. Want to understand how this is built, or point an AI agent at the repository? Go to <a href="#technical">Contributing</a>. Curious why any of this is built the way it is, or what it grew out of? See <a href="#faq">FAQ</a>.</p>
-
-    </main>
-  </div>
-</section>
-
-<!-- ============================== Using Your Sandbox ============================== -->
-<section id="usage" class="page-section">
-  <header class="page-hero">
-    <img class="mascot mascot-wide" src="mascot-workflows.jpg" alt="Workhorse in Action: the mascot horse illustrated across eight everyday tasks - Develop, Explore, Guide, Automate, Recharge, Adapt, Stay Secure, and Go Further - captioned 'Different tasks. Same reliable companion.'" width="1000" height="485">
-    <h1>Using Your Sandbox</h1>
-    <p class="lede">Already installed? Here's what you'll actually reach for, day to day.</p>
-  </header>
-
-  <div class="page">
-    <aside class="sidebar">
-      <p class="eyebrow">On this page</p>
-      <ul>
-        <li><a href="#credentials">Setting up credentials</a></li>
-        <li class="sub"><a href="#gh-glab-auth">GitHub/GitLab: one command</a></li>
-        <li class="sub"><a href="#credentials-file">Name, email &amp; API keys</a></li>
-        <li><a href="#shell">Your shell</a></li>
-        <li><a href="#repos">Managing your repos</a></li>
-        <li><a href="#doctor">Checking your environment</a></li>
-        <li><a href="#sync">Keeping in sync</a></li>
-        <li><a href="#personas-summary">Workspace profiles</a></li>
-        <li><a href="#ai">AI coding agents</a></li>
-        <li><a href="#more">Everyday tools</a></li>
-      </ul>
-    </aside>
-
-    <main class="content">
-
-      <h2 id="credentials">Setting up credentials</h2>
-
-      <h3 id="gh-glab-auth">GitHub and GitLab: one command, no token to manage</h3>
-      <p>Run this once, per host:</p>
-      <pre><code>$ gh auth login       # answer yes when it asks to authenticate git
-$ glab auth login     # same prompt, for gitlab.com</code></pre>
-      <p>That's it. One command authenticates the <code>gh</code>/<code>glab</code> CLIs and git together, so cloning a private repo (what <code>ws-repos ensure</code> does under the hood) just works. No token to create, copy, or paste anywhere - this is the preferred way, and all most people ever need.</p>
-      <p>Using a private, self-hosted GitLab instead of gitlab.com? Point <code>glab</code> at it by hostname:</p>
-      <pre><code>$ glab auth login --hostname gitlab.mycompany.com</code></pre>
-      <p>Add that host's repos to <code>ws-repos.json</code> the same way, using the hostname instead of <code>gitlab.com</code>:</p>
-      <pre><code>{ "repo": "gitlab.mycompany.com/team/project" }</code></pre>
-      <p><code>doctor</code> reports whether <code>gh</code>/<code>glab</code> are authenticated (see <a href="#doctor">Checking your environment</a>).</p>
-
-      <h3 id="credentials-file">Your name, email, and any API keys</h3>
-      <p>Everything else, your git name/email and things like an AI coding agent's API key, goes in one plain text file, outside the repository entirely: <code>~/.config/workspaces-host/credentials</code>. Just <code>KEY=value</code> lines. No Nix syntax, no encryption tool to learn first. (Curious why a plain file? See <a href="#why-credentials-file">Why a plain credentials file</a>.)</p>
-      <pre><code>$ nano ~/.config/workspaces-host/credentials</code></pre>
-      <pre><code>GIT_NAME=Your Name
-GIT_EMAIL=you@example.com
-
-ANTHROPIC_API_KEY=sk-ant-yourRealKey</code></pre>
-      <pre><code>$ workspaces-host-update</code></pre>
-      <p>That one command applies your changes and runs <code>doctor</code> right after, so you see immediately whether it worked. Rotating a key later is the same two steps: edit the line, run <code>workspaces-host-update</code> again.</p>
-
-      <div class="callout">
-        <p>Need a credential this file doesn't have a line for (a cloud token, a project API key)? Add it with whatever name makes sense. <code>workspaces-host-update</code> writes anything that isn't <code>GIT_NAME</code>/<code>GIT_EMAIL</code> into <code>~/.local/state/workspaces-host/secrets/env/&lt;NAME&gt;</code>, ready for a project's own <code>.envrc</code>.</p>
-      </div>
-
-      <p>This file also has <code>GITHUB_TOKEN</code>/<code>GITLAB_TOKEN</code> lines. Skip them unless something <em>other than</em> <code>gh</code>/<code>glab</code> specifically needs a raw token value, a script, or a project's own <code>.envrc</code>. <code>gh auth login</code>/<code>glab auth login</code> above already covers <code>gh</code>, <code>glab</code>, and git; filling these in is a second credential to create and keep track of, not a requirement.</p>
-
-      <p>Before committing anything, check what's staged (<code>git diff --staged</code>) and scan for secrets with the tool that's already installed:</p>
-      <pre><code>$ gitleaks detect --source . -v</code></pre>
-
-      <h2 id="shell">Your shell</h2>
-      <p>Bash, on purpose. It's what every tutorial already assumes. A few things are added on top:</p>
-      <ul>
-        <li><strong>Syntax highlighting and autosuggestions</strong> as you type. Press <kbd>&rarr;</kbd> or <kbd>End</kbd> to accept a suggestion.</li>
-        <li><strong>Fuzzy history and file search</strong>: <kbd>Ctrl+R</kbd> searches history, <kbd>Ctrl+T</kbd> finds a file, <kbd>Alt+C</kbd> finds and jumps into a directory.</li>
-        <li><strong>Smarter <code>cd</code></strong>: <code>z &lt;part of a path&gt;</code> jumps there by frecency.</li>
-        <li><strong>Modern replacements</strong>, all optional: <code>eza</code> for <code>ls</code>, <code>bat</code> for <code>cat</code>, <code>rg</code> for <code>grep</code>, <code>fd</code> for <code>find</code>. <code>ll</code>/<code>ls</code>/<code>cat</code> are already aliased; everything else keeps its own name.</li>
-      </ul>
-      <p>Typing feels slower than you'd expect? See <a href="#autocomplete-ux">Autocomplete UX</a> in Getting Started for why, and the two fixes (one of which is switching to the <code>fish</code> persona).</p>
-
-      <h2 id="repos">Managing your repos</h2>
-      <p><code>ws-repos</code> keeps every project you work on under one predictable layout. (Wondering about the name? See <a href="#why-ws-repos">Why <code>ws-repos</code></a>.)</p>
-      <pre><code>$ nano ~/workspaces/ws-repos.json   # { "repos": [{ "repo": "github.com/org/repo" }] }
-$ ws-repos ensure                    # clone-or-pull everything listed
-$ ws-repos status                    # dirty/untracked/ahead/behind/locked/stash/clean
-$ ws-repos inspect                   # list git hosts and repos referenced by workspace files</code></pre>
-      <p>Every repo lands at <code>~/workspaces/&lt;git-host&gt;/&lt;org&gt;/&lt;repo&gt;</code>, the same path segments as its HTTPS clone URL, so it stays predictable and greppable no matter how many hosts you work across.</p>
-
-      <div class="callout note">
-        <p><strong>On WSL:</strong> keep repos under <code>~/workspaces</code>, not <code>/mnt/c/Users/...</code>. Crossing the Windows/Linux filesystem boundary is slow, git especially. <code>doctor</code> checks for this too.</p>
-      </div>
-
-      <h2 id="doctor">Checking your environment</h2>
-      <pre><code>$ doctor</code></pre>
-      <p>By default you get the essentials: Nix, your shell, git, credentials, GitHub/GitLab authentication, and <code>ws-repos</code>, plus a one-line summary. Run <code>doctor --all</code> for everything else: every ported tool, and every persona-specific check reported as an informational <code>WARN</code> when that persona isn't active. A real <code>FAIL</code> always prints, in either mode.</p>
-      <p>If an update ever breaks something, roll back with home-manager's own generations. No separate tooling needed:</p>
-      <pre><code>$ home-manager generations
-2026-09-13 14:02 : id 6 -> /nix/store/i9k2x...-home-manager-generation   # the broken one
-2026-09-13 09:47 : id 5 -> /nix/store/7fa31...-home-manager-generation   # the one before it
-$ /nix/store/7fa31...-home-manager-generation/activate</code></pre>
-
-      <h2 id="sync">Keeping in sync</h2>
-      <p>New features land on <code>main</code> as small, merged changes. Your machine doesn't pick those up on its own:</p>
-      <pre><code>$ cd ~/.workspaces-host-v3
-$ workspaces-host-update</code></pre>
-      <p>Every shell also checks once a day, in the background, whether <code>origin/main</code> has moved, and nudges you if so. It never runs the update itself.</p>
-
-      <h2 id="personas-summary">Workspace profiles (personas)</h2>
-      <p>Need a specialized set of extra tools (Java, Python, Postgres, Tailscale, and so on)? See <a href="#personas">Personas</a> in Getting Started: the full list, <code>ws-persona list</code>/<code>ws-persona current</code> to find and check them, and the exact command to turn one on.</p>
-
-      <h2 id="ai">Setting up AI coding agents</h2>
-      <p>Every profile installs <code>nodejs</code> and <code>aider-chat</code>, ready to go. The fast-moving hosted CLIs install with their own <code>npm install -g</code>:</p>
-      <pre><code>$ npm install -g @anthropic-ai/claude-code   # provides: claude
-$ npm install -g @openai/codex               # provides: codex
-$ npm install -g @google/gemini-cli          # provides: gemini</code></pre>
-      <p>Give one its key by adding it to your credentials file (above) and running <code>workspaces-host-update</code>. Each CLI's key is scoped to that one invocation, never exported to your whole shell: <code>echo $ANTHROPIC_API_KEY</code> stays empty even after <code>claude</code> has used it (see <a href="#why-secret-scoping">Why secrets are scoped per invocation</a>). <code>doctor</code> checks whether each CLI is installed and whether it has a key.</p>
-
-      <h2 id="more">Everyday tools</h2>
-      <ul>
-        <li><strong><code>wget</code>, <code>rclone</code></strong>: a plain fetcher and a directly-runnable <code>rclone</code>.</li>
-        <li><strong><code>git-chglog</code></strong>: generate a <code>CHANGELOG.md</code> from your commit history.</li>
-        <li><strong>SSH agent auto-start</strong>: a new login shell loads your key automatically.</li>
-        <li><strong><code>cdp</code></strong>: jumps to the current git repo's top-level directory.</li>
-        <li><strong><code>lefthook</code></strong>: git hooks manager, ready to adopt in any project: <code>cp templates/lefthook.yml.example ./lefthook.yml &amp;&amp; lefthook install</code>.</li>
-        <li><strong><code>sensitivectl</code></strong>: back up a sensitive local directory to any <code>rclone</code>-supported remote.</li>
-      </ul>
-
-    </main>
-  </div>
-</section>
-
-<!-- ============================== Try with AI ============================== -->
-<section id="try-ai" class="page-section">
-  <header class="page-hero">
-    <h1>Try with AI</h1>
-    <p class="lede">Don't know the command? You don't have to. Copy one of these prompts into your AI coding agent and let it do the typing.</p>
-  </header>
-
-  <div class="page">
-    <aside class="sidebar">
-      <p class="eyebrow">On this page</p>
-      <ul>
-        <li><a href="#ai-add-repo">Add a repo to your workspace</a></li>
-        <li><a href="#ai-diagnose">Diagnose a problem</a></li>
-        <li><a href="#ai-credential">Add or rotate a credential</a></li>
-        <li><a href="#ai-rollback">Undo a broken update</a></li>
-        <li><a href="#ai-persona">Turn on a persona</a></li>
-        <li><a href="#ai-scaffold">Start a new project</a></li>
-      </ul>
-    </aside>
-
-    <main class="content">
-
-      <h2 id="ai-add-repo">Add a repo to your workspace</h2>
-      <p>Every prompt below assumes you already have an AI coding agent running in this sandbox (see <a href="#ai">Setting up AI coding agents</a>). Open it in a terminal and paste.</p>
-      <pre><code>Add github.com/&lt;org&gt;/&lt;repo&gt; to my ws-repos.json in ~/workspaces, then run ws-repos ensure to clone it.</code></pre>
-
-      <div class="callout">
-        <p>These prompts are starting points, not magic words. Your agent may ask a clarifying question or do something slightly different depending on what it finds on your machine. That's normal: answer it and keep going.</p>
-      </div>
-
-      <h2 id="ai-diagnose">Diagnose a problem</h2>
-      <p>Something looks wrong, but you don't know which command tells you why.</p>
-      <pre><code>Run doctor --all in my sandbox, explain any FAIL or WARN lines in plain language, and tell me exactly what to do to fix each one.</code></pre>
-
-      <h2 id="ai-credential">Add or rotate a credential</h2>
-      <p>You have a new key (an AI coding agent's API key, say) and don't want to hand-edit a config file wrong. For GitHub/GitLab specifically, skip this and just run <code>gh auth login</code>/<code>glab auth login</code> yourself - no file to edit.</p>
-      <pre><code>Open my ~/.config/workspaces-host/credentials file, add a line for ANTHROPIC_API_KEY with the value I give you next, then run workspaces-host-update and show me the doctor output.</code></pre>
-
-      <h2 id="ai-rollback">Undo a broken update</h2>
-      <p>An update made things worse, and you want the previous state back.</p>
-      <pre><code>My last workspaces-host-update broke something. List my home-manager generations, tell me which one was the last good one, and roll back to it.</code></pre>
-
-      <h2 id="ai-persona">Turn on a persona</h2>
-      <p>You need a specialized tool a persona provides (Java, Python, Tailscale, and so on) but you don't remember the exact build command.</p>
-      <pre><code>Activate the backend persona for my workspaces-host-v3 sandbox and confirm it worked.</code></pre>
-
-      <h2 id="ai-scaffold">Start a new project</h2>
-      <p>You're starting something new and want it set up the way this repository expects: an agent-ready starter kit, not a blank folder.</p>
-      <pre><code>Create a new project folder in ~/workspaces called my-project, run scaffold-agent-harness in it, and show me what files it created.</code></pre>
-
-    </main>
-  </div>
-</section>
-
-<!-- ============================== Contributing ============================== -->
-<section id="technical" class="page-section">
-  <header class="page-hero">
-    <h1>Contributing</h1>
-    <p class="lede">How this thing is actually built, and what to know before you change it or point an AI agent at it.</p>
-  </header>
-
-  <div class="page">
-    <aside class="sidebar">
-      <p class="eyebrow">On this page</p>
-      <ul>
-        <li><a href="#nix">Nix, in plain terms</a></li>
-        <li><a href="#layout">Repository layout</a></li>
-        <li><a href="#personas-arch">How personas work</a></li>
-        <li><a href="#speckit">The spec-driven workflow</a></li>
-        <li><a href="#constitution">The constitution</a></li>
-        <li><a href="#ai-agent">Managing this repo with an AI agent</a></li>
-        <li><a href="#building">Building &amp; testing</a></li>
-        <li><a href="#container">Container parity</a></li>
-        <li><a href="#deeper">Where to go deeper</a></li>
-      </ul>
-    </aside>
-
-    <main class="content">
-
-      <h2 id="nix">Nix, in plain terms</h2>
-      <p>I run this whole environment on <strong>Nix</strong>, a package manager that installs exact, pinned versions of every tool, bash and git included, into its own store, keyed by a hash of everything that went into building it. Two machines that build the same input get byte-identical output. That's the whole guarantee this repository exists to give you: no "works on my machine," because there's only one machine's worth of software here, reproduced everywhere.</p>
-      <p>A <strong>flake</strong> is Nix's own unit of "here's a reproducible thing, pinned." <code>flake.nix</code> at the repository root declares the inputs (nixpkgs, home-manager, both pinned by commit in <code>flake.lock</code>) and the outputs: home-manager configurations, packages, and checks.</p>
-      <p><strong>home-manager</strong> takes a Nix module describing your user environment (packages, dotfiles, shell config) and applies it declaratively to your account. Every time it runs, it builds a new <strong>generation</strong>, a complete, numbered snapshot, and switches your profile symlink to point at it. Nothing gets edited in place, which is why rolling back is just pointing that symlink at an older generation (see <a href="#doctor">Checking your environment</a>).</p>
-
-      <div class="callout">
-        <p>Two identities matter in this flake: <code>default</code> is a fixed test identity (<code>home.username = "workspace"</code>) used by <code>nix flake check</code> and CI, evaluated <em>purely</em>, no reading the real environment. <code>current</code> reads your actual <code>$USER</code>/<code>$HOME</code> via <code>builtins.getEnv</code>, which needs <code>--impure</code>. Every real install uses <code>current</code>; every persona also has a <code>current-&lt;persona&gt;</code> counterpart.</p>
-      </div>
-
-      <h2 id="layout">Repository layout</h2>
-      <pre><code>flake.nix                # inputs, systems, homeConfigurations, packages, checks
-home/
-  default.nix             # the base profile's module list
-  shell.nix               # bash, oh-my-posh, zoxide, fzf
-  git.nix                 # git identity + delta + aliases
-  tools.nix                # pinned everyday CLI tools
-  ai-harness.nix            # per-invocation credential wrappers for AI CLIs
-  workspaces.nix             # ~/workspaces + ws-repos.json bootstrap
-  secrets.nix                # opt-in sops-based secrets
-  profiles/
-    backend.nix               # persona: Java/Postgres/Redis/docker-compose
-    data.nix                   # persona: python3/uv/duckdb
-    mobile.nix                  # persona: android-tools/watchman
-    agent-ops.nix                 # persona: act/semtag/git-standup/gopass/deno/llm
-    compliance.nix                 # persona: osquery/cnquery/steampipe/openobserve/surveilr
-    networking.nix                  # persona: tailscale/nebula
-pkgs/                        # this repo's own custom-built tools (ws-repos, doctor, ...)
-oci/                          # container image definitions, same closure as the host
-docs/                          # this site (one self-contained index.html)
-specs/&lt;NNN-name&gt;/               # one spec.md + plan.md per feature
-.specify/memory/
-  constitution.md                # the non-negotiable principles
-  writing-style.md                 # the prose voice every doc follows</code></pre>
-
-      <h2 id="personas-arch">How personas work</h2>
-      <p>Every persona is a small home-manager module under <code>home/profiles/</code> that adds its own <code>home.packages</code> (and sometimes imports a shared module the base profile doesn't, like <code>backend</code> importing <code>home/java.nix</code>). <code>flake.nix</code> maps each entry in <code>personaModules</code> to a <code>homeConfigurations.&lt;persona&gt;</code> (fixed test identity, for CI) and a <code>homeConfigurations.current-&lt;persona&gt;</code> (real identity, that one persona only, ignoring anything activated) - both built from the same base <code>home/</code> module set plus that one extra module. Personas are purely additive: nothing a persona module does can remove or override what the base profile already configures, which is exactly what lets several of them stack safely in one build.</p>
-      <p><code>homeConfigurations.current</code> is where that stacking actually happens: it reads <code>~/.config/workspaces-host/personas</code> (one name per line, <code>#</code> comments allowed, an unrecognized name dropped with a <code>builtins.trace</code> warning rather than failing the whole build) and folds every named persona's module into the same build alongside <code>./home</code> - <code>ws-persona activate</code>/<code>deactivate</code> just add or remove a line in that file, nothing more; they never run <code>nix build</code> or <code>home-manager switch</code> themselves. Since this state lives outside the repository and is only read impurely, it's invisible to <code>nix flake check</code>'s pure evaluation, same as <code>local.nix</code>.</p>
-      <p>Deciding where a new tool belongs is a single question: does every engineer need this on day one, or only someone doing a specific kind of work? The base profile answers the first question; a persona (existing or new) answers the second. See <a href="#why-personas">Why the base profile stays small</a> for the full reasoning.</p>
-
-      <h2 id="speckit">The spec-driven workflow</h2>
-      <p>Every feature in this repository follows <a href="https://github.com/github/spec-kit">GitHub Spec Kit</a>'s lifecycle: a spec (what and why, in testable requirements), a plan (how, mapped onto this repository's actual files), and only then code. <code>specs/&lt;NNN-name&gt;/spec.md</code> and <code>plan.md</code> exist for every feature, core and backlog alike. A spec that no longer matches the code is worse than no spec at all. A change that breaks a spec's claim updates that spec in the same commit, not as a followup that may never happen.</p>
-      <p>Specs are tiered: <strong>core</strong> (001&ndash;005) is the minimum that has to exist for the "same environment everywhere" promise to hold at all; everything else is <strong>backlog</strong>, specified in full but only implemented once actually scheduled. A backlog spec has to stand on its own: implementable without rewriting a core spec.</p>
-
-      <h2 id="constitution">The constitution</h2>
-      <p><a href="https://github.com/intellectual-frontiers/workspaces-host-v3/blob/main/.specify/memory/constitution.md"><code>.specify/memory/constitution.md</code></a> is the actual governance document, and it supersedes every other practice in this repository. Six principles, worth knowing before you change anything:</p>
-      <ol>
-        <li><strong>Reproducible by lockfile, not by drift.</strong> Nothing gets installed imperatively; if it can't be declared in the flake, it doesn't belong here yet.</li>
-        <li><strong>Ephemeral and disposable by default.</strong> Rebuild, don't patch. No feature can depend on state surviving a wipe.</li>
-        <li><strong>Secrets never touch the agent's shell unscoped.</strong> Every credential is resolved at the point of use, never as an ambient shell variable. Non-negotiable, since this repository explicitly provisions environments AI agents run inside.</li>
-        <li><strong>Container and cloud-harness parity is required, not optional.</strong> A feature that only works on a persistent host is incomplete.</li>
-        <li><strong>Simplicity over completeness.</strong> Build to what the spec needs today. A prior version's tool or workaround needs its own justification, not "that's how it was done before."</li>
-        <li><strong>Documentation voice.</strong> Prose documentation (this site, the README, a spec's own narrative sections) follows <a href="https://github.com/intellectual-frontiers/workspaces-host-v3/blob/main/.specify/memory/writing-style.md"><code>writing-style.md</code></a>. A spec's testable requirements stay in SpecKit's own precise language instead.</li>
-      </ol>
-
-      <h2 id="ai-agent">Managing this repository with an AI coding agent</h2>
-      <p>This repository is built to be handed to an agent, and mostly has been: large parts of it were. Point Claude Code, Codex, or another agent at a checkout and it already has everything it needs to work correctly, as long as it actually reads what's here first:</p>
-      <ol>
-        <li><strong>Read the constitution before changing anything.</strong> It's short, and it answers most "should this go here" questions before you have to ask them.</li>
-        <li><strong>Follow the spec-first lifecycle.</strong> A real feature gets a spec and a plan before code. A bug fix or a small doc change doesn't need the full ceremony, but still needs the spec it touches updated in the same change if it makes that spec's claims wrong.</li>
-        <li><strong>Ask "does everyone need this, or only some engineers?"</strong> before adding a package. The answer decides base profile vs. a persona. See <a href="#personas-arch">How personas work</a> above.</li>
-        <li><strong>Never export a secret to the ambient shell.</strong> Every credential-consuming tool gets a per-invocation wrapper (<code>home/ai-harness.nix</code> has the pattern). This is Principle III, and it's the one principle this repository will not compromise on for convenience.</li>
-        <li><strong>Validate before claiming done.</strong> <code>nix flake check --all-systems</code> at minimum; a real change to <code>home/</code> or a persona deserves an actual scratch-<code>$HOME</code> activation and a <code>doctor --all</code> run with zero unexpected <code>FAIL</code>s. "The Nix expression evaluates" is not the same claim as "activation actually works."</li>
-        <li><strong>Write prose in this repository's voice.</strong> <a href="https://github.com/intellectual-frontiers/workspaces-host-v3/blob/main/.specify/memory/writing-style.md"><code>writing-style.md</code></a> is specific and has a built-in audit pass; run it before calling documentation done.</li>
-        <li><strong>Keep this site current, not the README.</strong> The README stays a short pointer; this page is the comprehensive, always-current documentation. A change that affects usage updates this file in the same commit, not the README (see <a href="#why-docs-architecture">Why the docs live here, not in the README</a>).</li>
-      </ol>
-      <p><code>scaffold-agent-harness</code> (installed in every profile) drops a starter <code>AGENTS.md</code>, an <code>.mcp.json</code>, and a <code>.claude/settings.json</code> into any project, not just this one. The same idea, applied to whatever you're building next.</p>
-
-      <h2 id="building">Building &amp; testing</h2>
-      <pre><code>$ nix flake check --all-systems              # evaluates + builds the base activation, every system
-$ nix build ".#homeConfigurations.default.activationPackage"
-$ nix build ".#homeConfigurations.current-backend.activationPackage" --impure</code></pre>
-      <p>A change to a shared module (anything under <code>home/</code> outside <code>profiles/</code>) affects every persona; rebuild at least one persona alongside the base profile before calling it done. A change scoped to one persona module only needs that persona rebuilt.</p>
-
-      <h2 id="container">Container &amp; cloud-harness parity</h2>
-      <pre><code>$ nix build .#oci-image             # same shell/tools/dotfiles as the host profile
-$ docker load < result
-$ docker run -it workspaces-host:latest
-
-$ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, non-root user</code></pre>
-      <p>Both images build from the exact same evaluated home-manager configuration as the host profile, not a hand-maintained Dockerfile that could drift. The sandboxed variant runs <code>init-firewall</code> as root, verifies its own allowlist, then drops to a non-root user before handing off to the workload.</p>
-
-      <h2 id="deeper">Where to go deeper</h2>
-      <ul>
-        <li><a href="https://github.com/intellectual-frontiers/workspaces-host-v3/blob/main/.specify/memory/constitution.md">The constitution</a>: every non-negotiable principle, in full.</li>
-        <li><a href="https://github.com/intellectual-frontiers/workspaces-host-v3/tree/main/specs">Every spec</a>: the exact requirements behind every feature, core and backlog.</li>
-        <li><a href="#faq">FAQ</a>: every design decision explained, and the earlier repositories this one grew out of.</li>
-      </ul>
-
-    </main>
-  </div>
-</section>
-
-<!-- ============================== FAQ ============================== -->
-<section id="faq" class="page-section">
-  <header class="page-hero">
-    <h1>FAQ</h1>
-    <p class="lede">Why this repository works the way it does, and what it grew out of.</p>
-  </header>
-
-  <div class="page">
-    <aside class="sidebar">
-      <p class="eyebrow">On this page</p>
-      <ul>
-        <li><a href="#why-purpose">Why this exists</a></li>
-        <li><a href="#why-nix">Why Nix and home-manager</a></li>
-        <li><a href="#why-credentials-file">Why a plain credentials file</a></li>
-        <li><a href="#why-secret-scoping">Why secrets are scoped per invocation</a></li>
-        <li><a href="#why-ai-clis">Why AI CLIs aren't Nix-packaged</a></li>
-        <li><a href="#why-personas">Why the base profile stays small</a></li>
-        <li><a href="#why-fish">Why fish is a persona, not the default</a></li>
-        <li><a href="#why-ws-repos">Why <code>ws-repos</code>, not <code>mgit</code></a></li>
-        <li><a href="#why-roadmap">Why Deno, Lefthook, and VPN clients are scoped this way</a></li>
-        <li><a href="#why-prompt">Why oh-my-posh won't self-update</a></li>
-        <li><a href="#why-java">Why not a Java version manager</a></li>
-        <li><a href="#why-specs">Why a spec for everything</a></li>
-        <li><a href="#why-docs-architecture">Why the docs live here, not in the README</a></li>
-      </ul>
-      <p class="eyebrow">Inspiration</p>
-      <ul>
-        <li><a href="#insp-v1">v1: workspaces-host</a></li>
-        <li><a href="#insp-mgit">mgit</a></li>
-        <li><a href="#insp-v2">v2: workspaces-host-v2</a></li>
-        <li><a href="#insp-v3">This repository</a></li>
-      </ul>
-    </aside>
-
-    <main class="content">
-
-      <h2 id="why-purpose">Why this exists</h2>
-      <p>I didn't build this for "a nice shell." I built it so a human engineer, a teammate who's new to Linux, a CI/CD pipeline, and an AI coding agent (Claude Code, Codex, an autonomous CI bot, whatever) can all open a terminal on completely different machines and find the exact same structure. The same place repos land (<code>~/workspaces</code>, managed by <code>ws-repos</code>), the same command to check the environment (<code>doctor</code>), the same command to update it (<code>workspaces-host-update</code>), the same shell, the same tools, at the same versions. When everyone and everything on a project, engineering, DevOps, an agent working overnight, shares one predictable layout, nobody has to relearn "how this particular machine happens to be set up" before they can do anything useful on it.</p>
-      <p>That matters more now, not less, because AI put a real command line in front of people who never expected to need one. Just about everyone is an engineer some of the time now, and everyone doing that work deserves the same consistent, capable Linux environment, not a stripped-down one just because they're newer to it. WSL already gives Windows users the desktop, files, and apps they know; this is what gives them the same ready-to-go setup on the Linux side. "New to Linux" stays the only unfamiliar part, not the tooling.</p>
-      <p>It's also why AI CLIs ship as part of the standard environment (see <a href="#ai">Setting up AI coding agents</a>). Once someone has an API key configured the safe way this repo documents, they can point an AI harness at their own sandbox and ask it to help fix or improve the setup, the same way it would help with application code. I want that barrier low on purpose. Lowering it is most of the point of building this at all.</p>
-      <p>Here's the thing worth protecting: that consistency. If an AI harness or a person finds a real improvement while working in one sandbox (a new tool, a better default, an extra <code>doctor</code> check, a smarter install step), it belongs in this repo, via a pull request. Not buried in one person's credentials file, not a one-off tweak that only exists on their machine. Your credentials file exists for what's actually personal, your name, your keys, precisely so everything else stays shared. A good idea stuck in one sandbox helps one person. The same idea merged here helps everyone, and every CI run, and every agent, who uses this setup afterward.</p>
-
-      <h2 id="why-nix">Why Nix and home-manager, not Homebrew/pkgx/mise/chezmoi</h2>
-      <p>Every one of those tools solves part of this problem. None solves all of it the way a single sandbox needs. A version manager (mise, SDKMAN!) pins one language's runtime, not your shell, your prompt, or your git config. A dotfile templater (chezmoi) manages files, not packages, so you still need something else to install the tools those files configure. Homebrew and pkgx install packages, but not reproducibly enough: "brew install" today and "brew install" in six months can silently resolve to different versions unless you separately pin and audit that yourself.</p>
-      <p>Nix does the whole job with one mechanism: a lockfile that pins every input, and a package manager that builds from that lockfile into a content-addressed store, so the same commit produces the same closure everywhere, forever. home-manager is the layer that applies that same guarantee to your actual user environment (shell, prompt, dotfiles), not just system packages. Once you have that, you don't need four different tools each solving a slice of the problem with a different reproducibility story. That's Constitution Principle I, and it's the reason nothing else is allowed to sneak into this repository's toolchain.</p>
-
-      <h2 id="why-credentials-file">Why a plain credentials file, instead of Nix or an encrypted store</h2>
-      <p>Three reasons.</p>
-      <p>It never leaves your machine. It lives outside this repo, so <code>git pull</code>/<code>workspaces-host-update</code> can't touch it, overwrite it, or conflict with it, and there's nothing here you could accidentally commit.</p>
-      <p>It's protected the way <code>~/.ssh</code> or <code>~/.aws/credentials</code> are. <code>workspaces-host-update</code> sets it to mode 600 every time it runs and fixes the permissions if anything loosens them. <code>doctor</code> checks this too.</p>
-      <p>It's read by a plain script, not by Nix. <code>workspaces-host-update</code> parses it as <code>KEY=value</code> text. It never <code>source</code>s it as a shell script, so a stray backtick or <code>$(...)</code> in a token can't run as a command. It writes your git name/email into a file git itself reads automatically, and drops every other token into a per-command-scoped mechanism: a key is only ever visible to the one command that needs it, <code>gh</code>/<code>glab</code>, or an AI harness CLI, never the rest of your shell.</p>
-      <p>This is the simplest thing that satisfies Constitution Principle III, secrets never touch the agent's shell unscoped, for the common case. No <code>age</code>/<code>sops</code> steps just to set your name and email. An opt-in <code>workspacesHost.secrets</code> option (<code>home/secrets.nix</code>) covers the cases this doesn't: field-level encryption at rest for a genuinely shared team secret.</p>
-      <p>One more piece of this: a project's own <code>.envrc</code> should check the ambient environment variable first and only fall back to this sandbox's file, never the other way around. The same project runs in more than one place, your machine, a teammate's, CI/CD, a container, and each gets its credentials differently. In CI/CD, the platform injects the secret directly; there's no credentials file there at all. Get the order backwards and you'd silently overwrite a value CI/CD already injected with the wrong one. <code>${VAR:-fallback}</code> does exactly this in one line: in CI/CD the fallback never runs, since the pipeline's own secret already won; on your machine, nothing set it yet, so it falls through to the file.</p>
-
-      <h2 id="why-secret-scoping">Why secrets are scoped per invocation, not exported</h2>
-      <p><code>claude</code>/<code>codex</code>/<code>gemini</code>/<code>aider</code>/<code>gh</code>/<code>glab</code> each get their own bash function of the same name (<code>home/ai-harness.nix</code>) that looks for a matching key and sets it only for that one call, never a shell-wide <code>export</code>. That's Constitution Principle III, applied literally: a secret gets resolved at the point of use, never as an ambient variable available to the whole shell session and everything running in it, an AI coding agent included. Run <code>claude</code> and its wrapper finds the value, sets <code>$ANTHROPIC_API_KEY</code> for that one call, and touches nothing else. <code>echo $ANTHROPIC_API_KEY</code> in the same window comes back empty. If a CLI has its own browser-based <code>login</code> instead (Claude Code and Gemini CLI both do), that works too. The wrapper is a no-op when nothing's configured, and <code>doctor</code> only warns if neither a configured credential nor an existing login shows up.</p>
-      <p>This is non-negotiable given what this repository is for: provisioning environments an AI coding agent operates inside. An agent with an ambient API key in its shell can leak that key into anything it touches, a log line, a generated script, a subprocess it spawns. Scoping the key to the one command that actually needs it closes that door structurally, instead of trusting every tool and every prompt to behave.</p>
-
-      <h2 id="why-ai-clis">Why Claude Code/Codex/Gemini CLI aren't Nix-packaged like everything else</h2>
-      <p>They ship near-weekly. Hand-vendoring each one as a Nix derivation means either pinning to a stale version forever or re-deriving a hash on every release, a maintenance job that isn't worth taking on for tools whose entire value is being current. <code>nodejs</code>, their shared runtime, gets the declarative treatment instead. Installing the actual CLI stays a single <code>npm install -g</code>, the same command upstream already documents.</p>
-
-      <h2 id="why-personas">Why the base profile stays small, and specialized tools moved to personas</h2>
-      <p>The base profile stays small on purpose: just what every engineer needs on day one. Compliance tooling, the Java/Postgres toolchain, bulk git tooling, and zero-trust networking clients all live in personas instead, since only some engineers use any given one of them, and a base-profile install is what every other engineer carries around unused. Deciding where a new tool belongs is a single question: does every engineer need this, or only someone doing a specific kind of work? That question is Constitution Principle V, simplicity over completeness, applied directly.</p>
-
-      <h2 id="why-fish">Why fish is a persona, not the default</h2>
-      <p>Bash stays the base profile's shell because every tutorial, every copy-pasted snippet, and most engineers' existing muscle memory already assume it. <code>blesh</code> gets bash most of the way to fish's own feel (see <a href="#autocomplete-ux">Autocomplete UX</a>) without asking anyone to give that up.</p>
-      <p>Fish is the honest alternative for someone who wants the real thing: its own native, Rust-implemented (fish 4.x) line editor, nothing layered on top. It's a persona, not a second default, for the same reason Tailscale is a persona and not something this repo joins a mesh for automatically: switching your actual login shell is a consequential, per-engineer choice, not something a package list should decide on your behalf. Activating the <code>fish</code> persona only makes <code>fish</code> and a matching config available; a separate, deliberate <code>chsh</code> step (see <a href="#personas">Personas</a> for the exact commands) is what actually makes it yours.</p>
-
-      <h2 id="why-ws-repos">Why <code>ws-repos</code>, not <code>mgit</code>, and why the file suffix still says <code>.mgit</code></h2>
-      <p>Other, unrelated tools are also named <code>mgit</code>. Naming this repository's tool <code>ws-repos</code> instead avoids that collision entirely; the directory convention and file matching it implements aren't affected by the rename. (Curious about the tool this one was inspired by? See <a href="#insp-v1">Inspiration</a>.)</p>
-      <p>The workspace file suffix stays <code>*.mgit.code-workspace</code> on purpose: keeping that exact string means a <code>*.mgit.code-workspace</code> file written by any tool that recognizes that suffix keeps working here, unchanged.</p>
-      <p><code>ws-repos status</code> reports a stuck <code>index.lock</code> ("locked") and stash count, and separates "untracked" from "dirty." Parsing a <code>*.mgit.code-workspace</code> file tolerates the comments VS Code itself allows there, a best-effort filter for <code>//</code> and <code>/* */</code>, not a full JSONC parser (spec 003's Assumptions document the one edge case that misses).</p>
-
-      <h2 id="why-roadmap">Why Deno, Lefthook, and Tailscale/Nebula are scoped the way they are</h2>
-      <p>These three tools trace back to questions the repositories in this project's own lineage raised (see <a href="#insp-v1">Inspiration</a>); here's how this repository answers each on its own terms.</p>
-      <p>Deno is provisioned as a plain scripting runtime, available to anyone who wants <code>deno</code>+<code>dax</code> over <code>make</code> for custom project tasks, independent of what <code>ws-repos</code>/<code>doctor</code> happen to be written in. It lives in the <code>agent-ops</code> persona, not the base profile, since it's a specialized enough choice that most engineers won't reach for it on day one.</p>
-      <p>Lefthook and the zero-trust networking clients (Tailscale, Nebula) are each installed declaratively via Nix, and nothing more. For Lefthook, that means a documented, copy-in example config instead of forcing hooks on every repo. For Tailscale/Nebula, it means installing the client and stopping there: joining an actual mesh (a Tailscale account and its login flow, or a Nebula certificate a network admin issues) is unavoidably a human, out-of-band action, the same category as a git identity or an API key. Constitution Principle III's "provisioning a key is a deliberate, separate, human action" applies just as much to network trust material. Running a server-side control plane is infrastructure someone chooses to operate separately; it's not part of one engineer's sandbox.</p>
-
-      <h2 id="why-prompt">Why not <code>oh-my-posh enable autoupgrade</code></h2>
-      <p>Looks like the obvious fix for the "a new release is available" message. It isn't. oh-my-posh's binary lives in the read-only Nix store, so a self-upgrade either fails outright or, worse, succeeds by writing a binary Nix has no record of, which breaks the one guarantee this repository exists to give you: every tool pinned by a lockfile, never resolved against a moving upstream at runtime. The message is silenced correctly instead (<code>disable_notice</code> in <code>home/shell.nix</code>); that's a cosmetic setting, not a version change. Want a newer oh-my-posh? Bump this flake's nixpkgs pin, the same as updating anything else here.</p>
-
-      <h2 id="why-java">Why not SDKMAN! or another Java version manager</h2>
-      <p>Nix already pins a reproducible version for every tool in this setup, Java included. A second version manager on top of that would just duplicate the job. Want a different JDK version or vendor? Override <code>home/java.nix</code>'s <code>pkgs.jdk</code>/<code>pkgs.maven</code> in a fork.</p>
-
-      <h2 id="why-specs">Why a spec for everything</h2>
-      <p>A spec-driven workflow feels like ceremony until the alternative shows up: a feature nobody can explain the intent of six months later, or a change that quietly breaks a requirement nobody wrote down in the first place. Every feature here, core and backlog alike, gets a spec (what and why, in testable requirements) and a plan (how, mapped onto this repository's actual files) before code. A spec that no longer matches the code is worse than no spec at all, so a change that breaks a spec's claim updates that spec in the same commit. This isn't process for its own sake: it's what makes it possible to hand this repository to an AI agent and trust that "the spec says X" is still true.</p>
-
-      <h2 id="why-docs-architecture">Why the docs live here, not in the README</h2>
-      <p>Two documents claiming to explain the same thing drift apart. One of them updates when a feature changes; the other one, inevitably, doesn't, and now there are two contradictory answers to "how do I set up credentials." Rather than accept that as a cost of having a README <em>and</em> a docs site, the README stays a short pointer: what this is, the core concepts, and a link here. This page is the one place installation steps, day-to-day usage, the technical architecture, and every "why" get written down, kept current in the same commit as the change that makes them true. One canonical answer, not two that can disagree.</p>
-
-      <h2 id="insp-v1">v1: <a href="https://github.com/strategy-coach/workspaces-host/">strategy-coach/workspaces-host</a></h2>
-      <p>The first version of this idea: a chezmoi-based dotfiles repository that called Deno "a core requirement" and carried an unfinished roadmap of its own, including lines for a Git hooks manager and zero-trust networking clients that never got built there. This repository doesn't reuse its code or its chezmoi templates; it takes the idea that a whole engineering sandbox deserves to be one reproducible artifact, and rebuilds it on Nix and home-manager instead.</p>
-
-      <h2 id="insp-mgit">mgit: <a href="https://github.com/strategy-coach/workspaces">strategy-coach/workspaces</a></h2>
-      <p>A separate tool for keeping many git repositories under one governed directory layout: clone-or-pull idempotently, report status across all of them, and compose a multi-root VS Code workspace from the result. This repository's <code>ws-repos</code> follows the same pattern in POSIX shell, deliberately renamed to avoid colliding with the several other, unrelated tools also called <code>mgit</code> (see <a href="#why-ws-repos">Why <code>ws-repos</code>, not <code>mgit</code></a>).</p>
-
-      <h2 id="insp-v2">v2: <a href="https://github.com/intellectual-frontiers/workspaces-host-v2">intellectual-frontiers/workspaces-host-v2</a></h2>
-      <p>A second iteration that continued refining the same goal. This repository builds on what v2 established, on its own foundation, rather than carrying its implementation forward line by line.</p>
-
-      <h2 id="insp-v3">This repository: a spiritual successor, not a port</h2>
-      <p>workspaces-host-v3 is written from its own spec-driven foundation (see <a href="#speckit">The spec-driven workflow</a>), on Nix and home-manager, with its own constitution governing every decision. It carries forward the goal its predecessors were reaching for, one reproducible sandbox, everywhere, without carrying forward their code, their naming, or an obligation to behave identically to any of them. Using this repository never requires knowing any of the above; every real design decision it makes has its own answer elsewhere in this FAQ, on its own terms.</p>
-
-    </main>
-  </div>
-</section>
+<header class="page-hero" id="page-hero">
+  <h1 id="page-hero-title">workspaces-host-v3</h1>
+</header>
+
+<div class="page">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="content" id="content">
+    <p class="content-loading">Loading&hellip;</p>
+    <noscript>This site needs JavaScript to load its content (every page is a plain Markdown file, fetched and rendered on the fly). Read it directly on GitHub instead: <a href="https://github.com/intellectual-frontiers/workspaces-host-v3/tree/main/docs/content">docs/content</a>.</noscript>
+  </main>
+</div>
 
 <footer class="site-footer">
   <p><a href="https://github.com/intellectual-frontiers/workspaces-host-v3">intellectual-frontiers/workspaces-host-v3</a> &middot; MIT License</p>
 </footer>
 
+<script src="vendor/marked.js"></script>
 <script>
-// Progressive enhancement only - every section above is already
-// reachable and readable via plain CSS :target/:has() routing with no
-// JavaScript at all. This script does two purely cosmetic things:
-// highlight the current top-nav link, and keep the tab title useful.
 (function () {
-  var SECTIONS = {
-    "getting-started": "Getting Started",
-    usage: "Using Your Sandbox",
-    "try-ai": "Try with AI",
-    technical: "Contributing",
-    faq: "FAQ",
+  "use strict";
+
+  // One entry per top-nav tier. Each page's `file` is fetched and
+  // rendered with marked (vendor/marked.js) the first time it's
+  // visited, then cached in memory for the rest of the session - no
+  // build step, no static-site generator, just fetch + render at
+  // navigation time.
+  var MANIFEST = {
+    "getting-started": {
+      title: "Getting Started",
+      lede: "Pick your platform. Run the commands. You'll have a working shell in a few minutes.",
+      mascot: { src: "mascot.jpg", alt: "Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned 'Same reproducible workspace everywhere.'", width: 900, height: 688, wide: false },
+      pages: [
+        { slug: "install", title: "Install", file: "content/getting-started/install.md" },
+        { slug: "first-day", title: "Verify it worked & your first day", file: "content/getting-started/first-day.md" }
+      ]
+    },
+    "day-to-day": {
+      title: "Day to Day",
+      lede: "Already installed? Here's what you'll actually reach for, day to day.",
+      mascot: { src: "mascot-workflows.jpg", alt: "Workhorse in Action: the mascot horse illustrated across eight everyday tasks - Develop, Explore, Guide, Automate, Recharge, Adapt, Stay Secure, and Go Further - captioned 'Different tasks. Same reliable companion.'", width: 1000, height: 485, wide: true },
+      pages: [
+        { slug: "personas", title: "Combine personas for your role", file: "content/day-to-day/personas.md" },
+        { slug: "credentials", title: "Authenticate & manage credentials", file: "content/day-to-day/credentials.md" },
+        { slug: "repos", title: "Work across multiple git hosts", file: "content/day-to-day/repos.md" },
+        { slug: "sync-recover", title: "Stay in sync & recover", file: "content/day-to-day/sync-recover.md" },
+        { slug: "ai-agents", title: "Use AI coding agents safely", file: "content/day-to-day/ai-agents.md" },
+        { slug: "everyday-tools", title: "Everyday tools", file: "content/day-to-day/everyday-tools.md" }
+      ]
+    },
+    "going-further": {
+      title: "Going Further",
+      lede: "A light number of real advanced use cases, once the basics are second nature.",
+      mascot: null,
+      pages: [
+        { slug: "local-nix", title: "Personalize with local.nix", file: "content/going-further/local-nix.md" },
+        { slug: "add-a-tool-or-persona", title: "Add a tool or write a new persona", file: "content/going-further/add-a-tool-or-persona.md" },
+        { slug: "team-secrets", title: "Team secrets with sops", file: "content/going-further/team-secrets.md" },
+        { slug: "container-ci", title: "Container & CI parity", file: "content/going-further/container-ci.md" },
+        { slug: "extend-with-ai", title: "Extend the repo with an AI agent", file: "content/going-further/extend-with-ai.md" },
+        { slug: "architecture", title: "How it's built", file: "content/going-further/architecture.md" }
+      ]
+    },
+    "faq": {
+      title: "FAQ",
+      lede: "Why this repository works the way it does, and what it grew out of.",
+      mascot: null,
+      pages: [
+        { slug: "faq", title: "FAQ", file: "content/faq/faq.md" }
+      ]
+    }
   };
 
-  function currentSectionId() {
-    var hash = location.hash.replace(/^#/, "");
-    if (SECTIONS[hash]) return hash;
-    if (hash) {
-      var el = document.getElementById(hash);
-      var section = el && el.closest(".page-section");
-      if (section) return section.id;
+  var DEFAULT_HASH = "getting-started/install";
+  var contentCache = {};
+  var currentTier = null;
+
+  function findPage(tierId, pageSlug) {
+    var tier = MANIFEST[tierId];
+    if (!tier) return null;
+    for (var i = 0; i < tier.pages.length; i++) {
+      if (tier.pages[i].slug === pageSlug) return tier.pages[i];
     }
-    return "getting-started";
+    return null;
   }
 
-  function update() {
-    var id = currentSectionId();
+  function parseHash() {
+    var raw = location.hash.replace(/^#/, "");
+    var parts = raw.split("/");
+    var tierId = parts[0] || "";
+    var pageSlug = parts[1] || "";
+    var headingSlug = parts[2] || "";
+    if (!MANIFEST[tierId] || !findPage(tierId, pageSlug)) {
+      var def = DEFAULT_HASH.split("/");
+      return { tierId: def[0], pageSlug: def[1], headingSlug: "" };
+    }
+    return { tierId: tierId, pageSlug: pageSlug, headingSlug: headingSlug };
+  }
+
+  // GitHub-style alert blockquotes: `> [!TIP] ...` / `[!NOTE]` /
+  // `[!WARNING]` / `[!IMPORTANT]` / `[!CAUTION]`. marked renders these
+  // as plain <blockquote><p>[!TIP]\ntext</p></blockquote>; this walks
+  // the rendered DOM afterward and turns matching ones into the same
+  // .callout styling every page already uses, so the raw .md source
+  // stays plain, readable Markdown (and still renders sensibly on
+  // GitHub itself) with no custom marked extension required.
+  var ALERT_RE = /^\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]\s*/;
+  function applyCallouts(root) {
+    var quotes = root.querySelectorAll("blockquote");
+    quotes.forEach(function (bq) {
+      var firstP = bq.querySelector("p");
+      if (!firstP) return;
+      var match = ALERT_RE.exec(firstP.textContent);
+      if (!match) return;
+      firstP.innerHTML = firstP.innerHTML.replace(ALERT_RE, "");
+      var kind = match[1];
+      var div = document.createElement("div");
+      div.className = "callout" + (kind === "NOTE" || kind === "TIP" ? "" : " note");
+      while (bq.firstChild) div.appendChild(bq.firstChild);
+      bq.replaceWith(div);
+    });
+  }
+
+  // Assign a slug id to every h2/h3 and build the "on this page" list
+  // from them - generated from the actual rendered headings, so a
+  // heading edit can never drift out of sync with a hand-maintained
+  // sidebar the way the old per-section HTML could. A heading may end
+  // in `{#exact-id}` (Pandoc/kramdown-style header attribute) to pin a
+  // stable, short cross-reference target independent of its wording;
+  // otherwise the id is auto-slugified from the heading text.
+  var EXPLICIT_ID_RE = /\s*\{#([a-z0-9-]+)\}\s*$/i;
+  function slugify(text) {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-");
+  }
+
+  function buildPageToc(root) {
+    var used = {};
+    var toc = [];
+    root.querySelectorAll("h2, h3").forEach(function (h) {
+      var explicit = EXPLICIT_ID_RE.exec(h.textContent);
+      var base;
+      if (explicit) {
+        base = explicit[1];
+        h.innerHTML = h.innerHTML.replace(EXPLICIT_ID_RE, "");
+      } else {
+        base = slugify(h.textContent);
+      }
+      var id = base;
+      var n = 2;
+      while (used[id]) {
+        id = base + "-" + n;
+        n++;
+      }
+      used[id] = true;
+      h.id = id;
+      toc.push({ id: id, text: h.textContent, level: h.tagName === "H2" ? 2 : 3 });
+    });
+    return toc;
+  }
+
+  function renderSidebar(tierId, pageSlug, pageToc) {
+    var tier = MANIFEST[tierId];
+    var sidebar = document.getElementById("sidebar");
+    var html = '<p class="eyebrow">Pages</p><ul>';
+    tier.pages.forEach(function (p) {
+      var cls = p.slug === pageSlug ? ' class="current-page"' : "";
+      html += '<li><a' + cls + ' href="#' + tierId + "/" + p.slug + '">' + p.title + "</a></li>";
+    });
+    html += "</ul>";
+    if (pageToc.length) {
+      html += '<p class="eyebrow">On this page</p><ul>';
+      pageToc.forEach(function (h) {
+        html += '<li' + (h.level === 3 ? ' class="sub"' : "") + '><a href="#' + tierId + "/" + pageSlug + "/" + h.id + '">' + h.text + "</a></li>";
+      });
+      html += "</ul>";
+    }
+    sidebar.innerHTML = html;
+  }
+
+  function renderHero(tierId) {
+    if (tierId === currentTier) return;
+    currentTier = tierId;
+    var tier = MANIFEST[tierId];
+    var hero = document.getElementById("page-hero");
+    var html = "";
+    if (tier.mascot) {
+      var m = tier.mascot;
+      html += '<img class="mascot' + (m.wide ? " mascot-wide" : "") + '" src="' + m.src + '" alt="' + m.alt.replace(/"/g, "&quot;") + '" width="' + m.width + '" height="' + m.height + '">';
+    }
+    html += "<h1>" + tier.title + "</h1>";
+    html += '<p class="lede">' + tier.lede + "</p>";
+    hero.innerHTML = html;
+  }
+
+  // Re-run on every render: wraps each <pre> in a .code-block and adds
+  // a Copy button. Purely additive - every block is already plain,
+  // selectable text without it.
+  function enhanceCodeBlocks(root) {
+    root.querySelectorAll("pre").forEach(function (pre) {
+      var wrapper = document.createElement("div");
+      wrapper.className = "code-block";
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+
+      var btn = document.createElement("button");
+      btn.className = "copy-btn";
+      btn.type = "button";
+      btn.textContent = "Copy";
+      wrapper.appendChild(btn);
+
+      btn.addEventListener("click", function () {
+        var text = pre.textContent.replace(/^\$ /gm, "");
+        navigator.clipboard.writeText(text).then(
+          function () {
+            btn.textContent = "Copied";
+            setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+          },
+          function () {
+            btn.textContent = "Select + Ctrl/Cmd-C";
+            setTimeout(function () { btn.textContent = "Copy"; }, 2000);
+          }
+        );
+      });
+    });
+  }
+
+  function fetchPage(page) {
+    if (contentCache[page.file]) {
+      return Promise.resolve(contentCache[page.file]);
+    }
+    return fetch(page.file)
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status + " fetching " + page.file);
+        return res.text();
+      })
+      .then(function (text) {
+        contentCache[page.file] = text;
+        return text;
+      });
+  }
+
+  function render() {
+    var loc = parseHash();
+    var tier = MANIFEST[loc.tierId];
+    var page = findPage(loc.tierId, loc.pageSlug);
+
     document.querySelectorAll(".nav-link").forEach(function (a) {
-      a.classList.toggle("current", a.dataset.nav === id);
+      a.classList.toggle("current", a.dataset.tier === loc.tierId);
     });
-    document.title =
-      (SECTIONS[id] || "workspaces-host-v3") + " | workspaces-host-v3";
+
+    renderHero(loc.tierId);
+
+    var content = document.getElementById("content");
+    content.innerHTML = '<p class="content-loading">Loading&hellip;</p>';
+
+    fetchPage(page)
+      .then(function (markdown) {
+        content.innerHTML = marked.parse(markdown);
+        applyCallouts(content);
+        var toc = buildPageToc(content);
+        enhanceCodeBlocks(content);
+        renderSidebar(loc.tierId, loc.pageSlug, toc);
+        document.title = page.title + " | " + tier.title + " | workspaces-host-v3";
+        if (loc.headingSlug) {
+          var target = document.getElementById(loc.headingSlug);
+          if (target) target.scrollIntoView();
+        } else {
+          window.scrollTo(0, 0);
+        }
+      })
+      .catch(function (err) {
+        content.innerHTML = '<p class="content-error">Could not load this page (' + err.message + '). <a href="https://github.com/intellectual-frontiers/workspaces-host-v3/tree/main/docs/content">Read it directly on GitHub</a> instead.</p>';
+      });
   }
 
-  window.addEventListener("hashchange", update);
-  update();
-
-  // Copy-to-clipboard on every code block. Purely additive: every block
-  // is already plain, selectable text without this.
-  document.querySelectorAll("pre").forEach(function (pre) {
-    var wrapper = document.createElement("div");
-    wrapper.className = "code-block";
-    pre.parentNode.insertBefore(wrapper, pre);
-    wrapper.appendChild(pre);
-
-    var btn = document.createElement("button");
-    btn.className = "copy-btn";
-    btn.type = "button";
-    btn.textContent = "Copy";
-    wrapper.appendChild(btn);
-
-    btn.addEventListener("click", function () {
-      var text = pre.textContent.replace(/^\$ /gm, "");
-      navigator.clipboard.writeText(text).then(
-        function () {
-          btn.textContent = "Copied";
-          setTimeout(function () {
-            btn.textContent = "Copy";
-          }, 1500);
-        },
-        function () {
-          btn.textContent = "Select + Ctrl/Cmd-C";
-          setTimeout(function () {
-            btn.textContent = "Copy";
-          }, 2000);
-        }
-      );
-    });
-  });
+  window.addEventListener("hashchange", render);
+  render();
 })();
 </script>
 </body>
