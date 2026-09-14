@@ -1,5 +1,3 @@
-# workspaces-host-v3
-
 ![Workspaces Host mascot: a Clydesdale draft horse pulling a cart loaded with CODE, CONFIG, and TOOLS crates, captioned "Same reproducible workspace everywhere."](docs/mascot.jpg)
 
 I built this so you get one working engineering setup, everywhere: a configured bash shell, git
