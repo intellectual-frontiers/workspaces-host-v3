@@ -5,7 +5,7 @@
 ```
 $ nano ~/workspaces/ws-repos.json   # { "repos": [{ "repo": "github.com/org/repo" }] }
 $ ws-repos ensure                    # clone-or-pull everything listed
-$ ws-repos status                    # dirty/untracked/ahead/behind/locked/stash/clean
+$ ws-repos status                    # up to date/needs a pull/dirty/untracked/locked/stash
 $ ws-repos inspect                   # list git hosts and repos referenced by workspace files
 ```
 
@@ -52,7 +52,7 @@ Remove the flag (or the whole entry) once you've re-cloned; it isn't meant to st
 
 ## Reading `status` across many repos at once
 
-`ws-repos status` reports, per repo, in one pass: dirty (uncommitted changes), untracked files, ahead/behind your upstream, a stuck `index.lock` ("locked"), and stash count. Run it before a sync-heavy day to see, at a glance, which of the repos you're tracking actually need attention before you touch any of them.
+`ws-repos status` reports, per repo, in one pass: dirty (uncommitted changes), untracked files, ahead/behind your upstream, a stuck `index.lock` ("locked"), and stash count. It fetches from each repo's upstream first, so "needs a pull" reflects the real remote instead of the last time anything happened to fetch it - this makes `status` a network operation, unlike `ensure`/`inspect`, which stay local-only once a repo is cloned. Each repo prints with a colored icon (auto-disabled for a non-terminal, over `NO_COLOR=1`, or under `TERM=dumb`) and a path relative to wherever you ran the command from, plus a closing tally of how many repos are up to date, need a pull, or need attention. Run it before a sync-heavy day to see, at a glance, which of the repos you're tracking actually need attention before you touch any of them.
 
 ## `*.mgit.code-workspace` files
 

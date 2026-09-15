@@ -20,9 +20,29 @@ WORKSPACES_HOME="${WORKSPACES_HOME:-$HOME/workspaces}"
 WS_REPOS_CONFIG="${WS_REPOS_CONFIG:-$WORKSPACES_HOME/ws-repos.json}"
 WS_REPOS_VSCODE_WS_PATTERN="${WS_REPOS_VSCODE_WS_PATTERN:-*.mgit.code-workspace}"
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM - the
+# same convention `doctor` uses, so every command in this repo behaves
+# the same way when piped, redirected, or run under NO_COLOR=1.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_dim="${esc}[2m"
+    c_red="${esc}[31m"
+    c_green="${esc}[32m"
+    c_yellow="${esc}[33m"
+    c_cyan="${esc}[36m"
+    c_magenta="${esc}[35m"
+else
+    c_reset='' c_bold='' c_dim=''
+    c_red='' c_green='' c_yellow='' c_cyan='' c_magenta=''
+fi
+c_bold_red="${c_bold}${c_red}"
+
 usage() {
     cat <<EOF
-Usage: ws-repos <command> [args...]
+${c_bold}Usage:${c_reset} ws-repos <command> [args...]
 
 Commands:
   ensure                 Clone-or-pull every repo in \$WS_REPOS_CONFIG into
@@ -32,11 +52,16 @@ Commands:
                           each repo to the workspace root, and recursively
                           ensures any repos referenced by that workspace
                           file's "folders" (VS Code multi-root "monorepo").
-  status [DEPTH]          Report git status (dirty/ahead/behind/no-upstream/
-                          clean), plus untracked files, a stuck index.lock,
-                          and stash count, across every repo under
-                          \$WORKSPACES_HOME (DEPTH default 6, deep enough
-                          for nested GitLab group/subgroup layouts).
+  status [DEPTH]          Fetch and report git status (up to date/needs a
+                          pull/dirty/ahead/untracked/no-upstream), plus a
+                          stuck index.lock and stash count, across every
+                          repo under \$WORKSPACES_HOME (DEPTH default 6,
+                          deep enough for nested GitLab group/subgroup
+                          layouts). Paths print relative to the current
+                          directory. Fetches from each repo's upstream
+                          first, so this is a network operation, unlike
+                          ensure/inspect's own local-only reads once a repo
+                          is cloned.
   inspect                 List the git managers (github.com, gitlab.*, ...)
                           and full repo list referenced by every
                           $WS_REPOS_VSCODE_WS_PATTERN file under
@@ -59,12 +84,13 @@ Config file format (\$WS_REPOS_CONFIG):
   }
 
 "fresh": true deletes and re-clones an already-cloned repo instead of
-pulling.
+pulling. Set NO_COLOR=1 to disable status's color output.
 EOF
 }
 
 HANDLED_FILE=$(mktemp)
-trap 'rm -f "$HANDLED_FILE"' EXIT INT TERM
+SUMMARY_FILE=$(mktemp)
+trap 'rm -f "$HANDLED_FILE" "$SUMMARY_FILE"' EXIT INT TERM
 
 is_handled() {
     grep -qxF "$1" "$HANDLED_FILE" 2>/dev/null
@@ -159,58 +185,125 @@ cmd_ensure() {
     done
 }
 
-# report_repo_status ABS_REPO_PATH
+# report_repo_status ABS_REPO_PATH: prints one colored status line for a
+# repo, and appends its bucket (up-to-date/needs-pull/attention) to
+# $SUMMARY_FILE for cmd_status's closing tally.
 report_repo_status() {
     repo="$1"
+    display_path=$(realpath --relative-to="$PWD" "$repo" 2>/dev/null || printf '%s' "$repo")
     branch=$(git -C "$repo" symbolic-ref --short -q HEAD || echo "(detached)")
-    status_flags=""
 
+    locked=false
     # A stuck index.lock (a crashed/killed git process) blocks every other
     # git command in that repo until removed by hand - worth its own flag
     # rather than folding it into "dirty" (upstream mgit.ts's mGitStatus
     # reports this as "Locked" too).
-    if [ -f "$repo/.git/index.lock" ]; then
-        status_flags="locked"
-    fi
+    [ -f "$repo/.git/index.lock" ] && locked=true
 
+    dirty=false
+    untracked=false
     porcelain=$(git -C "$repo" status --porcelain 2>/dev/null)
     if [ -n "$porcelain" ]; then
         # Distinguish modified/staged tracked files ("dirty") from
         # untracked-only ("untracked") the same way upstream reports
         # "Uncommitted changes" and "Untracked files" separately, rather
         # than folding both into one flag.
-        if printf '%s\n' "$porcelain" | grep -qv '^??'; then
-            status_flags="${status_flags:+$status_flags, }dirty"
-        fi
-        if printf '%s\n' "$porcelain" | grep -q '^??'; then
-            status_flags="${status_flags:+$status_flags, }untracked"
-        fi
+        printf '%s\n' "$porcelain" | grep -qv '^??' && dirty=true
+        printf '%s\n' "$porcelain" | grep -q '^??' && untracked=true
     fi
 
+    ahead=0
+    behind=0
+    no_upstream=false
+    fetch_failed=false
     upstream=$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
     if [ -z "$upstream" ]; then
-        status_flags="${status_flags:+$status_flags, }no-upstream"
+        no_upstream=true
     else
+        # A plain `rev-list` against the local copy of the upstream ref
+        # only reflects the last time *something* happened to fetch it -
+        # it can claim "up to date" for a branch that's actually several
+        # commits behind on the real remote. Fetching first is what makes
+        # "needs a pull" trustworthy instead of stale.
+        git -C "$repo" fetch --quiet 2>/dev/null || fetch_failed=true
         counts=$(git -C "$repo" rev-list --left-right --count "$upstream...HEAD" 2>/dev/null || printf '0\t0')
         behind=$(printf '%s' "$counts" | cut -f1)
         ahead=$(printf '%s' "$counts" | cut -f2)
-        [ "$ahead" != "0" ] && status_flags="${status_flags:+$status_flags, }ahead $ahead"
-        [ "$behind" != "0" ] && status_flags="${status_flags:+$status_flags, }behind $behind"
     fi
 
     stash_count=$(git -C "$repo" stash list 2>/dev/null | wc -l | tr -d ' ')
-    [ "$stash_count" != "0" ] && status_flags="${status_flags:+$status_flags, }$stash_count stash(es)"
 
-    [ -z "$status_flags" ] && status_flags="clean"
+    flags=""
+    add_flag() { flags="${flags:+$flags, }$1"; }
+    [ "$locked" = true ] && add_flag "${c_bold_red}locked${c_reset}"
+    [ "$dirty" = true ] && add_flag "${c_red}dirty${c_reset}"
+    [ "$untracked" = true ] && add_flag "${c_magenta}untracked${c_reset}"
+    [ "$behind" != "0" ] && add_flag "${c_yellow}$behind behind${c_reset}"
+    [ "$ahead" != "0" ] && add_flag "${c_cyan}$ahead ahead${c_reset}"
+    [ "$no_upstream" = true ] && add_flag "${c_dim}no-upstream${c_reset}"
+    [ "$fetch_failed" = true ] && add_flag "${c_dim}fetch failed (offline?)${c_reset}"
+    [ "$stash_count" != "0" ] && add_flag "${c_magenta}$stash_count stash(es)${c_reset}"
 
-    printf '%-45s [%s] %s\n' "$repo" "$branch" "$status_flags"
+    # One leading icon per line, in priority order, so a long status list
+    # can be scanned by eye without reading every word - and one bucket
+    # per repo for the closing tally cmd_status prints. Literal UTF-8
+    # emoji in the source (not \xHH printf escapes, which aren't portable
+    # across every printf(1)), same as doctor's literal PASS/WARN/FAIL
+    # icons.
+    if [ -z "$flags" ]; then
+        icon="✅"
+        flags="${c_green}up to date${c_reset}"
+        bucket="up-to-date"
+    elif [ "$fetch_failed" = true ]; then
+        icon="❓"
+        bucket="attention"
+    elif [ "$locked" = true ]; then
+        icon="🔒"
+        bucket="attention"
+    elif [ "$dirty" = true ]; then
+        icon="🔴"
+        bucket="attention"
+    elif [ "$behind" != "0" ]; then
+        icon="⬇️"
+        bucket="needs-pull"
+    elif [ "$untracked" = true ]; then
+        icon="🟡"
+        bucket="attention"
+    elif [ "$ahead" != "0" ]; then
+        icon="⬆️"
+        bucket="attention"
+    else
+        icon="⚪"
+        bucket="attention"
+    fi
+
+    printf '%s\n' "$bucket" >>"$SUMMARY_FILE"
+
+    # Pad the plain path first, then wrap it in color - padding a string
+    # that already contains invisible ANSI escapes counts those bytes
+    # toward the width and throws off every column after it.
+    padded_path=$(printf '%-45s' "$display_path")
+    printf '%s %s%s%s [%s%s%s] %s\n' \
+        "$icon" "$c_bold" "$padded_path" "$c_reset" "$c_bold" "$branch" "$c_reset" "$flags"
 }
 
 cmd_status() {
     depth="${1:-6}"
+    : >"$SUMMARY_FILE"
     find "$WORKSPACES_HOME" -maxdepth "$depth" -name .git -type d 2>/dev/null | while IFS= read -r gitdir; do
         report_repo_status "$(dirname "$gitdir")"
     done
+
+    total=$(wc -l <"$SUMMARY_FILE" | tr -d ' ')
+    [ "$total" -gt 0 ] || return 0
+    up_to_date=$(grep -c '^up-to-date$' "$SUMMARY_FILE" || true)
+    needs_pull=$(grep -c '^needs-pull$' "$SUMMARY_FILE" || true)
+    attention=$(grep -c '^attention$' "$SUMMARY_FILE" || true)
+    printf '\n%s%d repo(s):%s %s✅ %d up to date%s   %s⬇️  %d need a pull%s   %s⚠ %d need attention%s\n' \
+        "$c_bold" "$total" "$c_reset" \
+        "$c_green" "$up_to_date" "$c_reset" \
+        "$c_yellow" "$needs_pull" "$c_reset" \
+        "$c_magenta" "$attention" "$c_reset"
 }
 
 cmd_inspect() {

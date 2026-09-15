@@ -10,9 +10,25 @@ set -u
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 STATE_FILE="$CONFIG_HOME/workspaces-host/personas"
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM -
+# same convention as doctor/ws-repos.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_dim="${esc}[2m"
+    c_red="${esc}[31m"
+    c_green="${esc}[32m"
+    c_yellow="${esc}[33m"
+    c_cyan="${esc}[36m"
+else
+    c_reset='' c_bold='' c_dim='' c_red='' c_green='' c_yellow='' c_cyan=''
+fi
+
 usage() {
-    cat <<'EOF'
-Usage: ws-persona <command> [persona]
+    cat <<EOF
+${c_bold}Usage:${c_reset} ws-persona <command> [persona]
 
 Commands:
   list                Show every available persona, what it adds, and
@@ -54,10 +70,10 @@ is_known_persona() {
 }
 
 cmd_list() {
-    echo "Available personas:"
+    printf '%s🧩 Available personas:%s\n' "$c_bold" "$c_reset"
     echo
     personas | while IFS=: read -r name marker desc; do
-        printf '  %-11s %s\n' "$name" "$desc"
+        printf '  %s%-11s%s %s\n' "$c_bold$c_cyan" "$name" "$c_reset" "$desc"
         printf '              ws-persona activate %s\n' "$name"
         echo
     done
@@ -75,10 +91,10 @@ cmd_current() {
         declared=$(grep -v '^[[:space:]]*#' "$STATE_FILE" 2>/dev/null | grep -v '^[[:space:]]*$' || true)
     fi
     if [ -n "$declared" ]; then
-        echo "Activated (recorded in $STATE_FILE):"
+        printf '%s✅ Activated (recorded in %s):%s\n' "$c_green" "$STATE_FILE" "$c_reset"
         printf '%s\n' "$declared" | sed 's/^/  /'
     else
-        echo "No persona activated yet ($STATE_FILE doesn't list any)."
+        printf '%s⚪ No persona activated yet (%s does not list any).%s\n' "$c_dim" "$STATE_FILE" "$c_reset"
     fi
     echo
     detected=$(personas | while IFS=: read -r name marker desc; do
@@ -87,10 +103,10 @@ cmd_current() {
         fi
     done)
     if [ -n "$detected" ]; then
-        echo "Detected right now, based on one marker tool per persona on PATH:"
+        printf '%s🔍 Detected right now, based on one marker tool per persona on PATH:%s\n' "$c_cyan" "$c_reset"
         printf '%s\n' "$detected" | sed 's/^/  /'
     else
-        echo "No persona-specific marker tool found on PATH right now."
+        printf '%s⚪ No persona-specific marker tool found on PATH right now.%s\n' "$c_dim" "$c_reset"
     fi
     echo
     echo "Activated and detected can disagree right after you run activate or"
@@ -101,20 +117,20 @@ cmd_current() {
 cmd_activate() {
     name="${1:-}"
     [ -n "$name" ] || {
-        echo "Usage: ws-persona activate <persona>" >&2
+        echo "${c_red}Usage: ws-persona activate <persona>${c_reset}" >&2
         exit 1
     }
     if ! is_known_persona "$name"; then
-        echo "ws-persona: unknown persona '$name' - run 'ws-persona list' for valid names" >&2
+        echo "${c_red}ws-persona: unknown persona '$name' - run 'ws-persona list' for valid names${c_reset}" >&2
         exit 1
     fi
     mkdir -p "$(dirname "$STATE_FILE")"
     touch "$STATE_FILE"
     if grep -qxF "$name" "$STATE_FILE"; then
-        echo "ws-persona: '$name' is already activated"
+        printf '%s⚠️  ws-persona: '"'"'%s'"'"' is already activated%s\n' "$c_yellow" "$name" "$c_reset"
     else
         echo "$name" >>"$STATE_FILE"
-        echo "ws-persona: activated '$name' (recorded in $STATE_FILE)"
+        printf '%s✅ ws-persona: activated '"'"'%s'"'"' (recorded in %s)%s\n' "$c_green" "$name" "$STATE_FILE" "$c_reset"
     fi
     echo
     echo "Run workspaces-host-update to build it in - it combines with everything"
@@ -124,17 +140,17 @@ cmd_activate() {
 cmd_deactivate() {
     name="${1:-}"
     [ -n "$name" ] || {
-        echo "Usage: ws-persona deactivate <persona>" >&2
+        echo "${c_red}Usage: ws-persona deactivate <persona>${c_reset}" >&2
         exit 1
     }
     if [ ! -f "$STATE_FILE" ] || ! grep -qxF "$name" "$STATE_FILE"; then
-        echo "ws-persona: '$name' isn't activated - nothing to do"
+        printf '%s⚪ ws-persona: '"'"'%s'"'"' is not activated - nothing to do%s\n' "$c_dim" "$name" "$c_reset"
         exit 0
     fi
     tmp="$STATE_FILE.tmp.$$"
     grep -vxF "$name" "$STATE_FILE" >"$tmp"
     mv "$tmp" "$STATE_FILE"
-    echo "ws-persona: deactivated '$name' (removed from $STATE_FILE)"
+    printf '%s✅ ws-persona: deactivated '"'"'%s'"'"' (removed from %s)%s\n' "$c_green" "$name" "$STATE_FILE" "$c_reset"
     echo
     echo "Run workspaces-host-update to rebuild without it."
 }
@@ -152,7 +168,7 @@ activate) cmd_activate "$@" ;;
 deactivate) cmd_deactivate "$@" ;;
 -h | --help) usage ;;
 *)
-    echo "ws-persona: unknown command: $cmd" >&2
+    echo "${c_red}ws-persona: unknown command: $cmd${c_reset}" >&2
     usage >&2
     exit 1
     ;;

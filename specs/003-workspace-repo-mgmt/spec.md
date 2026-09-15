@@ -30,6 +30,19 @@ A prior port (workspaces-host-v2's `mgit`, and v3's own first pass) simplified u
 stuck-`index.lock` detection, and used a strict-JSON `jq` parse of `*.code-workspace` files where
 upstream uses a comments-tolerant JSONC parser. This revision closes those gaps (FR-004a, FR-008).
 
+A second revision fixed a real accuracy gap in `status`'s ahead/behind numbers: they came from
+`git rev-list` against the local copy of the upstream ref, which only reflects the last time
+anything happened to fetch it - a repo could sit there reporting "clean" when it was actually
+several commits behind the real remote. `status` now fetches from each repo's upstream first, so
+"needs a pull" means the reader can trust it, at the cost of `status` becoming a network operation
+(unlike `ensure`/`inspect`, which stay local-only reads once a repo is cloned). The same revision
+added color (one icon and one color per line, auto-disabled for a non-terminal, `NO_COLOR`, or
+`TERM=dumb`, matching `doctor`'s own convention) and a closing tally of up-to-date/needs-a-pull/
+needs-attention counts, so a reader scanning many repos does not have to read every line; and
+switched every printed repo path from an absolute path under `$WORKSPACES_HOME` to a path relative
+to the directory `ws-repos status` was actually run from, which is shorter and matches how a
+reader already thinks about "where am I relative to this repo" day to day.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - One predictable place for all my repos (Priority: P1)
@@ -149,10 +162,21 @@ authentication problem, for each of GitHub, GitLab, and a self-hosted GitLab ins
   MUST treat a `"path": "."` folder entry as a self-reference (skip, never clone) rather than a
   literal path.
 - **FR-004**: `ws-repos status` MUST report, per repo: dirty (modified/staged tracked files) and
-  untracked files as distinct flags, ahead/behind/no-upstream, and clean when none of the above
-  apply.
+  untracked files as distinct flags, ahead/behind/no-upstream, and up to date when none of the
+  above apply. Each repo's path MUST print relative to the directory `ws-repos status` was invoked
+  from, not as an absolute path.
 - **FR-004a**: `ws-repos status` MUST additionally report a stuck `index.lock` (as "locked") and a
   non-zero stash count, matching upstream `mgit.ts`'s `mGitStatus()`.
+- **FR-004b**: For a repo with an upstream, `ws-repos status` MUST fetch from that upstream before
+  computing ahead/behind counts, so a "needs a pull" (behind) result reflects the real remote
+  rather than the last time anything happened to fetch it. A fetch failure (e.g. offline) MUST be
+  reported as its own distinct state on that repo rather than silently falling back to stale
+  ahead/behind numbers or being indistinguishable from up to date.
+- **FR-004c**: `ws-repos status` output MUST use one color and one leading icon per repo line
+  (clean/up to date, needs a pull, dirty, locked, untracked, ahead, no-upstream, and fetch-failed
+  each visually distinct), plus a closing summary line tallying how many repos are up to date, need
+  a pull, or need attention. Color MUST auto-disable when stdout is not a terminal, when `NO_COLOR`
+  is set (https://no-color.org), or when `TERM=dumb`, matching `doctor`'s own color convention.
 - **FR-005**: `ws-repos inspect` MUST list the distinct git hosts and the full set of repo paths
   referenced by the workspace config and any multi-root workspace files it discovers, resolving a
   `"path": "."` entry to the repo the workspace file itself lives in.
@@ -194,6 +218,12 @@ authentication problem, for each of GitHub, GitLab, and a self-hosted GitLab ins
   `~/workspaces` in one invocation, with no repo silently skipped.
 - **SC-004**: `~/workspaces/README.md` exists after every activation and reflects the current
   `ws-repos`/`doctor` behavior, since it is rewritten, not created once and left to drift.
+- **SC-005**: A repo whose local knowledge of its upstream is stale (nothing has fetched it
+  recently) but which is genuinely behind the real remote is reported as "needs a pull" by
+  `ws-repos status`, not "up to date" - verified by resetting a repo's local remote-tracking ref
+  backward and confirming `status` still reports it correctly after a real fetch.
+- **SC-006**: Running `ws-repos status` with `NO_COLOR=1` set produces output with no ANSI escape
+  codes, even when stdout is a terminal.
 
 ## Assumptions
 

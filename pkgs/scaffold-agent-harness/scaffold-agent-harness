@@ -5,9 +5,23 @@
 # that's already there.
 set -eu
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM -
+# same convention as doctor/ws-repos.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_red="${esc}[31m"
+    c_green="${esc}[32m"
+    c_yellow="${esc}[33m"
+else
+    c_reset='' c_bold='' c_red='' c_green='' c_yellow=''
+fi
+
 usage() {
-    cat <<'EOF'
-Usage: scaffold-agent-harness [DIR]
+    cat <<EOF
+${c_bold}Usage:${c_reset} scaffold-agent-harness [DIR]
 
 Copies the agent-harness template (AGENTS.md, .mcp.json,
 .claude/settings.json, .claude/hooks/session-start.sh,
@@ -26,7 +40,7 @@ TARGET="${1:-.}"
 mkdir -p "$TARGET"
 
 if [ -z "${SCAFFOLD_TEMPLATE_DIR:-}" ]; then
-    echo "scaffold-agent-harness: SCAFFOLD_TEMPLATE_DIR is not set (this script is meant to be run via the Nix-wrapped binary)" >&2
+    echo "${c_red}scaffold-agent-harness: SCAFFOLD_TEMPLATE_DIR is not set (this script is meant to be run via the Nix-wrapped binary)${c_reset}" >&2
     exit 1
 fi
 
@@ -35,13 +49,13 @@ copy_one() {
     rel="$2"
     dest="$TARGET/$rel"
     if [ -e "$dest" ]; then
-        echo "skipped (exists): $rel"
+        printf '%s⚠️  skipped (exists):%s %s\n' "$c_yellow" "$c_reset" "$rel"
         return 0
     fi
     mkdir -p "$(dirname "$dest")"
     cp "$src" "$dest"
     [ -x "$src" ] && chmod +x "$dest" || true
-    echo "created: $rel"
+    printf '%s✅ created:%s %s\n' "$c_green" "$c_reset" "$rel"
 }
 
 cd "$SCAFFOLD_TEMPLATE_DIR"

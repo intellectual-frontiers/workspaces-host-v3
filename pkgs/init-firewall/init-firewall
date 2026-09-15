@@ -8,6 +8,23 @@
 # oci/sandboxed-entrypoint.sh.
 set -eu
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM -
+# same convention as doctor/ws-repos. Usually a no-op here (container
+# boot logs are rarely a TTY), which is exactly the point: this never
+# corrupts a log file with raw escape codes.
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_red="${esc}[31m"
+    c_green="${esc}[32m"
+    c_yellow="${esc}[33m"
+    c_cyan="${esc}[36m"
+else
+    c_reset='' c_bold='' c_red='' c_green='' c_yellow='' c_cyan=''
+fi
+
 CHAIN=WORKSPACES-HOST-EGRESS
 SET=workspaces-host-allowed
 
@@ -15,7 +32,7 @@ DEFAULT_ALLOWLIST="api.anthropic.com github.com objects.githubusercontent.com ra
 
 ALLOWLIST="${FIREWALL_ALLOWED_DOMAINS:-$DEFAULT_ALLOWLIST}"
 
-echo "init-firewall: allowlisted domains: $ALLOWLIST" >&2
+echo "${c_cyan}🔒 init-firewall: allowlisted domains: $ALLOWLIST${c_reset}" >&2
 
 ipset destroy "$SET" 2>/dev/null || true
 ipset create "$SET" hash:net
@@ -24,7 +41,7 @@ resolved_any=false
 for domain in $ALLOWLIST; do
     ips=$(getent ahostsv4 "$domain" 2>/dev/null | awk '{print $1}' | sort -u || true)
     if [ -z "$ips" ]; then
-        echo "init-firewall: warning: could not resolve $domain, skipping" >&2
+        echo "${c_yellow}⚠️  init-firewall: warning: could not resolve $domain, skipping${c_reset}" >&2
         continue
     fi
     for ip in $ips; do
@@ -34,7 +51,7 @@ for domain in $ALLOWLIST; do
 done
 
 if [ "$resolved_any" = false ]; then
-    echo "init-firewall: no allowlisted domain resolved - refusing to enable a firewall with an empty allowlist (that would be indistinguishable from no firewall at all if misconfigured, or a total network lockout if not)" >&2
+    echo "${c_red}❌ init-firewall: no allowlisted domain resolved - refusing to enable a firewall with an empty allowlist (that would be indistinguishable from no firewall at all if misconfigured, or a total network lockout if not)${c_reset}" >&2
     exit 1
 fi
 
@@ -51,21 +68,21 @@ iptables -A "$CHAIN" -p tcp --dport 53 -j ACCEPT
 iptables -A "$CHAIN" -m set --match-set "$SET" dst -j ACCEPT
 iptables -A "$CHAIN" -j DROP
 
-echo "init-firewall: rules applied, running self-check" >&2
+echo "${c_cyan}🔒 init-firewall: rules applied, running self-check${c_reset}" >&2
 
 # Self-check: a non-allowlisted domain must fail, and an allowlisted one
 # must succeed - if either assumption is violated, the firewall isn't
 # doing what it claims, so fail loudly rather than let a silent bug
 # masquerade as security.
 if curl -s -m 5 -o /dev/null "https://example.com" 2>/dev/null; then
-    echo "init-firewall: self-check FAILED - a non-allowlisted domain (example.com) was reachable" >&2
+    echo "${c_red}❌ init-firewall: self-check FAILED - a non-allowlisted domain (example.com) was reachable${c_reset}" >&2
     exit 1
 fi
 
 first_domain=$(echo "$ALLOWLIST" | awk '{print $1}')
 if ! curl -s -m 5 -o /dev/null "https://$first_domain"; then
-    echo "init-firewall: self-check FAILED - allowlisted domain ($first_domain) was NOT reachable" >&2
+    echo "${c_red}❌ init-firewall: self-check FAILED - allowlisted domain ($first_domain) was NOT reachable${c_reset}" >&2
     exit 1
 fi
 
-echo "init-firewall: self-check passed - egress is default-deny with $(echo "$ALLOWLIST" | wc -w) domain(s) allowed" >&2
+echo "${c_green}✅ init-firewall: self-check passed - egress is default-deny with $(echo "$ALLOWLIST" | wc -w) domain(s) allowed${c_reset}" >&2

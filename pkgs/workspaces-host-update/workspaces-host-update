@@ -7,6 +7,21 @@
 # home-manager switch --flake ..., doctor".
 set -eu
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM -
+# same convention as doctor/ws-repos. Every message here goes to stderr.
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_red="${esc}[31m"
+    c_green="${esc}[32m"
+    c_yellow="${esc}[33m"
+    c_cyan="${esc}[36m"
+else
+    c_reset='' c_bold='' c_red='' c_green='' c_yellow='' c_cyan=''
+fi
+
 # Some shells/environments don't export $USER even though `whoami` works
 # - the `current` profile below needs it to pick up your real identity
 # instead of the fixed "workspace" test identity.
@@ -18,7 +33,7 @@ PROFILE="${WORKSPACES_HOST_PROFILE:-current}"
 
 if [ ! -d "$REPO/.git" ]; then
     cat >&2 <<EOF
-workspaces-host-update: no git repo at $REPO
+${c_red}workspaces-host-update: no git repo at $REPO${c_reset}
 
 Set WORKSPACES_HOST_REPO to wherever you cloned workspaces-host-v3 (e.g.
 in your bash config: export WORKSPACES_HOST_REPO=~/path/to/workspaces-host-v3),
@@ -28,7 +43,7 @@ EOF
     exit 1
 fi
 
-echo "workspaces-host-update: pulling $REPO ..." >&2
+echo "${c_cyan}🔄 workspaces-host-update: pulling $REPO ...${c_reset}" >&2
 git -C "$REPO" pull --ff-only
 
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -48,7 +63,7 @@ if [ ! -f "$CREDENTIALS_FILE" ]; then
     chmod 600 "$CREDENTIALS_FILE"
     cat >&2 <<EOF
 
-workspaces-host-update: created $CREDENTIALS_FILE
+${c_yellow}📝 workspaces-host-update: created $CREDENTIALS_FILE${c_reset}
 
 Open it and fill in your name and email (leave the rest blank) - then
 run workspaces-host-update again.
@@ -60,7 +75,7 @@ fi
 # editor, a backup tool, or an inherited umask loosened it.
 chmod 600 "$CREDENTIALS_FILE"
 
-echo "workspaces-host-update: reading $CREDENTIALS_FILE ..." >&2
+echo "${c_cyan}🔑 workspaces-host-update: reading $CREDENTIALS_FILE ...${c_reset}" >&2
 mkdir -p "$SECRETS_ENV_DIR"
 chmod 700 "$SECRETS_DIR" "$SECRETS_ENV_DIR"
 
@@ -127,19 +142,19 @@ if [ "$PROFILE" = "current" ]; then
         active_personas=$(grep -v '^[[:space:]]*#' "$personas_file" 2>/dev/null | grep -v '^[[:space:]]*$' | tr '\n' ' ')
     fi
     if [ -n "$active_personas" ]; then
-        echo "workspaces-host-update: switching to $PROFILE (personas: $active_personas)..." >&2
+        echo "${c_cyan}🏗️  workspaces-host-update: switching to $PROFILE (personas: $active_personas)...${c_reset}" >&2
     else
-        echo "workspaces-host-update: switching to $PROFILE (no personas activated - see 'ws-persona list') ..." >&2
+        echo "${c_cyan}🏗️  workspaces-host-update: switching to $PROFILE (no personas activated - see 'ws-persona list') ...${c_reset}" >&2
     fi
 else
-    echo "workspaces-host-update: switching to $PROFILE ..." >&2
+    echo "${c_cyan}🏗️  workspaces-host-update: switching to $PROFILE ...${c_reset}" >&2
 fi
 home-manager switch --flake "$REPO#$PROFILE" --impure
 
 echo >&2
-echo "workspaces-host-update: checking everything is OK ..." >&2
+echo "${c_cyan}🩺 workspaces-host-update: checking everything is OK ...${c_reset}" >&2
 if command -v doctor >/dev/null 2>&1; then
     doctor || true
 else
-    echo "workspaces-host-update: 'doctor' isn't on PATH yet in this shell - open a new shell and run it." >&2
+    echo "${c_yellow}⚠️  workspaces-host-update: 'doctor' isn't on PATH yet in this shell - open a new shell and run it.${c_reset}" >&2
 fi

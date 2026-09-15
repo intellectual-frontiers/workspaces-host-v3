@@ -2,9 +2,23 @@
 # semtag: compute and optionally apply the next semantic version git tag.
 set -eu
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM.
+# Never applied to list/current/final's own printed tag - those are
+# meant to be captured with $(...) by other tooling and must stay plain.
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_red="${esc}[31m"
+    c_green="${esc}[32m"
+else
+    c_reset='' c_bold='' c_red='' c_green=''
+fi
+
 usage() {
-    cat <<'EOF'
-Usage: semtag <command> [options]
+    cat <<EOF
+${c_bold}Usage:${c_reset} semtag <command> [options]
 
 Commands:
   list                 List all semver tags (vMAJOR.MINOR.PATCH), sorted
@@ -55,12 +69,12 @@ case "$COMMAND" in
                 -a) APPLY=true; shift ;;
                 -m) MESSAGE="$2"; shift 2 ;;
                 -h|--help) usage; exit 0 ;;
-                *) echo "semtag: unknown option: $1" >&2; usage >&2; exit 1 ;;
+                *) echo "${c_red}semtag: unknown option: $1${c_reset}" >&2; usage >&2; exit 1 ;;
             esac
         done
         case "$LEVEL" in
             major|minor|patch) ;;
-            *) echo "semtag: -s must be one of: major, minor, patch" >&2; exit 1 ;;
+            *) echo "${c_red}semtag: -s must be one of: major, minor, patch${c_reset}" >&2; exit 1 ;;
         esac
 
         cur=$(current_tag)
@@ -84,14 +98,14 @@ case "$COMMAND" in
             else
                 git tag "$next"
             fi
-            echo "semtag: created tag $next" >&2
+            echo "${c_green}✅ semtag: created tag $next${c_reset}" >&2
         fi
         ;;
     -h|--help)
         usage
         ;;
     *)
-        echo "semtag: unknown command: $COMMAND" >&2
+        echo "${c_red}semtag: unknown command: $COMMAND${c_reset}" >&2
         usage >&2
         exit 1
         ;;

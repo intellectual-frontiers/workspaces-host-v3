@@ -5,9 +5,23 @@ set -eu
 
 CONFIG="${SENSITIVECTL_CONFIG:-$HOME/.config/workspaces-host/sensitivectl.json}"
 
+# Color only when it'll actually render as color: a real terminal, no
+# NO_COLOR (https://no-color.org), and not the "dumb" fallback TERM -
+# gated on stderr, since every human-facing message here goes there
+# (list's profile-name output on stdout stays plain, meant for scripting).
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+    esc=$(printf '\033')
+    c_reset="${esc}[0m"
+    c_bold="${esc}[1m"
+    c_red="${esc}[31m"
+    c_cyan="${esc}[36m"
+else
+    c_reset='' c_bold='' c_red='' c_cyan=''
+fi
+
 usage() {
     cat <<EOF
-Usage: sensitivectl <command> [profile] [-- rclone-args...]
+${c_bold}Usage:${c_reset} sensitivectl <command> [profile] [-- rclone-args...]
 
 Commands:
   list                    List configured profiles
@@ -28,7 +42,7 @@ EOF
 
 require_config() {
     if [ ! -f "$CONFIG" ]; then
-        echo "sensitivectl: no config at $CONFIG (set SENSITIVECTL_CONFIG or create it)" >&2
+        echo "${c_red}sensitivectl: no config at $CONFIG (set SENSITIVECTL_CONFIG or create it)${c_reset}" >&2
         exit 1
     fi
 }
@@ -58,7 +72,7 @@ case "$COMMAND" in
         jq -r '.profiles | keys[]' "$CONFIG"
         ;;
     backup|restore)
-        [ $# -ge 1 ] || { echo "sensitivectl: $COMMAND requires a profile name" >&2; exit 1; }
+        [ $# -ge 1 ] || { echo "${c_red}sensitivectl: $COMMAND requires a profile name${c_reset}" >&2; exit 1; }
         PROFILE="$1"; shift
         if [ "${1:-}" = "--" ]; then shift; fi
         require_config
@@ -67,20 +81,20 @@ case "$COMMAND" in
         REMOTE=$(profile_field "$PROFILE" remote)
 
         if [ -z "$LOCAL" ] || [ -z "$REMOTE" ]; then
-            echo "sensitivectl: profile '$PROFILE' not found (or missing local/remote) in $CONFIG" >&2
+            echo "${c_red}sensitivectl: profile '$PROFILE' not found (or missing local/remote) in $CONFIG${c_reset}" >&2
             exit 1
         fi
 
         if [ "$COMMAND" = "backup" ]; then
-            echo "sensitivectl: backing up $LOCAL -> $REMOTE" >&2
+            echo "${c_cyan}📤 sensitivectl: backing up $LOCAL -> $REMOTE${c_reset}" >&2
             rclone sync "$LOCAL" "$REMOTE" "$@"
         else
-            echo "sensitivectl: restoring $REMOTE -> $LOCAL" >&2
+            echo "${c_cyan}📥 sensitivectl: restoring $REMOTE -> $LOCAL${c_reset}" >&2
             rclone sync "$REMOTE" "$LOCAL" "$@"
         fi
         ;;
     *)
-        echo "sensitivectl: unknown command: $COMMAND" >&2
+        echo "${c_red}sensitivectl: unknown command: $COMMAND${c_reset}" >&2
         usage >&2
         exit 1
         ;;
