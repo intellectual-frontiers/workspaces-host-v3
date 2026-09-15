@@ -36,6 +36,29 @@ flowchart LR
 
 `scaffold-agent-harness` (installed in every profile) drops a starter `AGENTS.md`, an `.mcp.json`, and a `.claude/settings.json` into any project, not just this one - the same idea, applied to whatever you're building next.
 
+## Branch, test, and submit a fix
+
+The actual mechanics, whether you're driving them by hand or handing the whole loop to an agent (Claude Code, Codex, or anything else with shell and `gh` access):
+
+```mermaid
+flowchart LR
+  A["git checkout -b your-branch"] --> B["make the change"]
+  B --> C["nix flake check --all-systems<br>+ a scratch-home activation<br>and doctor --all"]
+  C --> D["git push -u origin your-branch"]
+  D --> E["gh pr create"]
+  E --> F["CI: flake-check, build-images, doctor"]
+  F --> G["review, then merge"]
+```
+
+1. **Branch off `main`.** `git checkout -b your-branch-name`. A real feature that already has a spec can reuse SpecKit's own `NNN-feature-name` convention (matching `specs/NNN-feature-name/`); a smaller fix just needs a name that says what it does - there's no enforced format beyond that.
+2. **Make the change**, following the rules above (constitution first, spec-first for anything beyond a small fix, the per-invocation credential pattern for any new credential-consuming tool).
+3. **Test on the branch before pushing**, not after - this is rule 5 above, not a separate step: `nix flake check --all-systems` at minimum, and for anything touching `home/` or a persona, an actual scratch-`$HOME` activation plus `doctor --all` with zero unexpected `FAIL`s. Catching a broken activation locally costs a minute; catching it in CI after a push costs a round trip.
+4. **Push and open a pull request**: `git push -u origin your-branch-name`, then `gh auth login` once if you haven't (see [Authenticate & manage credentials](#day-to-day/credentials)) and `gh pr create` - both commands work exactly the same whether a human types them or an agent does, since `gh` is a plain installed CLI here, not something special-cased for automation.
+5. **Let CI confirm it independently.** Every push to a pull request re-runs the same three checks this repository's own CI does on every PR: `nix flake check --all-systems`, building both container images, and a real scratch-home `doctor` run - the exact same validation rule 5 above asks you to do locally, just enforced automatically too.
+6. **Merge once it's green and reviewed.** Nothing here merges itself; a human (or whoever owns the repository) still approves the change.
+
+An AI coding agent can drive every step above on its own - create the branch, make the change, run the validation loop, push, and open the PR with `gh pr create` - the same way this repository's own history was largely written. Point it at a checkout with a clear task, and it needs nothing beyond what's already installed here. See [Use AI coding agents safely](#day-to-day/ai-agents) for getting an agent authenticated and running in the first place.
+
 ## Where to go deeper
 
 - [The constitution](https://github.com/intellectual-frontiers/workspaces-host-v3/blob/main/.specify/memory/constitution.md): every non-negotiable principle, in full.

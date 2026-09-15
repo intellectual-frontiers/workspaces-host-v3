@@ -217,6 +217,20 @@ document by that navigation. Setting `.outerHTML` on a detached node throws. The
 to show an error into, so the failure handler now does nothing in that case rather than throwing
 into the console.
 
+### Eleventh revision: branch/test/PR mechanics on "Extend the repo with an AI agent"
+
+That page named the rules an agent (or a human) follows while changing this repository, but never
+said how a change actually gets from a local edit to a merged commit - branching, validating
+before pushing, and opening a pull request. A new "Branch, test, and submit a fix" section closes
+that gap: branch off `main`, make the change, validate locally (the same `nix flake check`/
+scratch-activation loop rule 5 already required, not a new one), push, and open a PR with
+`gh pr create`, followed by a Mermaid flowchart of that same sequence and what this repository's
+own CI (`.github/workflows/ci.yml`) re-checks on every pull request. It's written to apply equally
+whether a person types each command or hands the whole loop to an AI coding agent - this
+repository already installs and wraps `gh` for exactly that per-invocation, credential-scoped use
+(see [Authenticate & manage credentials](#day-to-day/credentials)), so there's nothing
+automation-specific to add beyond naming the same commands a human would use.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Get running with no rationale in the way (Priority: P1)
@@ -289,6 +303,11 @@ persona, with no separate lookup required.
    repository, **Then** its "Extend the repo with an AI agent" page names the constitution, the
    writing-style guide, the SpecKit lifecycle, and this site's own comprehensive-docs role as
    things that agent must follow.
+3. **Given** "Extend the repo with an AI agent," **When** an engineer (or the agent they've handed
+   the task to) wants to get a change from a local edit into a merged pull request, **Then** that
+   page names every step - branching off `main`, validating locally before pushing, pushing, and
+   opening a PR with `gh pr create` - and what CI re-checks, with nothing left implicit for
+   whichever of them is actually running the commands.
 
 ---
 
@@ -489,7 +508,10 @@ each button in turn and land on that tier's first page with its normal sidebar r
   **Container & CI parity** (`oci-image`/`oci-image-sandboxed`, using the same closure in a
   pipeline, the `nix flake check`/scratch-activation validation loop), **Extend the repo with an AI
   agent** (the constitution, the spec-driven workflow, concrete rules for an agent changing this
-  repository - this absorbs what the prior "Contributing" section covered), and **How it's built**
+  repository - this absorbs what the prior "Contributing" section covered - and the branch/test/PR
+  mechanics: creating a branch, validating locally before pushing, opening a pull request with
+  `gh pr create`, and what CI re-checks, framed so it applies equally whether a human or an AI
+  coding agent drives it), and **How it's built**
   (Nix/flakes/home-manager in plain terms, the repository's file layout, how personas mechanically
   combine, how this site itself works) - reference material that doesn't fit a task shape, kept
   here rather than as a separate nav destination.
