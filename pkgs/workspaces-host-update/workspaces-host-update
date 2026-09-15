@@ -82,6 +82,14 @@ chmod 700 "$SECRETS_DIR" "$SECRETS_ENV_DIR"
 git_name=""
 git_email=""
 
+# Tracks which keys this run actually wrote, so a key that was removed
+# (or blanked) from the credentials file can be told apart from one
+# that's simply still there - see the cleanup pass below. Named with a
+# leading "." so the cleanup pass's own "$SECRETS_ENV_DIR"/* glob never
+# matches it.
+written_keys_file="$SECRETS_ENV_DIR/.written-this-run.$$"
+: >"$written_keys_file"
+
 # Plain KEY=value parsing, deliberately not `. "$CREDENTIALS_FILE"` -
 # this file is edited by hand and might contain a stray `` ` `` or
 # `$(...)` in a token; sourcing it as shell would execute that. "#"
@@ -113,9 +121,28 @@ while IFS= read -r line || [ -n "$line" ]; do
         umask 077
         printf '%s' "$value" >"$SECRETS_ENV_DIR/$key.tmp"
         mv "$SECRETS_ENV_DIR/$key.tmp" "$SECRETS_ENV_DIR/$key"
+        echo "$key" >>"$written_keys_file"
         ;;
     esac
 done <"$CREDENTIALS_FILE"
+
+# Remove any credential this directory still has on disk but that
+# wasn't written just now - a key removed or blanked out in the
+# credentials file otherwise keeps being read by every wrapped CLI
+# (see home/ai-harness.nix) indefinitely, with nothing in the
+# credentials file itself to show that's happening. This directory is
+# also where home/secrets.nix's opt-in sops mechanism decrypts its own
+# secrets, at every `home-manager switch` (below) - not just this
+# script's own keys - so a sops-managed file swept up here is simply
+# re-decrypted a few lines from now, before anything else runs.
+for existing in "$SECRETS_ENV_DIR"/*; do
+    [ -e "$existing" ] || continue
+    name=$(basename "$existing")
+    if ! grep -qxF "$name" "$written_keys_file"; then
+        rm -f "$existing"
+    fi
+done
+rm -f "$written_keys_file"
 
 # home/git.nix's `programs.git.includes` points here unconditionally -
 # git silently ignores an `[include] path` that doesn't exist, so this

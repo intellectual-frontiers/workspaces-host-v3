@@ -30,20 +30,54 @@ let
   # no-op pass-through - a CLI's own browser-based `login` flow (or
   # `gh`/`glab`'s own stored auth, or an already-set env var from
   # outside) works exactly as if this wrapper didn't exist.
-  wrapCli = name: varNames:
+  #
+  # `skipFirstArgs` (a list of the CLI's own first-argument subcommand
+  # names, `[ ]` for "none") exists for one specific conflict: `gh auth
+  # login`/`glab auth login` manage that CLI's own persistent, stored
+  # credentials, and both CLIs refuse to run an interactive login at all
+  # once GH_TOKEN/GITHUB_TOKEN/GITLAB_TOKEN is already present in the
+  # environment (their own upstream behavior, not something this repo
+  # controls) - so a configured credentials-file token, forced into
+  # *every* invocation including `auth login` itself, silently broke the
+  # one command meant to set auth up in the first place (see the issue
+  # this fixed: a stale or placeholder token in the credentials file
+  # made `gh auth login` fail until the reader learned to bypass this
+  # very wrapper with `command gh auth login`). Any subcommand named
+  # here skips the export loop entirely, so `gh auth ...`/`glab auth
+  # ...` always talk to the real, unwrapped CLI and manage its own
+  # stored credentials exactly as if this wrapper didn't exist; every
+  # other subcommand (`gh repo clone`, `gh pr list`, ...) still benefits
+  # from the configured token as documented (spec 002's FR-008a).
+  wrapCli = name: varNames: skipFirstArgs:
     let
       predeclare = lib.concatMapStringsSep "\n" (v: "    local ${v}") varNames;
       varList = lib.concatStringsSep " " varNames;
-    in
-    ''
-      ${name}() {
-    ${predeclare}
+      exportBlock = ''
         for var in ${varList}; do
           f="${secretsEnvDir}/$var"
           if [ -f "$f" ]; then
             export "$var=$(cat "$f")"
           fi
         done
+      '';
+      body =
+        if skipFirstArgs == [ ] then
+          exportBlock
+        else
+          ''
+            case "''${1:-}" in
+            ${lib.concatStringsSep "|" skipFirstArgs})
+                ;;
+              *)
+            ${exportBlock}
+                ;;
+            esac
+          '';
+    in
+    ''
+      ${name}() {
+    ${predeclare}
+      ${body}
         command ${name} "$@"
       }
     '';
@@ -81,13 +115,13 @@ in
   ];
 
   programs.bash.initExtra = lib.concatStrings (map
-    ({ name, vars }: wrapCli name vars)
+    ({ name, vars, skipFirstArgs ? [ ] }: wrapCli name vars skipFirstArgs)
     [
       { name = "claude"; vars = [ "ANTHROPIC_API_KEY" ]; }
       { name = "codex"; vars = [ "OPENAI_API_KEY" ]; }
       { name = "gemini"; vars = [ "GEMINI_API_KEY" "GOOGLE_API_KEY" ]; }
       { name = "aider"; vars = [ "ANTHROPIC_API_KEY" "OPENAI_API_KEY" "GEMINI_API_KEY" "GOOGLE_API_KEY" ]; }
-      { name = "gh"; vars = [ "GITHUB_TOKEN" "GH_TOKEN" ]; }
-      { name = "glab"; vars = [ "GITLAB_TOKEN" ]; }
+      { name = "gh"; vars = [ "GITHUB_TOKEN" "GH_TOKEN" ]; skipFirstArgs = [ "auth" ]; }
+      { name = "glab"; vars = [ "GITLAB_TOKEN" ]; skipFirstArgs = [ "auth" ]; }
     ]);
 }

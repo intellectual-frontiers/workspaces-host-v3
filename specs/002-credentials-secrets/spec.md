@@ -29,6 +29,25 @@ GitLab credentials - `credentials.example`, `doctor`'s messages, the generated
 and documents the token fields as the secondary, only-if-you-need-it path, not the other way
 around.
 
+### Follow-up: `gh auth login` broke once a `GITHUB_TOKEN` had ever been configured (2026)
+
+The edge case below ("an engineer has both run `gh auth login` and filled in `GITHUB_TOKEN`")
+assumed the two never actually conflict. One case does: `gh`/`glab` themselves refuse to run their
+own interactive `auth login` at all once `GH_TOKEN`/`GITHUB_TOKEN`/`GITLAB_TOKEN` is already
+present in the environment (their own upstream behavior, not something this repository controls),
+and the per-invocation wrapper (FR-005) was injecting a configured token into *every* invocation of
+`gh`/`glab`, `auth login` included - so a token in the credentials file silently broke the one
+command meant to set auth up in the first place. Worse, since nothing ever removed a previously
+written token file when the corresponding credentials-file line was later blanked or deleted (a gap
+FR-003 didn't actually cover, despite writing being update-command's job), a reader who added a bad
+or placeholder token, then gave up and deleted it, kept hitting the same broken `gh auth login` -
+the wrapper kept injecting the stale file regardless of what the credentials file currently said.
+Both gaps are closed now: the wrapper skips injection entirely for `gh auth ...`/`glab auth ...`
+(FR-005a), and the update command removes a previously written credential file whose key no longer
+appears in the credentials file (FR-003a). The edge case's actual conclusion still holds for every
+other `gh`/`glab` subcommand - `gh repo clone`, `gh pr list`, and so on happily use either
+`gh auth login`'s stored credentials or a configured `GITHUB_TOKEN`, whichever is present.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Fill in one file, get everything configured (Priority: P1)
@@ -68,13 +87,19 @@ audience this repository explicitly targets.
 
 **Independent Test**: Change one value in the credentials file, re-run the update command, and
 confirm only that value's effect changes (e.g. the decrypted file's contents), with no other
-generated configuration touched.
+generated configuration touched. Separately, blank or delete a previously set value and re-run the
+update command; confirm its per-invocation secret file is gone, not just left holding the old
+value.
 
 **Acceptance Scenarios**:
 
 1. **Given** an already-configured environment, **When** the engineer changes one credential value
    and re-runs the update command, **Then** the new value takes effect and no Nix source file is
    modified.
+2. **Given** a credential the engineer previously configured, **When** they blank or delete its
+   line and re-run the update command, **Then** the per-invocation secret file that credential
+   wrote is removed, and any tool that reads it (FR-005) behaves exactly as if that credential had
+   never been configured.
 
 ---
 
@@ -107,9 +132,16 @@ it successfully.
   Activation must fail loudly for that secret rather than silently producing an empty file that a
   consuming tool would treat as "configured."
 - What happens when an engineer has both run `gh auth login` and filled in `GITHUB_TOKEN`? Either
-  authenticates `gh`, so `doctor` (spec 004) MUST report PASS from whichever one actually works,
-  never asking the engineer to remove one in favor of the other - the two are not in conflict, and
-  only the *documentation's* framing (which one to reach for first) is what this follow-up fixes.
+  authenticates `gh` for ordinary use (`gh repo clone`, `gh pr list`, ...), so `doctor` (spec 004)
+  MUST report PASS from whichever one actually works, never asking the engineer to remove one in
+  favor of the other. Running `gh auth login`/`gh auth logout`/`glab auth login` itself is the one
+  exception: FR-005a requires the wrapper to never inject a configured token into an `auth`
+  subcommand, specifically so a configured `GITHUB_TOKEN`/`GITLAB_TOKEN` can never block that
+  command from managing `gh`/`glab`'s own stored credentials.
+- What happens when a key in the credentials file is blanked or its line removed, after an earlier
+  run already wrote it to its per-invocation secret file? FR-003a requires the update command to
+  remove that file too, in the same run - a wrapped CLI (FR-005) MUST NOT keep receiving a
+  credential that no longer appears in the credentials file.
 
 ## Requirements *(mandatory)*
 
@@ -123,11 +155,21 @@ it successfully.
 - **FR-003**: The update command MUST parse the credentials file as plain `KEY=value` (never
   sourced as a shell script), writing git identity into the git-config-generation module's inputs
   and every other recognized value into a private, mode-600 location outside the Nix store.
+- **FR-003a**: On every run, the update command MUST remove any previously written per-invocation
+  secret file whose key is no longer present (blanked or deleted) in the current credentials file -
+  a rotated-away or removed credential MUST NOT keep being read by a wrapped CLI (FR-005)
+  indefinitely just because an earlier run once wrote it.
 - **FR-004**: The update command MUST re-assert mode 600 on the credentials file on every run,
   before applying any configuration.
 - **FR-005**: The system MUST NOT export any declared secret as an ambient environment variable
   available to a whole interactive shell session; a tool that needs a secret MUST receive it only
   for its own invocation, via a documented per-invocation wrapper.
+- **FR-005a**: The per-invocation wrapper for `gh`/`glab` (FR-008) MUST NOT inject a configured
+  `GITHUB_TOKEN`/`GH_TOKEN`/`GITLAB_TOKEN` when the CLI's own first argument is `auth` - `gh
+  auth login`/`gh auth logout`/`glab auth login` and the rest of that subcommand family MUST always
+  reach the real, unwrapped CLI so they can manage its own stored credentials, unaffected by
+  whatever the credentials file currently holds. Every other subcommand keeps receiving the
+  configured token as FR-008a documents.
 - **FR-006**: The system MUST support an advanced, opt-in path (a sops-based module) for
   engineers who want secrets encrypted at rest and decrypted only at activation time, for cases
   the plain credentials file does not cover (e.g. a shared team secret rather than a personal
@@ -175,6 +217,13 @@ it successfully.
   `env` command in an interactive shell.
 - **SC-003**: Rotating a credential requires editing exactly one file and re-running exactly one
   command, with zero Nix source changes.
+- **SC-004**: `gh auth login`/`glab auth login` succeed whether or not `GITHUB_TOKEN`/`GITLAB_TOKEN`
+  is configured in the credentials file - verified directly, not assumed, by exporting a known,
+  invalid token into the wrapped CLI's own secret file and confirming an `auth login`/`auth status`
+  invocation still reaches the real, unwrapped binary.
+- **SC-005**: Blanking or deleting a previously configured credential's line, then re-running the
+  update command, leaves no trace of it in the per-invocation secrets directory - verified by
+  checking the file is actually gone, not merely that the credentials file no longer mentions it.
 
 ## Assumptions
 
