@@ -2,3 +2,8 @@
 result
 result-*
 .direnv/
+
+# docs-src/build.sh output and its transient build-time copy of the logo
+# for the PDF theme (specs/019-asciidoc-manuscript-docs) - never committed.
+/_site/
+docs-src/theme/logo.png

@@ -1,0 +1,70 @@
+name: Docs
+
+# Builds all four book formats (specs/019-asciidoc-manuscript-docs) from
+# docs-src/manuscript.adoc on every push/PR, and deploys the result to
+# GitHub Pages on push to main. Nothing generated is ever committed to
+# git - this workflow is the only place the build output exists before
+# it's served.
+#
+# Requires this repository's GitHub Pages source to be set to "GitHub
+# Actions" (Settings -> Pages -> Build and deployment -> Source), not
+# "Deploy from a branch" - see spec 019's Assumptions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs-src/**"
+      - "docs/index.html"
+      - "docs/*.jpg"
+      - "docs/*.png"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs-src/**"
+      - "docs/index.html"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/docs.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Build the Asciidoctor toolchain
+        run: nix build .#docs-toolchain -o result-docs-toolchain
+      - name: Build all four formats
+        run: |
+          export PATH="$PWD/result-docs-toolchain/bin:$PATH"
+          docs-src/build.sh _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,41 @@
+[appendix]
+[#inspiration]
+== Where This Came From
+
+Using this book, and this repository, never requires knowing any of what follows. Every real
+design decision it makes has its own answer in Part IV, on its own terms. This appendix exists for
+a reader curious about the lineage anyway.
+
+[[insp-v1]]
+=== v1: strategy-coach/workspaces-host
+
+The first version of this idea: a chezmoi-based dotfiles repository that called Deno "a core
+requirement" and carried an unfinished roadmap of its own, including lines for a Git hooks manager
+and zero-trust networking clients that never got built there. This repository doesn't reuse its
+code or its chezmoi templates; it takes the idea that a whole engineering sandbox deserves to be
+one reproducible artifact, and rebuilds it on Nix and home-manager instead.
+(`https://github.com/strategy-coach/workspaces-host/`)
+
+[[insp-mgit]]
+=== mgit: strategy-coach/workspaces
+
+A separate tool for keeping many git repositories under one governed directory layout:
+clone-or-pull idempotently, report status across all of them, and compose a multi-root VS Code
+workspace from the result. This repository's `ws-repos` follows the same pattern in POSIX shell,
+deliberately renamed to avoid colliding with the several other, unrelated tools also called
+`mgit` (<<why-ws-repos>>). (`https://github.com/strategy-coach/workspaces/`)
+
+[[insp-v2]]
+=== v2: intellectual-frontiers/workspaces-host-v2
+
+A second iteration that continued refining the same goal. This repository builds on what v2
+established, on its own foundation, rather than carrying its implementation forward line by line.
+(`https://github.com/intellectual-frontiers/workspaces-host-v2/`)
+
+[[insp-v3]]
+=== This repository: a spiritual successor, not a port
+
+workspaces-host-v3 is written from its own spec-driven foundation (<<extend-with-ai>>), on Nix and
+home-manager, with its own constitution governing every decision. It carries forward the goal its
+predecessors were reaching for -- one reproducible sandbox, everywhere -- without carrying forward
+their code, their naming, or an obligation to behave identically to any of them.

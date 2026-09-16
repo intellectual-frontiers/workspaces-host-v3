@@ -1,0 +1,12 @@
+[colophon]
+== Colophon
+
+This book is generated from a single AsciiDoc manuscript (`docs-src/manuscript.adoc`) by a
+Nix-pinned Asciidoctor toolchain, into four editions: this PDF, an EPUB, a multi-page HTML site,
+and a single-page HTML edition. See <<architecture>> for how the pipeline works, and
+<<why-docs-tech-stack>> for why it's built this way.
+
+*intellectual-frontiers/workspaces-host-v3* +
+https://github.com/intellectual-frontiers/workspaces-host-v3
+
+Licensed under the MIT License.

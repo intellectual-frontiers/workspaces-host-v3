@@ -1,0 +1,47 @@
+= Preface
+
+I didn't build workspaces-host-v3 for "a nice shell." I built it so a human engineer, a teammate
+who's new to Linux, a CI/CD pipeline, and an AI coding agent -- Claude Code, Codex, an autonomous
+bot running overnight, whatever -- can all open a terminal on completely different machines and
+find the exact same structure underneath them. The same place repositories land, the same command
+that tells you whether anything's broken, the same command that brings you current, the same
+shell, the same tools, at the same versions. When everyone and everything on a project shares one
+predictable layout, nobody has to relearn how a particular machine happens to be set up before
+they can do anything useful on it.
+
+That matters more now, not less, because AI put a real command line in front of people who never
+expected to need one. Just about everyone is an engineer some of the time now, and everyone doing
+that work deserves the same consistent, capable Linux environment, not a stripped-down one just
+because they're newer to it. WSL already gives Windows users the desktop, files, and apps they
+know; this project is what gives them the same ready-to-go setup on the Linux side. "New to Linux"
+stays the only unfamiliar part, not the tooling.
+
+It's also why AI coding-agent CLIs ship as part of the standard environment, covered in
+<<ai-agents>>. Once someone has an API key configured the safe way this book documents, they can
+point an AI harness at their own sandbox and ask it to help fix or improve the setup, the same way
+it would help with application code. I want that barrier low on purpose. Lowering it is most of
+the point of building this at all.
+
+Here's the thing worth protecting: that consistency. If an AI harness or a person finds a real
+improvement while working in one sandbox -- a new tool, a better default, an extra health check, a
+smarter install step -- it belongs in this project, via a pull request. Not buried in one person's
+credentials file, not a one-off tweak that only exists on their machine. Your credentials file
+exists for what's actually personal -- your name, your keys -- precisely so everything else stays
+shared. A good idea stuck in one sandbox helps one person. The same idea merged here helps
+everyone, and every CI run, and every agent, who uses this setup afterward.
+
+== How this book is organized
+
+Part I gets you a working shell in a few minutes, with nothing to read except what to type. Part
+II is what you'll actually reach for once that shell exists and you're using it every day:
+personas, credentials, working across git hosts, staying in sync, AI agents, everyday tools. Part
+III is a deliberately short set of real advanced topics -- personalizing your own machine, adding a
+tool or writing a new persona, team secrets, container and CI parity, extending the project with
+an AI agent, and a plain-terms tour of how the whole thing is built. Part IV answers, directly,
+every "why does it work this way" question the first three parts raise along the way, and closes
+with where this project's own ideas came from.
+
+Read it front to back if you're starting from nothing -- each part assumes you've finished the one
+before it. Or open the table of contents and go straight to the chapter that answers today's
+question; every chapter names what it assumes and points back to the chapter that covers it if you
+haven't gotten there yet. Either way works. It's your book now.

@@ -1,0 +1,208 @@
+/* HTML stylesheet for the workspaces-host-v3 book's web editions
+   (multi-page and single-page), reusing the retired docs/index.html
+   single-page-app's own design tokens so the book's web editions look
+   like a continuation of the same site, not a different product.
+
+   Targets Asciidoctor's stock HTML5 converter class names (#header,
+   #content, #footer, #toc/#toctitle, .sect1/.sect2/.sect3,
+   .admonitionblock, .listingblock/.literalblock, .tableblock,
+   .imageblock, .exampleblock, .quoteblock, .ulist/.olist/.dlist) --
+   these are stable across Asciidoctor's article and book doctypes.
+
+   NOT YET VERIFIED against a real build (see specs/019's toolchain
+   task): the multi-page split specifically may come from a converter
+   (asciidoctor-multipage or similar) with its own nav/chapter-list
+   markup layered on top of these base rules -- expect a follow-up
+   pass adding selectors for whatever that tool actually emits, once
+   it's chosen and a real build exists to inspect. */
+
+:root {
+  --bg: #ffffff;
+  --text: #1a1d21;
+  --text-soft: #57606a;
+  --accent: #0969da;
+  --accent-soft: #eaf2fe;
+  --border: #e7e9ec;
+  --code-bg: #f6f8fa;
+  --code-border: #e3e6ea;
+  --content-max: 780px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-padding-top: 16px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+#header, #content, #footer {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+#header {
+  padding-top: 48px;
+}
+
+#header .details {
+  color: var(--text-soft);
+  font-size: 0.95em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+#header h1 {
+  font-size: 2.1em;
+  margin-bottom: 8px;
+}
+
+.sect1 > h2 {
+  font-size: 1.6em;
+  margin-top: 2.2em;
+  padding-top: 0.4em;
+  border-top: 1px solid var(--border);
+}
+
+.sect2 > h3 {
+  font-size: 1.25em;
+  margin-top: 1.8em;
+}
+
+.sect3 > h4 {
+  font-size: 1.05em;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+p, ul, ol, dl, table {
+  max-width: 68ch;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+
+.listingblock pre, .literalblock pre {
+  max-width: none;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+}
+
+.listingblock pre code, .literalblock pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.88em;
+}
+
+.admonitionblock {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  margin: 1.4em 0;
+  max-width: none;
+}
+
+.admonitionblock td.icon .title,
+.admonitionblock .title {
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  letter-spacing: 0.04em;
+}
+
+.admonitionblock td.content {
+  color: var(--text);
+}
+
+.tableblock {
+  border-collapse: collapse;
+  max-width: none;
+  width: 100%;
+  margin: 1.4em 0;
+}
+
+.tableblock th, .tableblock td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.tableblock thead {
+  background: var(--code-bg);
+  font-weight: 600;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.imageblock img, .mermaid img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+#toc {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+#toctitle {
+  font-size: 1em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+}
+
+#toc ul {
+  list-style: none;
+  padding-left: 1em;
+}
+
+#footer {
+  border-top: 1px solid var(--border);
+  color: var(--text-soft);
+  font-size: 0.88em;
+  padding: 24px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  #header, #content, #footer {
+    padding: 0 16px;
+  }
+}

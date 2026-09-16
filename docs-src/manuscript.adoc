@@ -1,0 +1,58 @@
+= Workspaces Host: The Complete Guide
+Shahid Shah
+:doctype: book
+:toc:
+:toclevels: 2
+:sectnums:
+:sectnumlevels: 2
+:icons: font
+:source-highlighter: rouge
+:experimental:
+:xrefstyle: short
+:partnums:
+:imagesdir: ../docs
+
+[preface]
+include::chapters/front-matter/preface.adoc[]
+
+= Part I: Getting Started
+
+include::chapters/getting-started/install.adoc[]
+
+include::chapters/getting-started/first-day.adoc[]
+
+= Part II: Day to Day
+
+include::chapters/day-to-day/personas.adoc[]
+
+include::chapters/day-to-day/credentials.adoc[]
+
+include::chapters/day-to-day/repos.adoc[]
+
+include::chapters/day-to-day/sync-recover.adoc[]
+
+include::chapters/day-to-day/ai-agents.adoc[]
+
+include::chapters/day-to-day/everyday-tools.adoc[]
+
+= Part III: Going Further
+
+include::chapters/going-further/local-nix.adoc[]
+
+include::chapters/going-further/add-a-tool-or-persona.adoc[]
+
+include::chapters/going-further/team-secrets.adoc[]
+
+include::chapters/going-further/container-ci.adoc[]
+
+include::chapters/going-further/extend-with-ai.adoc[]
+
+include::chapters/going-further/architecture.adoc[]
+
+= Part IV: Frequently Asked Questions
+
+include::chapters/faq/faq.adoc[]
+
+include::chapters/back-matter/inspiration.adoc[]
+
+include::chapters/back-matter/colophon.adoc[]

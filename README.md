@@ -15,11 +15,11 @@ need.
 ## Full documentation
 
 **[intellectual-frontiers.github.io/workspaces-host-v3](https://intellectual-frontiers.github.io/workspaces-host-v3/)**
-has everything: installation for Windows (WSL), Linux, and macOS; day-to-day usage; the technical
-architecture; and the reasoning behind every real design decision. That site is the comprehensive,
-always-current documentation. This README stays short on purpose (the site's own
-[Why the docs live here, not in the README](https://intellectual-frontiers.github.io/workspaces-host-v3/#faq/faq/why-docs-architecture)
-explains why).
+is a book, not a website: installation for Windows (WSL), Linux, and macOS; day-to-day usage; the
+technical architecture; and the reasoning behind every real design decision, in whichever format
+you'd rather read it in - browsable online, one single page, a typeset PDF, or an EPUB for an
+e-reader. That book is the comprehensive, always-current documentation. This README stays short on
+purpose (the book's own FAQ chapter explains why).
 
 ## For contributors
 
@@ -31,7 +31,7 @@ spec, a plan, and, once built, code, under `specs/<NNN-name>/`. Run `nix flake c
 sending a change. A spec that no longer matches the code is worse than no spec at all; fix that in
 the same change that causes the mismatch, not as a cleanup pass that may never happen.
 
-Prose documentation (this README, the docs site, a spec's own narrative sections) follows
+Prose documentation (this README, the docs book, a spec's own narrative sections) follows
 [`.specify/memory/writing-style.md`](.specify/memory/writing-style.md). A spec's Functional
 Requirements, Acceptance Scenarios, and Success Criteria stay in SpecKit's own precise, testable
 requirement language instead. See the constitution's "Documentation Voice" principle.

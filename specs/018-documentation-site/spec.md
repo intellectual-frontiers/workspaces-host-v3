@@ -4,7 +4,10 @@
 
 **Created**: 2026-09-13
 
-**Status**: Implemented
+**Status**: Superseded by [019-asciidoc-manuscript-docs](../019-asciidoc-manuscript-docs/spec.md) -
+the fetch-and-render-Markdown single-page-app architecture this spec describes was replaced by a
+single AsciiDoc manuscript built into four formats (multi-page HTML, single-page HTML, PDF, EPUB).
+Kept here for history; do not implement against this spec.
 
 **Input**: User description: "A beautiful, easy-to-read HTML documentation site served by GitHub
 Pages, starting with just-the-facts Getting Started for WSL then other platforms, then separate
