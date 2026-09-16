@@ -1299,7 +1299,15 @@ footer.site-footer a {
     input.addEventListener("focus", function () {
       ensureIndex().then(function (mini) {
         var query = input.value.trim();
-        if (query) renderSearchResults(mini.search(query), query);
+        if (query) {
+          renderSearchResults(mini.search(query), query);
+        } else {
+          // Focusing with nothing typed yet showed "Loading search
+          // index..." while the index built - with no query to search
+          // once it resolves, nothing else was clearing that message,
+          // so it sat there looking stuck forever. Close it instead.
+          closeSearchResults();
+        }
       });
     });
 
