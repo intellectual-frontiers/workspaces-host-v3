@@ -14,7 +14,11 @@
    vendor/mermaid.min.js, renders diagrams on the few pages that have
    one - it is loaded lazily, only when a page actually needs it (see
    ensureMermaidLoaded below), since it is far too large to ship on
-   every page. Both are vendored (not loaded from a live CDN) so the
+   every page. A third, vendor/minisearch.js, powers the nav bar's
+   search box - it loads eagerly (it's small), but building its index
+   means fetching every page's content, so that part waits until the
+   reader actually focuses the search box (see buildSearchIndex
+   below). All three are vendored (not loaded from a live CDN) so the
    site has no third-party dependency at request time. This means
    JavaScript is required to read any content (a deliberate tradeoff -
    see spec 018's Background for why). */
@@ -138,6 +142,98 @@ kbd {
 .site-nav a.gh-link:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* ---------- search ---------- */
+
+.search-box {
+  margin-right: 12px;
+}
+
+#search-input {
+  width: 190px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg);
+}
+
+#search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  width: 240px;
+}
+
+#search-input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.search-results {
+  position: fixed;
+  /* top/left/width are set in JS (positionSearchResults), matching
+     the search input's own on-screen position every time the dropdown
+     opens - fixed positioning is what lets it escape .site-nav-inner's
+     overflow clip in the first place. */
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 30;
+  padding: 6px;
+}
+
+.search-result {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.search-result:hover,
+.search-result.active {
+  background: var(--accent-soft);
+}
+
+.search-result-title {
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+.search-result-tier {
+  color: var(--accent);
+  font-size: 0.78em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-left: 6px;
+}
+
+.search-result-snippet {
+  display: block;
+  color: var(--text-soft);
+  font-size: 0.86em;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-snippet mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.search-status {
+  padding: 10px 12px;
+  color: var(--text-soft);
+  font-size: 0.9em;
 }
 
 /* ---------- page shell: hero + sidebar + content ---------- */
@@ -616,6 +712,16 @@ footer.site-footer a {
     height: 0;
   }
 
+  .search-box {
+    flex: 1;
+    margin-right: 8px;
+  }
+
+  #search-input,
+  #search-input:focus {
+    width: 100%;
+  }
+
   .sidebar {
     top: 0;
   }
@@ -632,9 +738,22 @@ footer.site-footer a {
     <a class="nav-link" data-tier="going-further" href="#going-further/local-nix">Going Further</a>
     <a class="nav-link" data-tier="faq" href="#faq/faq">FAQ</a>
     <span class="spacer"></span>
+    <div class="search-box" id="search-box">
+      <input type="search" id="search-input" placeholder="Search&hellip; (press /)" aria-label="Search this site" autocomplete="off" spellcheck="false" />
+    </div>
     <a class="gh-link" href="https://github.com/intellectual-frontiers/workspaces-host-v3">GitHub &#8599;</a>
   </div>
 </nav>
+
+<!-- A sibling of .site-nav, not a child of #search-box: .site-nav-inner
+     has its own overflow-x: auto (so a squeezed nav scrolls instead of
+     wrapping above phone width) - overflow clips ANY descendant,
+     positioned or not, so nesting the dropdown inside it cut the
+     results off at the bottom of the nav bar. Living outside that
+     ancestor and using position: fixed (set in JS from the search
+     input's own on-screen position, see positionSearchResults) escapes
+     the clip entirely. -->
+<div class="search-results" id="search-results" hidden></div>
 
 <header class="page-hero" id="page-hero">
   <h1 id="page-hero-title">workspaces-host-v3</h1>
@@ -653,6 +772,7 @@ footer.site-footer a {
 </footer>
 
 <script src="vendor/marked.js"></script>
+<script src="vendor/minisearch.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1037,7 +1157,234 @@ footer.site-footer a {
       });
   }
 
+  // vendor/minisearch.js is small (~86KB, same ballpark as marked.js)
+  // so it loads eagerly on every page like marked does - the real cost
+  // is building the index itself, which means fetching every page's
+  // content (reusing fetchPage's own cache, so a page fetched for the
+  // index loads instantly if the reader visits it afterward). That
+  // part is deferred until the reader actually focuses the search box,
+  // built once, and kept for the rest of the session.
+  var searchIndexPromise = null;
+  function stripMarkdown(md) {
+    return md
+      // Strips only the ``` fence markers (with an optional language
+      // tag), not the code between them - a reader on a CLI-heavy site
+      // like this one is very likely to search for an exact command or
+      // flag that appears only inside a fenced example, so the actual
+      // command text has to stay searchable.
+      .replace(/```[a-z]*/gi, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/\{#[a-z0-9-]+\}/gi, "")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/[>*_~]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  function buildSearchIndex() {
+    if (!searchIndexPromise) {
+      var docs = [];
+      TIER_ORDER.forEach(function (tierId) {
+        var tier = MANIFEST[tierId];
+        tier.pages.forEach(function (page) {
+          docs.push(
+            fetchPage(page).then(function (markdown) {
+              return {
+                id: tierId + "/" + page.slug,
+                tierId: tierId,
+                tierTitle: tier.title,
+                pageSlug: page.slug,
+                title: page.title,
+                body: stripMarkdown(markdown)
+              };
+            })
+          );
+        });
+      });
+      searchIndexPromise = Promise.all(docs).then(function (allDocs) {
+        var mini = new MiniSearch({
+          fields: ["title", "body"],
+          storeFields: ["title", "tierId", "tierTitle", "pageSlug", "body"],
+          searchOptions: { prefix: true, fuzzy: 0.2, boost: { title: 3 } }
+        });
+        mini.addAll(allDocs);
+        return mini;
+      });
+    }
+    return searchIndexPromise;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // A short window of body text around the query's first plain-text
+  // match, so a result shows *why* it matched instead of just its
+  // opening sentence every time.
+  function snippetFor(body, query) {
+    var idx = body.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return body.slice(0, 140);
+    var start = Math.max(0, idx - 40);
+    return (start > 0 ? "…" : "") + body.slice(start, start + 160) + "…";
+  }
+
+  function highlightSnippet(snippet, query) {
+    var escaped = escapeHtml(snippet);
+    if (!query) return escaped;
+    var re = new RegExp("(" + query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig");
+    return escaped.replace(re, "<mark>$1</mark>");
+  }
+
+  function closeSearchResults() {
+    var box = document.getElementById("search-results");
+    box.hidden = true;
+    box.innerHTML = "";
+  }
+
+  // #search-results lives outside .site-nav (see the HTML comment
+  // above it) specifically so it can be position: fixed and escape
+  // .site-nav-inner's own overflow clip - which means its screen
+  // position has to be set in JS, from the search input's own
+  // rectangle, every time it's about to become visible.
+  function positionSearchResults() {
+    var input = document.getElementById("search-input");
+    var box = document.getElementById("search-results");
+    var rect = input.getBoundingClientRect();
+    box.style.top = rect.bottom + 6 + "px";
+    box.style.left = rect.left + "px";
+    box.style.width = rect.width + "px";
+  }
+
+  function renderSearchResults(results, query) {
+    var box = document.getElementById("search-results");
+    if (!results.length) {
+      box.innerHTML = '<div class="search-status">No results for &ldquo;' + escapeHtml(query) + "&rdquo;</div>";
+      positionSearchResults();
+      box.hidden = false;
+      return;
+    }
+    var html = "";
+    results.slice(0, 8).forEach(function (r, i) {
+      var snippet = highlightSnippet(snippetFor(r.body, query), query);
+      html +=
+        '<a class="search-result' + (i === 0 ? " active" : "") + '" href="#' + r.tierId + "/" + r.pageSlug + '">' +
+        '<span class="search-result-title">' + escapeHtml(r.title) +
+        '<span class="search-result-tier">' + escapeHtml(r.tierTitle) + "</span></span>" +
+        '<span class="search-result-snippet">' + snippet + "</span>" +
+        "</a>";
+    });
+    box.innerHTML = html;
+    positionSearchResults();
+    box.hidden = false;
+  }
+
+  (function initSearch() {
+    var input = document.getElementById("search-input");
+    var box = document.getElementById("search-results");
+
+    function ensureIndex() {
+      if (!searchIndexPromise) {
+        box.innerHTML = '<div class="search-status">Loading search index&hellip;</div>';
+        positionSearchResults();
+        box.hidden = false;
+      }
+      return buildSearchIndex();
+    }
+
+    // Refocusing a box that still has a query in it (after Escape, an
+    // outside click, or a scroll closed the dropdown) re-shows that
+    // same query's results immediately, rather than requiring the
+    // reader to retype a character before anything reappears.
+    input.addEventListener("focus", function () {
+      ensureIndex().then(function (mini) {
+        var query = input.value.trim();
+        if (query) renderSearchResults(mini.search(query), query);
+      });
+    });
+
+    input.addEventListener("input", function () {
+      var query = input.value.trim();
+      if (!query) {
+        closeSearchResults();
+        return;
+      }
+      ensureIndex().then(function (mini) {
+        // The reader may have kept typing while the index built or a
+        // slower search resolved - a stale response for an old query
+        // string is discarded rather than clobbering a newer one.
+        if (input.value.trim() !== query) return;
+        renderSearchResults(mini.search(query), query);
+      });
+    });
+
+    input.addEventListener("keydown", function (e) {
+      var results = box.querySelectorAll(".search-result");
+      if (e.key === "Escape") {
+        // input[type=search] clears itself on Escape by default - this
+        // only closes the dropdown, so the query is still there if the
+        // reader refocuses (which re-shows the same results, see the
+        // focus listener below).
+        e.preventDefault();
+        closeSearchResults();
+        input.blur();
+        return;
+      }
+      if (e.key === "Enter") {
+        var active = box.querySelector(".search-result.active") || results[0];
+        if (active) {
+          e.preventDefault();
+          active.click();
+        }
+        return;
+      }
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && results.length) {
+        e.preventDefault();
+        var current = box.querySelector(".search-result.active");
+        var idx = current ? Array.prototype.indexOf.call(results, current) : -1;
+        idx = e.key === "ArrowDown" ? Math.min(idx + 1, results.length - 1) : Math.max(idx - 1, 0);
+        results.forEach(function (r) { r.classList.remove("active"); });
+        results[idx].classList.add("active");
+        results[idx].scrollIntoView({ block: "nearest" });
+      }
+    });
+
+    // A plain click on a result navigates natively (it's a real
+    // href="#tier/page" anchor) - this only tidies up the dropdown
+    // once that happens.
+    box.addEventListener("click", function (e) {
+      if (!e.target.closest(".search-result")) return;
+      closeSearchResults();
+      input.blur();
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!document.getElementById("search-box").contains(e.target) && !box.contains(e.target)) {
+        closeSearchResults();
+      }
+    });
+
+    // #search-results is fixed-positioned to the search input's own
+    // rectangle at the moment it opens (positionSearchResults) - it
+    // doesn't track a page scroll or a viewport resize afterward, so
+    // it closes instead of drifting away from the input underneath it.
+    window.addEventListener("scroll", closeSearchResults, { passive: true });
+    window.addEventListener("resize", closeSearchResults);
+
+    // The same "/" convenience GitHub/Algolia docs search boxes use -
+    // skipped while the reader is already typing anywhere else, so it
+    // never steals a "/" they meant to type into that field instead.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      var tag = (e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
+      e.preventDefault();
+      input.focus();
+    });
+  })();
+
   function render() {
+    closeSearchResults();
     var loc = parseHash();
 
     if (loc.isHome) {

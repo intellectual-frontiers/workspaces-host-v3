@@ -231,6 +231,42 @@ repository already installs and wraps `gh` for exactly that per-invocation, cred
 (see [Authenticate & manage credentials](#day-to-day/credentials)), so there's nothing
 automation-specific to add beyond naming the same commands a human would use.
 
+### Twelfth revision: a search box, and a third vendored library
+
+Every prior revision made the site easier to read front to back, but a reader who already knows
+roughly what they want (a command name, a flag, "how do I authenticate gh") had no way to jump
+straight there - only the sidebar and the tier nav, both organized by page, not by the word
+they're actually looking for. This revision adds a search box to the top nav, backed by
+[MiniSearch](https://lucaong.github.io/minisearch/), a third vendored library
+(`docs/vendor/minisearch.js`) chosen specifically because it needs no build-time index - it can
+index a handful of fetched Markdown files entirely in the browser, matching this site's own
+"fetch and render, no build step" architecture the way Lunr.js's own build-time-index convention
+would not have. FR-018's "exactly one vendored library" claim already stopped being literally true
+at the ninth revision (Mermaid); this revision's real addition is search itself, not another
+exception to that sentence.
+
+MiniSearch itself is small (~86KB, the same ballpark as `marked.js`) so it loads eagerly like
+`marked` does, on every page - unlike Mermaid, there's no per-page decision to lazy-load around.
+What *is* deferred is building the search index, since that means fetching every page's content
+(FR-025a): the first time the reader focuses the search box, not before, and only once per
+session. Results rank by MiniSearch's own relevance scoring (title matches weighted higher than
+body matches), tolerate a one-character typo, and match on a typed prefix so a partial word still
+surfaces results while the reader is still typing.
+
+A real bug came out of building this: the results dropdown, nested inside the top nav's own
+`.site-nav-inner`, was invisible past the height of the nav bar itself - that container has its
+own `overflow-x: auto` (so a squeezed nav scrolls sideways instead of visibly breaking above phone
+width), and CSS overflow clips every descendant inside a clipping ancestor, whether or not that
+descendant is itself positioned. The fix moves the dropdown out of the nav entirely (a sibling of
+`.site-nav` in the DOM) and switches it from `position: absolute` (anchored to a clipped ancestor)
+to `position: fixed`, with its on-screen position computed in JavaScript from the search input's
+own bounding rectangle every time it opens - `position: fixed` is unaffected by any ancestor's
+`overflow`, which is exactly what let it escape the clip. A second, smaller finding from the same
+pass: the first implementation stripped every fenced code block out of the search index entirely,
+which meant a command name that appeared only inside a `` ``` ``-fenced example (a very common
+case on a CLI-heavy site like this one) was unsearchable. The fix strips only the fence markers
+now, keeping the actual command text indexed.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Get running with no rationale in the way (Priority: P1)
@@ -409,6 +445,35 @@ each button in turn and land on that tier's first page with its normal sidebar r
 3. **Given** any content page, **When** a reader clicks the brand mark in the top navigation,
    **Then** they return to the home splash page.
 
+---
+
+### User Story 8 - Jump straight to the page that already has the answer (Priority: P1)
+
+A reader who already knows roughly what they're looking for - a command name, a flag, "how do I
+authenticate gh" - types it into the search box instead of hunting through the sidebar and tier
+nav for the right page.
+
+**Why this priority**: Every prior revision organized the site for front-to-back reading or
+browsing by tier; a reader who already knows what they want has no faster path than search once
+the site has grown past a handful of pages.
+
+**Independent Test**: Press "/" from any page, type a term that appears only inside one specific
+page's prose or one of its fenced code examples, and reach that exact page in one further
+selection - with no prior knowledge of which tier or page it lives under.
+
+**Acceptance Scenarios**:
+
+1. **Given** any page, **When** a reader presses "/", **Then** the search box is focused, ready to
+   type into, without needing to click it first.
+2. **Given** a query with a single-character typo, **When** the reader searches, **Then** results
+   still surface the page they meant.
+3. **Given** a query matching text that appears only inside a fenced code block (a command or
+   flag), **When** the reader searches, **Then** the page containing that example still appears as
+   a result, with the match itself visible in the shown snippet.
+4. **Given** a result the reader selects, **When** they click it or press Enter, **Then** the site
+   navigates to that page exactly the way any other internal link does, and the results dropdown
+   closes.
+
 ### Edge Cases
 
 - What happens when a reader's browser has JavaScript disabled? The page shell still loads, but
@@ -455,6 +520,12 @@ each button in turn and land on that tier's first page with its normal sidebar r
 - What happens on a page with no Mermaid diagram? `docs/vendor/mermaid.min.js` MUST NOT be
   fetched at all - the lazy-load only triggers when a page's rendered content actually contains a
   Mermaid code block.
+- What happens when a search query matches nothing? The results area MUST show a plain "no
+  results" message naming the query, rather than an empty dropdown a reader might mistake for
+  search still loading.
+- What happens when the reader dismisses search (Escape, clicking elsewhere, or scrolling the
+  page) mid-query? The results dropdown MUST close, but the typed query MUST stay in the search
+  box, so refocusing it (or pressing "/" again) resumes rather than starting over.
 
 ## Requirements *(mandatory)*
 
@@ -576,10 +647,14 @@ each button in turn and land on that tier's first page with its normal sidebar r
   at `docs/vendor/mermaid.LICENSE.txt`), renders diagrams on the pages that have one (FR-025);
   unlike marked, it MUST be fetched lazily, only the first time a page's rendered content actually
   contains a Mermaid code block, and cached for the rest of the session once loaded, since the
-  file is roughly 5.5MB and most pages have no diagram at all. Both are vendored, not CDN-loaded,
-  so the site has no third-party dependency at request time. Bumping either vendored version MUST
-  be a deliberate, reviewable file replacement (re-fetch the package, re-copy the browser build),
-  never an automatic or silent update.
+  file is roughly 5.5MB and most pages have no diagram at all. A third, [MiniSearch]
+  (https://lucaong.github.io/minisearch/), committed at `docs/vendor/minisearch.js` (with its
+  license at `docs/vendor/minisearch.LICENSE.txt`), powers the search box (FR-025b); it is small
+  enough to fetch eagerly like marked, but building its index is deferred the same way Mermaid's
+  own load is (FR-025b spells out the trigger). All three are vendored, not CDN-loaded, so the
+  site has no third-party dependency at request time. Bumping any vendored version MUST be a
+  deliberate, reviewable file replacement (re-fetch the package, re-copy the browser build), never
+  an automatic or silent update.
 - **FR-019**: Each page's content MUST be one plain Markdown file at
   `docs/content/<tier>/<page>.md`, readable and reviewable on its own (in a PR diff, or directly on
   GitHub) with no dependency on the HTML shell to make sense as prose. A page's headings MUST get
@@ -630,6 +705,19 @@ each button in turn and land on that tier's first page with its normal sidebar r
   library. Diagrams are opt-in per page, not a requirement - a page adds one only where a
   flow, decision, or architecture relationship genuinely benefits from a visual, consistent with
   content pages otherwise staying free of large graphics (FR-017).
+- **FR-025a**: The top navigation MUST include a search box, reachable from every page, and MUST
+  also be focusable by pressing "/" from anywhere on the page that isn't itself a text input. It
+  MUST search across every page's title and body text and show, per result, at minimum: the page
+  title, its tier, and a short surrounding snippet of the matched text with the match itself
+  visually highlighted. Selecting a result (by click or Enter) MUST navigate to that page. Search
+  MUST tolerate at least a one-character typo and match on a partial (prefix) word, not only a
+  complete one.
+- **FR-025b**: Search's index MUST be built lazily, from every page's already-fetched-or-fetchable
+  Markdown content, no earlier than the reader's first interaction with the search box - not on
+  page load - and built at most once per session. The indexed text MUST include the content of
+  fenced code blocks (with only the fence markers themselves stripped), since a reader on this site
+  is as likely to search for an exact command or flag as for ordinary prose, and a command that
+  only ever appears inside an example would otherwise be unsearchable.
 
 ### Key Entities
 
@@ -642,6 +730,9 @@ each button in turn and land on that tier's first page with its normal sidebar r
   committed rather than CDN-loaded.
 - **`docs/vendor/mermaid.min.js`**: the second vendored dependency, diagram rendering, loaded
   lazily only when a page needs it, committed rather than CDN-loaded.
+- **`docs/vendor/minisearch.js`**: the third vendored dependency, the nav bar's search box, loaded
+  eagerly (it's small) but with its index built lazily on first focus, committed rather than
+  CDN-loaded.
 - **The home splash page**: the default landing page (`#home` or an empty/unrecognized fragment) -
   the mascot's hero image, a lede, one large button per tier, and the "Workhorse in Action" image.
   Not part of any tier's own page list.
@@ -660,11 +751,12 @@ each button in turn and land on that tier's first page with its normal sidebar r
   within a tier is reachable from that tier's sidebar in exactly one further click, with no full
   page reload.
 - **SC-003**: The site works with no network access beyond loading `docs/index.html`,
-  `docs/vendor/marked.js`, `docs/logo.png`, and either: the home splash page's own two mascot
-  images, or (any content page) the one Markdown content file for the page being viewed plus
-  `docs/vendor/mermaid.min.js` only if that page actually has a Mermaid diagram - no external
-  font/script/stylesheet dependency, no live CDN, nothing fetched from a third-party host at
-  request time. JavaScript IS required to read content (a deliberate, documented departure from
+  `docs/vendor/marked.js`, `docs/vendor/minisearch.js`, `docs/logo.png`, and either: the home
+  splash page's own two mascot images, or (any content page) the one Markdown content file for the
+  page being viewed plus `docs/vendor/mermaid.min.js` only if that page actually has a Mermaid
+  diagram, plus every page's Markdown content file once the reader focuses the search box - no
+  external font/script/stylesheet dependency, no live CDN, nothing fetched from a third-party host
+  at request time. JavaScript IS required to read content (a deliberate, documented departure from
   every prior revision's guarantee; see Background).
 - **SC-008**: Opening the site with no URL fragment (or an unrecognized one) shows the home splash
   page, not any tier's content, with no sidebar and no pager; clicking any of its four buttons
@@ -686,6 +778,14 @@ each button in turn and land on that tier's first page with its normal sidebar r
 - **SC-007**: Starting at Getting Started's Install page and clicking only "Next" reaches every
   page on the site exactly once, in nav order, ending at FAQ with no "Next" left to click -
   verified as an actual click-through, not just read off the manifest.
+- **SC-010**: No page's content file is fetched for search purposes before the reader's first
+  interaction with the search box - verified by watching actual network requests, not assumed from
+  the code alone; after that first interaction, typing a query that matches text found only inside
+  a fenced code block still returns that page as a result.
+- **SC-011**: The search results dropdown is never clipped or hidden by the top navigation at any
+  viewport width from 390px up, and remains reachable (and closes cleanly) whether dismissed by
+  Escape, an outside click, or a page scroll - verified directly in a browser at both a desktop and
+  a phone-width viewport, not assumed from the CSS alone.
 
 ## Assumptions
 
