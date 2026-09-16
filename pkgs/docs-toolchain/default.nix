@@ -16,7 +16,18 @@ let
   # To regenerate Gemfile.lock/gemset.nix after editing Gemfile (e.g.
   # bumping a gem):
   #   nix shell nixpkgs#ruby nixpkgs#bundler nixpkgs#bundix -c bash -c \
-  #     'cd pkgs/docs-toolchain && bundle lock && bundix -l'
+  #     'cd pkgs/docs-toolchain && BUNDLE_FORCE_RUBY_PLATFORM=true bundle lock --add-platform ruby && bundix -l'
+  #
+  # BUNDLE_FORCE_RUBY_PLATFORM/--add-platform ruby matter: without them,
+  # `bundle lock` resolves precompiled per-OS/per-arch gems (nokogiri,
+  # ffi have 8+ platform variants) and bundix's gemset.nix format can
+  # only record one sha256 per gem name+version, so it silently picks
+  # the wrong platform's hash for gems bundlerEnv actually needs on a
+  # given system - a fixed-output-derivation hash mismatch at build
+  # time. Forcing the plain "ruby" platform makes every native-extension
+  # gem (nokogiri via mini_portile2) compile from source instead, using
+  # nixpkgs' `defaultGemConfig` for the C toolchain/libxml2 it needs -
+  # slower but reproducible across all four systems this flake targets.
   gems = pkgs.bundlerEnv {
     name = "docs-toolchain-gems";
     ruby = pkgs.ruby;
