@@ -9,12 +9,13 @@
    .imageblock, .exampleblock, .quoteblock, .ulist/.olist/.dlist) --
    these are stable across Asciidoctor's article and book doctypes.
 
-   NOT YET VERIFIED against a real build (see specs/019's toolchain
-   task): the multi-page split specifically may come from a converter
-   (asciidoctor-multipage or similar) with its own nav/chapter-list
-   markup layered on top of these base rules -- expect a follow-up
-   pass adding selectors for whatever that tool actually emits, once
-   it's chosen and a real build exists to inspect. */
+   Verified against a real asciidoctor-multipage build: it needs no
+   hand-rolled navigation at all, unlike the old single-file site's
+   custom JS router/sidebar. Every chapter page already carries a full
+   table-of-contents tree in #toc (current chapter marked
+   .toc-current, nested .sectlevel1/.sectlevel2 lists) plus an
+   Up/Home/Previous/Next pager in .nav-footer -- the rules below style
+   what it generates rather than building new chrome. */
 
 :root {
   --bg: #ffffff;
@@ -111,7 +112,7 @@ code {
 }
 
 .listingblock pre, .literalblock pre {
-  max-width: none;
+  max-width: 100%;
   background: var(--code-bg);
   border: 1px solid var(--code-border);
   border-radius: 8px;
@@ -133,6 +134,24 @@ code {
   padding: 12px 16px;
   margin: 1.4em 0;
   max-width: none;
+}
+
+/* Asciidoctor's HTML5 converter still renders an admonition as a
+   2-column <table> (icon/label cell + content cell) even without
+   :icons: font set, and a table's default layout sizes itself to a
+   wide child's intrinsic width (a long code line inside it, say)
+   rather than shrinking to the viewport - this is what actually
+   caused a real horizontal-overflow bug at phone width, not the
+   content table below. */
+.admonitionblock table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.admonitionblock td.icon {
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: top;
 }
 
 .admonitionblock td.icon .title,
@@ -176,21 +195,58 @@ code {
 }
 
 #toc {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
-  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  padding: 16px 20px;
+  margin: 20px 0 32px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 #toctitle {
-  font-size: 1em;
+  font-size: 0.85em;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-soft);
+  margin-bottom: 8px;
 }
 
 #toc ul {
   list-style: none;
-  padding-left: 1em;
+  padding-left: 1.1em;
+  margin: 0.3em 0;
+}
+
+#toc > ul {
+  padding-left: 0;
+}
+
+#toc a {
+  font-size: 0.95em;
+  line-height: 1.9;
+}
+
+#toc .toc-current > a,
+#toc .toc-current {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* asciidoctor-multipage's own inline <style> block already sets
+   #content: display:flex/flex-direction:column and .nav-footer:
+   margin-top:auto, to push the pager to the bottom of a short chapter
+   - these rules only add the look, not the layout mechanics. */
+.nav-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 40px !important;
+  font-size: 0.92em;
+  color: var(--text-soft);
+}
+
+.nav-footer a {
+  font-weight: 600;
 }
 
 #footer {

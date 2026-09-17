@@ -5,12 +5,9 @@ Shahid Shah
 :toclevels: 2
 :sectnums:
 :sectnumlevels: 2
-:icons: font
-:source-highlighter: rouge
 :experimental:
 :xrefstyle: short
 :partnums:
-:imagesdir: ../docs
 
 [preface]
 include::chapters/front-matter/preface.adoc[]

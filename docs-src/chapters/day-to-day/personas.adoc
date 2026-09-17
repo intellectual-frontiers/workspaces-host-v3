@@ -47,20 +47,23 @@ flowchart LR
   U --> B["combined build:<br>base profile + every activated persona"]
 ....
 
-TIP: The `fish` persona only makes `fish` and its config available. It never changes your login
+[TIP]
+====
+The `fish` persona only makes `fish` and its config available. It never changes your login
 shell, the same way activating `networking` never joins a Tailscale mesh for you. To actually use
 it day to day, run these two commands (the same way on Linux generally, WSL included, and macOS --
 anywhere `chsh` validates against `/etc/shells`):
-+
+
 [source,shell]
 ----
 $ echo "$(which fish)" | sudo tee -a /etc/shells
 $ chsh -s $(which fish)
 ----
-+
+
 The first line is required: a Nix-installed shell isn't in `/etc/shells` by default, and `chsh`
 refuses any shell that isn't. Then close this window and open a new one. `doctor` checks for
 either bash or fish as your login shell, so switching never shows up as a problem.
+====
 
 === Finding and checking personas
 

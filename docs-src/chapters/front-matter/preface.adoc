@@ -30,9 +30,7 @@ exists for what's actually personal -- your name, your keys -- precisely so ever
 shared. A good idea stuck in one sandbox helps one person. The same idea merged here helps
 everyone, and every CI run, and every agent, who uses this setup afterward.
 
-== How this book is organized
-
-Part I gets you a working shell in a few minutes, with nothing to read except what to type. Part
+*How this book is organized.* Part I gets you a working shell in a few minutes, with nothing to read except what to type. Part
 II is what you'll actually reach for once that shell exists and you're using it every day:
 personas, credentials, working across git hosts, staying in sync, AI agents, everyday tools. Part
 III is a deliberately short set of real advanced topics -- personalizing your own machine, adding a
