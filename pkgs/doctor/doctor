@@ -499,7 +499,13 @@ section "Java toolchain (optional persona: backend)" 1 "☕"
 if command -v java >/dev/null 2>&1; then
     pass "java is on PATH ($(command -v java))"
     pass "java $(java -version 2>&1 | head -1)"
-    check_cmd mvn
+    # A hard check_cmd here would assume any java on PATH is this
+    # flake's own backend-persona pair (home/java.nix installs jdk+maven
+    # together) - true only when backend is actually active. A java from
+    # anywhere else (a system JDK, WSL's Windows PATH, a leftover
+    # install) would then wrongly FAIL a reader who never activated
+    # backend and has no reason to expect mvn to exist.
+    optional_cmd mvn backend
     if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
         pass "JAVA_HOME is set and valid ($JAVA_HOME)"
     else
