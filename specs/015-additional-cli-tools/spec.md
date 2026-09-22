@@ -26,13 +26,24 @@ A later newbie-simplification audit (see spec 014's own follow-up) reclassified 
 the former two behind the `agent-ops` persona (spec 014) instead of the base profile. The other
 three tools and the SSH/`cdp` conveniences stay in the base profile as originally specified below.
 
+### Second revision: GNU Make
+
+An engineer building the new AsciiDoc docs pipeline (spec 019) noticed `make` itself wasn't
+guaranteed anywhere in this flake - unlike a typical dev machine, nothing here assumes
+`build-essential` or an equivalent is already on the base OS image. This doesn't reopen the first
+revision's `deno`-over-`make` framing (that was about *this repository's own* task running, which
+still uses plain shell scripts, not a Makefile); it's the separate, simpler fact that plenty of
+other projects an engineer clones still ship a `Makefile`, and running `make` against one
+shouldn't require a manual install step any more than `wget` or `git-chglog` do. `make` joins the
+base profile alongside them.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Everyday utilities just work (Priority: P3)
 
-An engineer reaches for `wget`, `git-chglog`, or `rclone` and finds them already on `PATH` in the
-base profile, the same as every other tool it installs; an engineer doing agent-ops/automation
-work activates that persona and finds `gopass`/`deno` there too.
+An engineer reaches for `wget`, `git-chglog`, `rclone`, or `make` and finds them already on `PATH`
+in the base profile, the same as every other tool it installs; an engineer doing agent-ops/
+automation work activates that persona and finds `gopass`/`deno` there too.
 
 **Independent Test**: On an activated profile, run each tool's `--version`/`--help` and confirm
 it resolves with no separate install step.
@@ -40,7 +51,7 @@ it resolves with no separate install step.
 **Acceptance Scenarios**:
 
 1. **Given** an activated base profile, **When** the engineer runs any of `wget`, `git-chglog`,
-   `rclone`, **Then** each is on `PATH`.
+   `rclone`, `make`, **Then** each is on `PATH`.
 2. **Given** an activated `agent-ops` persona, **When** the engineer runs `gopass` or `deno`,
    **Then** each is on `PATH`.
 
@@ -72,9 +83,9 @@ confirm `ssh-add -l` lists a key with no manual step.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install `wget`, `rclone`, and `git-chglog` directly in
-  `home.packages` (not merely as a build-time dependency of another package). The `agent-ops`
-  persona (spec 014) MUST install `gopass` and `deno` the same way.
+- **FR-001**: The base profile MUST install `wget`, `rclone`, `git-chglog`, and GNU `make`
+  directly in `home.packages` (not merely as a build-time dependency of another package). The
+  `agent-ops` persona (spec 014) MUST install `gopass` and `deno` the same way.
 - **FR-002**: The `agent-ops` persona MUST alias `deno-run` to `deno run -A` and `deno-test` to
   `deno test -A`.
 - **FR-003**: The base profile MUST alias `cdp` to change to the current git repository's
@@ -82,8 +93,8 @@ confirm `ssh-add -l` lists a key with no manual step.
 - **FR-004**: Every login shell MUST start an SSH agent and load the first private key found
   among `~/.ssh/id_ed25519`, `~/.ssh/id_rsa` (in that order) if the agent has no keys loaded yet,
   and MUST do nothing if neither exists.
-- **FR-005**: The environment health check (spec 004) MUST report `wget`, `git-chglog`, and
-  `rclone` on `PATH` as part of its base-profile checks, and `gopass`/`deno` as an informational
+- **FR-005**: The environment health check (spec 004) MUST report `wget`, `git-chglog`, `rclone`,
+  and `make` on `PATH` as part of its base-profile checks, and `gopass`/`deno` as an informational
   WARN (not FAIL) when the `agent-ops` persona isn't active.
 
 ## Success Criteria *(mandatory)*

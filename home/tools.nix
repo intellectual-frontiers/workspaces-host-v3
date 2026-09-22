@@ -35,6 +35,10 @@ in
     bat
     eza
     blesh
+    # GNU Make - not assumed to exist on the base OS image the way it
+    # might on a dev machine with build-essential already installed, so
+    # it's pinned here like every other tool this flake provisions.
+    gnumake
     # Scans a repo for anything that looks like a committed secret -
     # `gitleaks detect --source . -v` - the practical backstop for
     # "keeping credentials out of git history" (README) alongside a
