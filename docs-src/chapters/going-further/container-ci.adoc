@@ -10,7 +10,8 @@ container and cloud-harness parity is required, not optional.
 ....
 flowchart TD
   Flake["flake.nix<br>(one evaluated config)"] --> Host["your host profile"]
-  Flake --> Image["oci-image"]
+  Flake --> Image["oci-image<br>(base + fish)"]
+  Flake --> Press["oci-image-press<br>(+ press persona)"]
   Flake --> Sandboxed["oci-image-sandboxed<br>(+ firewall, non-root)"]
   Flake --> CI["CI checks"]
 ....
@@ -24,6 +25,7 @@ $ docker load < result
 $ docker run -it workspaces-host:latest
 
 $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, non-root user
+$ nix build .#oci-image-press       # + the press persona (AsciiDoc/LaTeX/EPUB typesetting)
 ----
 
 The sandboxed variant runs `init-firewall` as root, verifies its own allowlist, then drops to a
@@ -33,15 +35,25 @@ autonomous AI-agent session with no human watching each command.
 === Pulling the published image instead of building it
 
 Because this repository is public, a GitHub Actions workflow (`.github/workflows/container-image.
-yml`) publishes the same `oci-image` to the GitHub Container Registry on every push to `main` that
-touches `home/`, `pkgs/`, `oci/`, or the flake itself -- `latest`, plus a `sha-<short-sha>` tag
-for pinning to an exact build. Pulling it skips the Nix build (and the git clone) entirely:
+yml`) publishes two images to the GitHub Container Registry on every push to `main` that touches
+`home/`, `pkgs/`, `oci/`, or the flake itself: `workspaces-host-v3` (base + fish) and
+`workspaces-host-v3-press` (the same, plus the `press` persona -- <<personas>> -- for AsciiDoc/
+LaTeX/EPUB typesetting, as its own image so pulling the base one never costs you a TeX Live
+download). Each gets a `latest` tag and a `sha-<short-sha>` tag for pinning to an exact build.
+Pulling either skips the Nix build (and the git clone) entirely:
 
 [source,shell]
 ----
 $ docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
 $ docker run -it ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
+
+$ docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3-press:latest
 ----
+
+Both images publish for `linux/amd64` and `linux/arm64` from the same workflow run, as a single
+multi-arch tag each -- `docker pull` picks the architecture matching your own machine
+automatically, no `--platform` flag needed. This matters in practice: a non-technical engineer on
+an Apple Silicon Mac gets a native arm64 image, not an amd64 one running under slow emulation.
 
 This is for exactly the two audiences "ease testing" implies: a human who wants to try this
 environment or test a change without installing Nix first, and an AI agent that wants a disposable
@@ -88,6 +100,42 @@ $ npx @devcontainers/cli up --workspace-folder . --config .devcontainer/fish/dev
 
 A real host install still only gets fish through `ws-persona activate fish` (<<personas>>) -- this
 is purely about which shell a devcontainer opens into, not a second way to turn fish on.
+
+=== `ws-start`: the first thing another repository's devcontainer should run
+
+Every Intellectual Frontiers repository is moving to the same rule this one already follows: no
+`make install`, no setup step, after cloning -- in every flavor (bare-metal Linux, a Linux VM
+including WSL, this published image, a devcontainer, a cloud agent session). Each IF repository
+carries its own `.devcontainer/devcontainer.json` pointing at an image this flake publishes, plus
+its own `.devcontainer/ws-repos.json` (exactly the format `ws-repos` already reads -- <<repos>>).
+
+`ws-start` is the one command that turns "the container exists" into "logged in and every repo
+cloned." It belongs in `postAttachCommand`, never `postCreateCommand`: creating a container happens
+before anyone has attached to it, so there's no GitHub login yet to clone a private repo with.
+`ws-start`:
+
+1. Checks `gh auth status`. If you're not logged in, it runs `gh auth login` -- the device-code
+   flow works the same way in a plain terminal, VS Code's integrated terminal, and a Codespace (a
+   Codespace already has a token, so this step is instant there). Once authenticated, it runs `gh
+   auth setup-git` so plain `git clone`/`git push` against github.com use that same login.
+2. Runs `ws-repos ensure`, honoring `$WS_REPOS_CONFIG` exactly as `ws-repos` already does on its
+   own -- nothing new to configure in `ws-start` itself.
+
+It's idempotent: attach again, and both steps are near-instant no-ops. A different IF repository's
+own `devcontainer.json` copies this pattern directly:
+
+[source,json]
+----
+{
+  "image": "ghcr.io/intellectual-frontiers/workspaces-host-v3:latest",
+  "remoteUser": "root",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteEnv": {
+    "WS_REPOS_CONFIG": "/workspaces/${localWorkspaceFolderBasename}/.devcontainer/ws-repos.json"
+  },
+  "postAttachCommand": "bash -lc 'ws-start'"
+}
+----
 
 === Using it in a real pipeline
 

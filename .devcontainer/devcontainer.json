@@ -16,5 +16,13 @@
   // only loads through the .bash_profile -> .bashrc chain a login shell
   // runs - the same reason `docker run -it ... bash -l` is what
   // container-ci.adoc documents, not a plain `docker run ... bash`.
-  "postCreateCommand": "bash -lc 'doctor || true'"
+  "postCreateCommand": "bash -lc 'doctor || true'",
+  // ws-start (spec 028) runs on every attach, not creation - creating the
+  // container happens before any human (or Codespaces) has attached to
+  // it, so there's no GitHub login yet to clone a private repo with.
+  // This repository has nothing in ws-repos.json by default; this line
+  // is the concrete example another IF repository's own
+  // devcontainer.json copies, after setting WS_REPOS_CONFIG (remoteEnv)
+  // to its own .devcontainer/ws-repos.json.
+  "postAttachCommand": "bash -lc 'ws-start'"
 }

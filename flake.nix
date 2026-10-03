@@ -39,6 +39,8 @@
         compliance = ./home/profiles/compliance.nix;
         networking = ./home/profiles/networking.nix;
         fish = ./home/profiles/fish.nix;
+        press = ./home/profiles/press.nix;
+        media = ./home/profiles/media.nix;
       };
 
       mkHomeConfiguration = system: extraModules:
@@ -69,6 +71,34 @@
       # Principle IV: host and container share one closure).
       homeConfigurationsFor = forAllSystems (system: mkHomeConfiguration system [ ]);
 
+      # A dedicated identity for `packages.<system>.oci-image*` below,
+      # distinct from `mkHomeConfiguration`'s fixed "workspace"/
+      # "/home/workspace" test identity: the image's own `Env`/`WorkingDir`
+      # (oci/default.nix) run as root with `HOME=/root`, and home-manager
+      # bakes `home.homeDirectory` literally into generated content it
+      # assumes its own activation will place under exactly that path
+      # (bash's `.profile` sourcing `<homeDirectory>/.nix-profile/etc/
+      # profile.d/hm-session-vars.sh`, `WORKSPACES_HOST_REPO`, ...) - spec
+      # 023 found this mismatch (evaluated for `/home/workspace`, run as
+      # `/root`) is exactly why every `home.sessionVariables` entry
+      # (PLAYWRIGHT_BROWSERS_PATH included) was silently unset in the
+      # image: `.profile` was sourcing a path that could never exist.
+      # Evaluating for the identity the image actually runs as fixes that
+      # at the root, not just the one path.
+      mkImageHomeConfiguration = system: extraModules:
+        home-manager.lib.homeManagerConfiguration {
+          pkgs = pkgsFor system;
+          modules = [
+            ./home
+          ] ++ extraModules ++ [
+            {
+              home.username = "root";
+              home.homeDirectory = "/root";
+              home.stateVersion = "24.11";
+            }
+          ];
+        };
+
       # The published OCI image (`packages.<system>.oci-image` below) is
       # built from base + the `fish` persona rather than bare
       # `homeConfigurationsFor`, so the one published image can back both
@@ -81,7 +111,13 @@
       # deliberately pinned to one system for interactive persona
       # testing), so it's its own `forAllSystems`, not a reuse of that
       # x86_64-linux-only attribute.
-      homeConfigurationsForImage = forAllSystems (system: mkHomeConfiguration system [ ./home/profiles/fish.nix ]);
+      homeConfigurationsForImage = forAllSystems (system: mkImageHomeConfiguration system [ ./home/profiles/fish.nix ]);
+
+      # spec 027's second published image: base + fish + the `press`
+      # persona (book/paper typesetting), so an IF repo that needs
+      # AsciiDoc/LaTeX/EPUB tooling can pull a purpose-built image instead
+      # of installing press's (large) closure into every container.
+      homeConfigurationsForPressImage = forAllSystems (system: mkImageHomeConfiguration system [ ./home/profiles/fish.nix ./home/profiles/press.nix ]);
 
       # Persona configurations are pinned to x86_64-linux, same rationale
       # as `default` below: engineers on another platform substitute that
@@ -169,6 +205,11 @@
           oci-image = import ./oci {
             inherit pkgs;
             homeConfig = homeConfigurationsForImage.${system};
+          };
+          oci-image-press = import ./oci {
+            inherit pkgs;
+            homeConfig = homeConfigurationsForPressImage.${system};
+            imageName = "workspaces-host-press";
           };
         }
         # init-firewall (iptables/ipset) declares itself unsupported on

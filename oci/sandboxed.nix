@@ -47,6 +47,9 @@ pkgs.dockerTools.buildLayeredImage {
     gnugrep
     gawk
     cacert
+    # /usr/bin/env: see oci/default.nix's own comment (spec 023) - the
+    # same gap, found the same way, applies to this image too.
+    dockerTools.usrBinEnv
     iptables
     ipset
     util-linux

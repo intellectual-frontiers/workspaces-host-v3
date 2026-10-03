@@ -107,16 +107,20 @@ in
   # README's "Setting up AI harness credentials" section for the exact
   # commands and the safe way to give each one its API key.
   #
-  # `python3` and `uv` are the same kind of shared runtime, for the
-  # other half of the agent ecosystem: most MCP servers an agent's own
-  # `.mcp.json` references (the official reference servers included -
-  # fetch, git, sqlite, ...) are Python packages launched via `uvx
-  # <package>`, with no separate install step of their own, the same
-  # way `npx` works for a Node-based one. Both used to live behind the
-  # `data` persona; that persona is gone now (spec 014's own "the data
-  # persona is removed" revision) - `uv`/`python3` moved here, and its
-  # other package, `duckdb`, moved to home/tools.nix's everyday-tools
-  # group, since neither needed a persona to justify gating them.
+  # `uv` is the same kind of shared runtime, for the other half of the
+  # agent ecosystem: most MCP servers an agent's own `.mcp.json`
+  # references (the official reference servers included - fetch, git,
+  # sqlite, ...) are Python packages launched via `uvx <package>`, with
+  # no separate install step of their own, the same way `npx` works for
+  # a Node-based one. It used to live behind the `data` persona; that
+  # persona is gone now (spec 014's own "the data persona is removed"
+  # revision) - `uv` moved here, and its other package, `duckdb`, moved
+  # to home/tools.nix's everyday-tools group, since neither needed a
+  # persona to justify gating them. `python3` itself - the interpreter
+  # `uvx` needs - is provisioned by home/tools.nix instead (spec 024's
+  # document/data toolchain `python3.withPackages` environment, which
+  # this module's `uvx` use case shares rather than duplicates; two
+  # separate `python3` derivations in `home.packages` would collide).
   #
   # `playwright-driver.browsers` (spec 008 FR-007): a browser-automation
   # MCP server (Playwright MCP, the Puppeteer MCP server, and others
@@ -141,7 +145,6 @@ in
   home.packages = with pkgs; [
     nodejs
     aider-chat
-    python3
     uv
     playwright-driver.browsers
     playwright-test
@@ -171,6 +174,15 @@ in
   home.sessionVariables = {
     PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+    # `playwright-test` (above) is where the actual `playwright` npm
+    # package lives in this flake's closure, but a plain `node` process -
+    # any script with its own `require("playwright")`, not just the
+    # `playwright` CLI itself - has no way to resolve that on its own;
+    # nixpkgs doesn't put a package's own `lib/node_modules` on NODE_PATH
+    # for you (spec 023, confirmed against a real downstream repo's
+    # Playwright-based test harness: it failed with "Cannot find module
+    # 'playwright'" until this was set by hand).
+    NODE_PATH = "${pkgs.playwright-test}/lib/node_modules";
   } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
     PUPPETEER_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
     PUPPETEER_SKIP_DOWNLOAD = "true";

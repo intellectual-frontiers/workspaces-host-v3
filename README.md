@@ -8,8 +8,9 @@ there.
 
 It runs on Nix flakes and home-manager. The whole environment is code, not a list of manual steps
 someone forgot to update. Pull a commit, rebuild, and you get the exact same result every time. A
-small set of "personas" add extra tools on top for backend, mobile, agent-ops, compliance, and
-networking work, so the base install stays small and everyone gets only what they actually need.
+small set of "personas" add extra tools on top for backend, mobile, agent-ops, compliance,
+networking, typesetting, and audio-transcription work, so the base install stays small and
+everyone gets only what they actually need.
 
 ## Try it without installing anything
 
@@ -29,8 +30,13 @@ with zero configuration ("Reopen in Container" is the whole setup step). Prefer 
 `.devcontainer/fish/devcontainer.json` opens that exact same image, just with fish as the default
 shell instead of bash.
 
+Need AsciiDoc/LaTeX/EPUB typesetting (the `press` persona) baked in? Pull
+`ghcr.io/intellectual-frontiers/workspaces-host-v3-press` instead -- same base image, same tags.
+Both publish for amd64 and arm64, so `docker pull` gets you a native image either way.
+
 See the full documentation's "Container and CI Parity" chapter for pinning to an exact commit
-(`:sha-<short-sha>`) and using it in a pipeline.
+(`:sha-<short-sha>`), `ws-start` (the devcontainer bootstrap another repository's own
+`.devcontainer/devcontainer.json` runs), and using either image in a pipeline.
 
 ## Full documentation
 

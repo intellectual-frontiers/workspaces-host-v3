@@ -26,5 +26,8 @@
       }
     }
   },
-  "postCreateCommand": "fish -lc 'doctor || true'"
+  "postCreateCommand": "fish -lc 'doctor || true'",
+  // ws-start (spec 028) - see .devcontainer/devcontainer.json's own
+  // comment on why this runs on attach, not creation.
+  "postAttachCommand": "fish -lc 'ws-start'"
 }

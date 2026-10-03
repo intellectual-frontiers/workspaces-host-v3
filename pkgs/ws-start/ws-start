@@ -1,0 +1,56 @@
+#!/bin/sh
+# ws-start: the one command an Intellectual Frontiers repo's own
+# `.devcontainer/devcontainer.json` runs as `postAttachCommand` - after
+# the container exists and a human (or Codespaces) has attached to it,
+# never at `postCreateCommand` time, since creating the container can't
+# clone a private repo (no GitHub login exists yet at that point).
+#
+#   1. Make sure `gh` is authenticated, and git uses it as its credential
+#      helper - the device flow it prints works in a plain terminal, a
+#      VS Code integrated terminal, and a Codespace alike; a Codespace
+#      already has a token, so this step is an instant no-op there.
+#   2. Run `ws-repos ensure` against the repo's own list - honors
+#      $WS_REPOS_CONFIG exactly as pkgs/ws-repos already does, so a
+#      devcontainer.json pointing it at its own
+#      `.devcontainer/ws-repos.json` just works with no extra logic here.
+#
+# Idempotent: a later attach re-runs the same two steps and finds nothing
+# to do (gh already authenticated, ws-repos ensure a no-op pull for
+# already-cloned repos) - safe to run on every attach, not just the
+# first.
+set -u
+
+echo "ws-start: checking GitHub authentication..."
+if gh auth status >/dev/null 2>&1; then
+    gh_status="already authenticated"
+else
+    echo "ws-start: not authenticated with GitHub yet - starting 'gh auth login'"
+    echo "ws-start: (this is the device-flow login - follow the code/URL it prints)"
+    if gh auth login; then
+        gh_status="authenticated just now"
+    else
+        gh_status="login did not complete"
+    fi
+fi
+
+if gh auth status >/dev/null 2>&1; then
+    # Idempotent regardless of how 'gh auth login' was answered - this is
+    # what actually makes `git clone`/`git push` against github.com use
+    # gh's own stored credentials, which ws-repos (and git directly)
+    # depend on for a private repo.
+    gh auth setup-git >/dev/null 2>&1 || true
+fi
+
+echo "ws-start: running 'ws-repos ensure'..."
+if command -v ws-repos >/dev/null 2>&1; then
+    ws_repos_result="ok"
+    ws-repos ensure || ws_repos_result="failed (see output above)"
+else
+    ws_repos_result="skipped (ws-repos not on PATH)"
+fi
+
+echo
+echo "ws-start: done - GitHub auth: $gh_status; ws-repos ensure: $ws_repos_result"
+if [ "$gh_status" = "login did not complete" ]; then
+    echo "ws-start: run 'gh auth login' yourself when ready, then 'ws-start' again (or just 'ws-repos ensure')"
+fi

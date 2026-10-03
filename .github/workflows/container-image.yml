@@ -1,11 +1,11 @@
 name: Container Image
 
-# Publishes the same OCI image `nix build .#oci-image` produces (spec 005,
-# Constitution Principle IV: container parity, not a hand-maintained
-# Dockerfile) to the GitHub Container Registry, so anyone - a human testing
-# a change, or an AI agent spinning up a disposable sandbox - can `docker
-# pull` this repository's exact closure instead of building it from source.
-# See specs/020-public-container-image/spec.md.
+# Publishes the same OCI images `nix build .#oci-image`/`.#oci-image-press` produce (specs 005/020/
+# 025/027, Constitution Principle IV: container parity, not a hand-maintained Dockerfile) to the
+# GitHub Container Registry, so anyone - a human testing a change, or an AI agent spinning up a
+# disposable sandbox - can `docker pull` this repository's exact closure instead of building it
+# from source. Two images (base+fish, and base+fish+press), each for linux/amd64 and linux/arm64 -
+# see specs/020-public-container-image/spec.md and specs/027-dual-image-multiarch-publish/spec.md.
 
 on:
   push:
@@ -28,8 +28,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  # Four build legs (2 images x 2 architectures). `ubuntu-24.04-arm` is a
+  # free, GA, GitHub-hosted arm64 runner for public repositories (no
+  # cross-compilation or QEMU emulation) - `nix build .#<attr>` on it
+  # resolves `packages.aarch64-linux.<attr>` automatically (the Nix CLI
+  # infers `system` from the runner's own architecture). Each leg pushes
+  # its own architecture-suffixed intermediate tag; publish-manifest
+  # (below) combines the two into the real, multi-arch tags a consumer
+  # actually uses.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+            flake_attr: oci-image
+            internal_name: workspaces-host
+            repo_suffix: ""
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            flake_attr: oci-image
+            internal_name: workspaces-host
+            repo_suffix: ""
+          - runner: ubuntu-latest
+            arch: amd64
+            flake_attr: oci-image-press
+            internal_name: workspaces-host-press
+            repo_suffix: "-press"
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            flake_attr: oci-image-press
+            internal_name: workspaces-host-press
+            repo_suffix: "-press"
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +71,7 @@ jobs:
             experimental-features = nix-command flakes
 
       - name: Build the OCI image
-        run: nix build .#oci-image
+        run: nix build .#${{ matrix.flake_attr }}
 
       - name: Load into the local Docker daemon
         run: docker load < result
@@ -50,12 +82,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tag and push
+      - name: Tag and push this architecture's image
         run: |
           set -euo pipefail
-          image="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')${{ matrix.repo_suffix }}"
           sha_short="$(git rev-parse --short HEAD)"
-          docker tag workspaces-host:latest "$image:latest"
-          docker tag workspaces-host:latest "$image:sha-$sha_short"
-          docker push "$image:latest"
-          docker push "$image:sha-$sha_short"
+          docker tag "${{ matrix.internal_name }}:latest" "$image:sha-$sha_short-${{ matrix.arch }}"
+          docker push "$image:sha-$sha_short-${{ matrix.arch }}"
+
+  # One merge per image, after both its architectures have pushed:
+  # `docker buildx imagetools create` builds a multi-arch manifest list
+  # from the two intermediate tags and publishes it under the tags spec
+  # 020 documents (`latest`, `sha-<short-sha>`) - the ones a consumer
+  # actually pulls, correct on either architecture with no platform flag.
+  publish-manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo_suffix: [ "", "-press" ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Create and push the multi-arch manifest
+        run: |
+          set -euo pipefail
+          image="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')${{ matrix.repo_suffix }}"
+          sha_short="$(git rev-parse --short HEAD)"
+          docker buildx imagetools create \
+            -t "$image:latest" \
+            -t "$image:sha-$sha_short" \
+            "$image:sha-$sha_short-amd64" \
+            "$image:sha-$sha_short-arm64"

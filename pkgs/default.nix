@@ -14,6 +14,9 @@
   backlog-md = import ./backlog-md { inherit pkgs; };
   scaffold-agent-harness = import ./scaffold-agent-harness { inherit pkgs; };
   docs-toolchain = import ./docs-toolchain { inherit pkgs; };
+  owlrl = import ./owlrl { inherit pkgs; };
+  pyshacl = import ./pyshacl { inherit pkgs; };
+  ws-start = import ./ws-start { inherit pkgs; };
   # init-firewall is deliberately NOT included here: it depends on
   # iptables/ipset, which nixpkgs marks unsupported (meta.badPlatforms)
   # on Darwin, and this aggregate feeds every profile's home.packages

@@ -1,6 +1,18 @@
 [#install]
 == Install
 
+This is one environment, run several ways -- bare-metal Linux with Nix, a Linux VM with Nix
+(WSL included), the published container image, a devcontainer (local or GitHub Codespaces), or a
+cloud AI-agent session -- all built from the exact same flake commit, so none of them is a second,
+slightly-different copy to keep in sync.
+
+Not sure which fits you? If you're not a developer, or you're on a managed Windows 11 or macOS
+machine and would rather not install anything system-level: open the repository in GitHub
+Codespaces, or install Docker Desktop and use VS Code's "Reopen in Container" -- <<container-ci>>
+covers both, and there is nothing below this box you need to read. If you're a developer who wants
+this as your actual day-to-day shell, keep reading -- the rest of this chapter is the bare-metal/VM
+install.
+
 Pick your platform below, run the commands in order, and you'll have a working shell in a few
 minutes. There's no rationale in this chapter on purpose -- just what to type. If you want to know
 why any of it works the way it does, Part IV is waiting once you're up and running.

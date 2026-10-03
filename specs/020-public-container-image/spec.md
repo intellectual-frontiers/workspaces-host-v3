@@ -125,12 +125,27 @@ README, in language an agent reading either file would act on directly (the exac
 
 ## Assumptions
 
-- Only `packages.x86_64-linux.oci-image` is published (not the sandboxed variant, and not a
-  multi-architecture manifest) - the simplest image that serves "pull it and test," matching how
-  this repository's own CI already only builds `oci-image`/`oci-image-sandboxed` on
-  `ubuntu-latest`. An `aarch64-linux` or multi-arch manifest is a real future improvement, left for
-  if/when it's actually needed (Principle V).
+- Only `packages.x86_64-linux.oci-image` is published (not the sandboxed variant). An
+  `aarch64-linux`/multi-arch manifest was a real future improvement, left for if/when it's actually
+  needed (Principle V) - **superseded by spec 027**, below.
 - Making the GHCR package public, and linking it to this repository so it shows up in the
   repository's own sidebar, is a one-time manual step a maintainer performs after the first
   successful run - GitHub does not currently expose a way to set a package's initial visibility
-  from a workflow's own `GITHUB_TOKEN`.
+  from a workflow's own `GITHUB_TOKEN`. **Spec 027's second image (`workspaces-host-v3-press`)
+  needs this same one-time step on its own first publish.**
+
+## Amendment (spec 027): multi-arch, dual-image publish
+
+Spec 027 extended this workflow to build and publish a second image
+(`ghcr.io/intellectual-frontiers/workspaces-host-v3-press`, base + fish + the `press` persona) and
+to build both images for both `linux/amd64` and `linux/arm64` rather than `amd64` only. The tag
+contract FR-002 describes is unchanged in shape but now resolves correctly everywhere: **every
+publish produces a `latest` tag and a `sha-<short-sha>` tag for both images, and each of those tags
+is a multi-arch manifest list valid on both architectures** - `docker pull
+.../workspaces-host-v3:sha-<short-sha>` (or `-press`) returns a native image whether the pulling
+host is amd64 or arm64, with no `--platform` flag and no emulation. An IF repository that pins a
+specific build still pins by `sha-<short-sha>` exactly as FR-002 already described; that pin now
+simply works on either architecture instead of silently returning an amd64 image to run under
+emulation on an Apple Silicon Mac. See specs/027-dual-image-multiarch-publish/spec.md for the
+publish-pipeline mechanics (the build-matrix-plus-manifest-merge shape, and why GitHub's free
+`ubuntu-24.04-arm` hosted runner makes this a native build, not cross-compilation).

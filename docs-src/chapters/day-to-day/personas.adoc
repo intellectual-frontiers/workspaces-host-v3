@@ -29,6 +29,13 @@ the full reasoning.
 
 |`fish`
 |fish shell, with the same aliases and prompt bash gets
+
+|`press`
+|asciidoctor+epub3, texlive (XeLaTeX/latexmk), poppler/qpdf/librsvg, a headless JRE, epubcheck --
+book and paper typesetting
+
+|`media`
+|faster-whisper (local audio transcription) + ffmpeg
 |===
 
 Personas are additive and they combine: everything the base profile gives you is still there, plus

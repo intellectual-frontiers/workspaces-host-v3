@@ -61,6 +61,8 @@ agent-ops:act:act, semtag/git-standup/git-extras, gopass, deno, llm
 compliance:cnquery:osquery, cnquery, steampipe, openobserve, surveilr
 networking:tailscale:Tailscale, Nebula
 fish:fish:fish shell with matching aliases/prompt (making it your login shell is a separate, manual step)
+press:xelatex:asciidoctor+epub3, texlive (xelatex/latexmk), poppler/qpdf/librsvg, JRE, epubcheck - book and paper typesetting
+media:ffmpeg:faster-whisper (local audio transcription) + ffmpeg
 EOF
 }
 

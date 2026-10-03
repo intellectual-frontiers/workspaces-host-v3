@@ -353,6 +353,12 @@ if command -v df >/dev/null 2>&1; then
     esac
 fi
 
+if [ -x /usr/bin/env ]; then
+    pass "/usr/bin/env exists and is executable (a #!/usr/bin/env-shebanged script can run)"
+else
+    fail "/usr/bin/env is missing or not executable - any #!/usr/bin/env-shebanged script will fail to run"
+fi
+
 if command -v locale >/dev/null 2>&1 && locale 2>&1 | grep -qi "cannot set"; then
     warn "locale is misconfigured (locale(1) reports it cannot set LC_*) - common on a fresh Debian/WSL install; 'sudo apt install -y locales && sudo dpkg-reconfigure locales', or add 'export LANG=C.UTF-8' to your shell config"
 else
@@ -422,6 +428,17 @@ check_ai_cli aider "aider" "ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GOOG
 # its own credential, so a plain check_cmd, not check_ai_cli.
 check_cmd python3
 check_cmd uv
+# The base profile's document/data toolchain (spec 024, home/tools.nix):
+# one import line covering every package in it, so a single check
+# catches a collision or a missing one instead of needing one line per
+# module.
+if command -v python3 >/dev/null 2>&1; then
+    if python3 -c 'import rdflib, pyshacl, html5lib, yaml, PIL, pypdf, reportlab, openpyxl, pdfplumber, fontTools, playwright' >/dev/null 2>&1; then
+        pass "document/data Python toolchain imports cleanly (rdflib, pyshacl, html5lib, yaml, PIL, pypdf, reportlab, openpyxl, pdfplumber, fontTools, playwright)"
+    else
+        warn "document/data Python toolchain failed to import (did home-manager switch run?)"
+    fi
+fi
 # chromium/playwright-driver.browsers: the matching runtime for
 # browser-automation MCP servers (Playwright MCP, Puppeteer MCP), so
 # one doesn't fall back to downloading its own Chromium on first use.
@@ -438,6 +455,13 @@ if [ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ] && [ -d "$PLAYWRIGHT_BROWSERS_PATH" ];
 else
     warn "PLAYWRIGHT_BROWSERS_PATH is not set or not valid (did home-manager switch run?)"
 fi
+if command -v node >/dev/null 2>&1; then
+    if node -e 'require("playwright")' >/dev/null 2>&1; then
+        pass "node can require(\"playwright\") (NODE_PATH includes playwright-test's node_modules)"
+    else
+        warn "node cannot require(\"playwright\") - NODE_PATH is not set or not valid (did home-manager switch run?)"
+    fi
+fi
 if command -v gh >/dev/null 2>&1; then
     if gh extension list 2>/dev/null | grep -qi copilot; then
         pass "GitHub Copilot CLI extension is installed (gh extension list)"
@@ -447,7 +471,7 @@ if command -v gh >/dev/null 2>&1; then
 fi
 
 section "Ported CLI tools (home.packages)" 1 "🧰"
-for c in rg fd jq bat eza tree gitleaks ws-repos ws-persona specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook make curl shellcheck duckdb sqlite3; do
+for c in rg fd jq bat eza tree gitleaks ws-repos ws-persona ws-start specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook make curl shellcheck duckdb sqlite3; do
     check_cmd "$c"
 done
 
@@ -464,6 +488,32 @@ fi
 optional_cmd nebula networking
 if command -v nebula >/dev/null 2>&1; then
     pass "nebula needs a CA-issued certificate from your mesh's admin to join"
+fi
+
+section "Book/paper typesetting (optional persona: press)" 1 "📚"
+optional_cmd asciidoctor press
+optional_cmd xelatex press
+optional_cmd latexmk press
+optional_cmd pdftotext press
+optional_cmd qpdf press
+optional_cmd rsvg-convert press
+optional_cmd epubcheck press
+if command -v asciidoctor >/dev/null 2>&1; then
+    if asciidoctor -r asciidoctor-epub3 --version >/dev/null 2>&1; then
+        pass "asciidoctor -r asciidoctor-epub3 loads cleanly"
+    else
+        warn "asciidoctor cannot load the asciidoctor-epub3 extension (did home-manager switch run?)"
+    fi
+fi
+
+section "Local audio transcription (optional persona: media)" 1 "🎙️ "
+optional_cmd ffmpeg media
+if command -v python3 >/dev/null 2>&1; then
+    if python3 -c 'import faster_whisper' >/dev/null 2>&1; then
+        pass "python3 can import faster_whisper"
+    else
+        warn "python3 cannot import faster_whisper (optional - activate the 'media' persona if you want it)"
+    fi
 fi
 
 section "Alternative shell (optional persona: fish)" 1 "🐠"
