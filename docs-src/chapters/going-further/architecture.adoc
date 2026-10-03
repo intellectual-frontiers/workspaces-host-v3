@@ -39,7 +39,6 @@ home/
   secrets.nix                # opt-in sops-based secrets
   profiles/
     backend.nix               # persona: Java/Postgres/Redis/docker-compose
-    data.nix                   # persona: python3/uv/duckdb
     mobile.nix                  # persona: android-tools/watchman
     agent-ops.nix                 # persona: act/semtag/git-standup/gopass/deno/llm
     compliance.nix                 # persona: osquery/cnquery/steampipe/openobserve/surveilr

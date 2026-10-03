@@ -34,7 +34,6 @@
       # than one global package list.
       personaModules = {
         backend = ./home/profiles/backend.nix;
-        data = ./home/profiles/data.nix;
         mobile = ./home/profiles/mobile.nix;
         agent-ops = ./home/profiles/agent-ops.nix;
         compliance = ./home/profiles/compliance.nix;

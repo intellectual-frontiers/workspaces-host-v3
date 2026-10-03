@@ -56,7 +56,6 @@ EOF
 personas() {
     cat <<'EOF'
 backend:mvn:Java+Maven, PostgreSQL client, Redis, docker-compose, httpie
-data:duckdb:python3, uv, duckdb
 mobile:adb:android-tools (adb/fastboot), watchman
 agent-ops:act:act, semtag/git-standup/git-extras, gopass, deno, llm
 compliance:cnquery:osquery, cnquery, steampipe, openobserve, surveilr

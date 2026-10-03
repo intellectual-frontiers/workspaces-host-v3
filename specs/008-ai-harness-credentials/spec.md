@@ -79,8 +79,9 @@ inspect a plain interactive shell's environment and confirm the key is absent.
   being a second always-on default.
 - **FR-006**: The base profile MUST install `python3` and `uv` unconditionally, the same way
   FR-001's `nodejs` is installed unconditionally for the hosted CLIs — the shared runtime most MCP
-  servers need (launched via `uvx <package>`, no separate install step), not gated behind the
-  `data` persona (spec 014 FR-004, which keeps only `duckdb`).
+  servers need (launched via `uvx <package>`, no separate install step), not gated behind any
+  persona (the `data` persona this originally moved them out of no longer exists at all - see
+  spec 014's "the `data` persona is removed" revision).
 
 ### Key Entities
 

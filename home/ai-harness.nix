@@ -112,12 +112,11 @@ in
   # `.mcp.json` references (the official reference servers included -
   # fetch, git, sqlite, ...) are Python packages launched via `uvx
   # <package>`, with no separate install step of their own, the same
-  # way `npx` works for a Node-based one. That needs `uv` (which
-  # provides `uvx`) and a Python interpreter on PATH unconditionally,
-  # not gated behind the `data` persona (home/profiles/data.nix keeps
-  # only `duckdb`, the one piece of that persona actually specific to
-  # data work) - an engineer shouldn't have to know this repo has a
-  # `data` persona just to get an MCP server working.
+  # way `npx` works for a Node-based one. Both used to live behind the
+  # `data` persona; that persona is gone now (spec 014's own "the data
+  # persona is removed" revision) - `uv`/`python3` moved here, and its
+  # other package, `duckdb`, moved to home/tools.nix's everyday-tools
+  # group, since neither needed a persona to justify gating them.
   home.packages = with pkgs; [
     nodejs
     aider-chat

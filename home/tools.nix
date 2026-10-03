@@ -69,5 +69,11 @@ in
     # actually adds a lefthook.yml, so it stays available to everyone.
     # See templates/lefthook.yml.example.
     lefthook
+
+    # A local analytical database, small enough on its own that it
+    # didn't justify keeping the one-package `data` persona alive once
+    # python3/uv (its other two packages) moved to the base profile -
+    # see spec 014's "the data persona is removed" revision.
+    duckdb
   ]);
 }

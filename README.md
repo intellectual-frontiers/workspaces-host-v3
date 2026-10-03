@@ -8,9 +8,8 @@ there.
 
 It runs on Nix flakes and home-manager. The whole environment is code, not a list of manual steps
 someone forgot to update. Pull a commit, rebuild, and you get the exact same result every time. A
-small set of "personas" add extra tools on top for backend, data, mobile, agent-ops, compliance,
-and networking work, so the base install stays small and everyone gets only what they actually
-need.
+small set of "personas" add extra tools on top for backend, mobile, agent-ops, compliance, and
+networking work, so the base install stays small and everyone gets only what they actually need.
 
 ## Full documentation
 

@@ -86,21 +86,38 @@ Gating the Python half of that same ecosystem behind a persona meant an engineer
 know this repository has a `data` persona, and activate it, before an ordinary MCP server would
 work - a worse version of the same gap spec 008's `nodejs` already closed. `python3` and `uv`
 moved into `home/ai-harness.nix` alongside `nodejs`/`aider-chat` (now covered by spec 008 FR-006,
-not this spec); the `data` persona (FR-004 below) keeps only `duckdb`, the one package actually
-specific to data engineering/analysis rather than general agent tooling.
+not this spec); the `data` persona (FR-004 below, at the time of this revision) kept only
+`duckdb`, the one package actually specific to data engineering/analysis rather than general
+agent tooling. (Superseded by the next revision below: `duckdb` turned out small enough to fold
+into the base profile too, eliminating the persona entirely.)
+
+### Follow-up: the `data` persona is removed (2026)
+
+Once `python3`/`uv` moved to the base profile (previous revision), the `data` persona had exactly
+one package left: `duckdb`. A single small binary didn't justify keeping an entire persona alive -
+a separate module, a `ws-persona` table entry, a `homeConfigurations.data`/`current-data` pair, a
+line in this spec - for one tool. `duckdb` moved into the base profile directly (`home/tools.nix`,
+the same everyday-tools group `jq`/`ripgrep`/`tree` live in), `home/profiles/data.nix` was
+deleted, and `data` was removed from `flake.nix`'s `personaModules` and from `ws-persona`'s own
+table. FR-004 below is reserved rather than renumbered, the same convention this repository's
+other specs already use when an FR's content goes away rather than merely changing (see spec 018's
+own FR-014/FR-016). Every other reference to "six personas" in this spec stays accurate: removing
+`data` and counting `fish` (FR-012, specified separately from the FR-003-FR-009 range) still comes
+to six.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Activate a specialized profile for my role (Priority: P2)
 
-An engineer doing backend/data/mobile/agent-ops work wants the extra tools their day-to-day
-needs, on top of everything the base profile already gives them, without those tools being
-forced on every engineer who doesn't need them.
+An engineer doing backend/mobile/agent-ops work wants the extra tools their day-to-day needs, on
+top of everything the base profile already gives them, without those tools being forced on every
+engineer who doesn't need them.
 
-**Independent Test**: Build and activate `homeConfigurations.current-data`; confirm `duckdb` is
-present in addition to everything the base profile installs (`python3`/`uv` included - see spec
-008 FR-006). Separately: `ws-persona activate fish`, `ws-persona activate backend`, then build
-`homeConfigurations.current`; confirm both persona's tools (`fish` and
+**Independent Test**: Build and activate `homeConfigurations.current-backend`; confirm
+`mvn`/`redis-cli`/`docker-compose` are present in addition to everything the base profile installs
+(`python3`/`uv`/`duckdb` included unconditionally - see spec 008 FR-006 and this spec's own
+"data persona is removed" revision). Separately: `ws-persona activate fish`, `ws-persona activate
+backend`, then build `homeConfigurations.current`; confirm both persona's tools (`fish` and
 `mvn`/`redis-cli`/`docker-compose`) are present together in one build.
 
 **Acceptance Scenarios**:
@@ -130,8 +147,9 @@ naming a specific flake attribute) is a small but real barrier for exactly the a
 repository targets; discovering what's available shouldn't require reading `flake.nix`.
 
 **Independent Test**: Run `ws-persona list` with no persona active; confirm every persona from
-FR-003 through FR-009 (backend, data, mobile, agent-ops, compliance, networking) is named with a
-one-line description and the exact command to activate it. Run `ws-persona activate backend`;
+FR-003, FR-005 through FR-009 (backend, mobile, agent-ops, compliance, networking) plus `fish`
+(FR-012) - six in all - is named with a one-line description and the exact command to activate it.
+Run `ws-persona activate backend`;
 confirm `ws-persona current` reports it activated even before rebuilding. Rebuild; confirm it's
 also reported detected. Run `ws-persona deactivate backend`; confirm it's no longer reported
 activated.
@@ -219,9 +237,12 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
 - **FR-003**: The `backend` persona MUST add `postgresql` (client), `redis`, `docker-compose`,
   `httpie`, and (per spec 007's own newbie-simplification follow-up) the Java/Postgres toolchain:
   a pinned JDK/Maven and the `pgpass` CLI, by importing `home/java.nix` and `home/postgres.nix`.
-- **FR-004**: The `data` persona MUST add `duckdb`. (`python3` and `uv` moved to the base profile
-  - see spec 008 FR-006 - since they're shared agent-harness infrastructure, not specific to data
-  work.)
+- **FR-004**: (Reserved - the `data` persona it specified is removed; see this spec's own "the
+  `data` persona is removed" revision above. `duckdb`, its one remaining package, is now a
+  base-profile install like every other everyday tool (`home/tools.nix`); `python3`/`uv` moved to
+  the base profile earlier still (spec 008 FR-006). Kept reserved rather than renumbered for the
+  same reason spec 018's FR-014/FR-016 are: so no other cross-reference to a numbered FR in this
+  spec silently points at the wrong requirement.)
 - **FR-005**: The `mobile` persona MUST add `android-tools` (`adb`/`fastboot`) and `watchman`.
 - **FR-006**: The `agent-ops` persona MUST add `act` (`gh` is already in the shared base via
   spec 008's `home/ai-harness.nix`, so it is not duplicated here), plus (per specs 008/011/015's
@@ -288,7 +309,7 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
 
 ### Measurable Outcomes
 
-- **SC-001**: `nix flake check --all-systems` passes with all seven persona profiles included.
+- **SC-001**: `nix flake check --all-systems` passes with all six persona profiles included.
 - **SC-002**: Every persona's activation package builds and includes both the base profile's
   full package set and that persona's own additions.
 - **SC-003**: `doctor`'s default output covers only base-profile essentials, regardless of which

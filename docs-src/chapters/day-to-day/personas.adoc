@@ -15,9 +15,6 @@ the full reasoning.
 |`backend`
 |Java+Maven, PostgreSQL client/`pgpass`, Redis, docker-compose, httpie
 
-|`data`
-|duckdb (`python3`/`uv` are already in every profile -- see <<ai-agents>>)
-
 |`mobile`
 |android-tools (adb/fastboot), watchman
 
