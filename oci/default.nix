@@ -13,6 +13,23 @@ let
   # plain dotfiles (~/.bashrc, ~/.bash_profile, ~/.profile),
   # unconditionally, once `programs.bash.enable` is on.
   dotfile = name: cfg.home.file.${name}.source;
+
+  # `dockerTools.buildLayeredImage`'s `contents` merges its list via
+  # `symlinkJoin` internally, NOT `pkgs.buildEnv` - a real difference
+  # found by actually running the built press image (spec 025), not
+  # just building it: `jre_headless`'s own `bin/java` silently vanished
+  # from the merged result (no error, no collision message - every
+  # other press tool, epubcheck included, still worked, since epubcheck
+  # wraps its own JRE dependency independent of PATH) even though a
+  # plain `pkgs.buildEnv` over the exact same package list keeps it.
+  # Pre-merging with `buildEnv` ourselves and handing `contents` that
+  # ONE already-correct environment (plus the image-only extras below,
+  # none of which collide with anything in it) sidesteps
+  # `symlinkJoin`'s weaker, priority-blind merge entirely.
+  mergedPackages = pkgs.buildEnv {
+    name = "${imageName}-packages";
+    paths = cfg.home.packages;
+  };
 in
 pkgs.dockerTools.buildLayeredImage {
   name = imageName;
@@ -36,7 +53,7 @@ pkgs.dockerTools.buildLayeredImage {
   # also present and configured, ready for a devcontainer config that
   # wants it, the same purely-additive relationship the `fish` persona
   # has to a real host install.
-  contents = cfg.home.packages ++ (with pkgs; [
+  contents = [ mergedPackages ] ++ (with pkgs; [
     bashInteractive
     coreutils
     gnugrep

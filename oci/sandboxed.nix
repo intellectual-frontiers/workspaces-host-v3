@@ -10,6 +10,16 @@ let
   configFile = name: cfg.xdg.configFile.${name}.source;
   dotfile = name: cfg.home.file.${name}.source;
 
+  # Pre-merged via `pkgs.buildEnv`, not handed to `dockerTools.
+  # buildLayeredImage`'s `contents` as a raw list - see oci/default.nix's
+  # own comment (spec 025): `contents` merges via `symlinkJoin`
+  # internally, which silently drops a binary a plain `buildEnv` over the
+  # same package list keeps, with no error.
+  mergedPackages = pkgs.buildEnv {
+    name = "workspaces-host-sandboxed-packages";
+    paths = cfg.home.packages;
+  };
+
   passwd = pkgs.writeTextDir "etc/passwd" ''
     root:x:0:0::/root:/bin/sh
     agent:x:${agentUid}:${agentGid}::/home/agent:/bin/sh
@@ -37,7 +47,7 @@ pkgs.dockerTools.buildLayeredImage {
   name = "workspaces-host-sandboxed";
   tag = "latest";
 
-  contents = cfg.home.packages ++ (with pkgs; [
+  contents = [ mergedPackages ] ++ (with pkgs; [
     bashInteractive
     coreutils
     # gnugrep/gawk: every real host this profile installs onto already
