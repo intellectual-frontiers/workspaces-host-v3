@@ -22,6 +22,14 @@ pkgs.dockerTools.buildLayeredImage {
   # running `doctor` inside a built container (spec 021's devcontainer
   # work), which hit bare "grep: command not found"/"awk: command not
   # found" without them.
+  #
+  # `homeConfig` is base + the `fish` persona (flake.nix's
+  # `homeConfigurationsForImage`, spec 022), not bare base - so this one
+  # image can back both devcontainer configs (the default bash one and
+  # the `-fish` one). `Cmd` below still launches bash: fish is simply
+  # also present and configured, ready for a devcontainer config that
+  # wants it, the same purely-additive relationship the `fish` persona
+  # has to a real host install.
   contents = cfg.home.packages ++ (with pkgs; [
     bashInteractive
     coreutils
@@ -32,13 +40,15 @@ pkgs.dockerTools.buildLayeredImage {
   ]);
 
   extraCommands = ''
-    mkdir -p root/.config/git root/.config/oh-my-posh root/.config/direnv/lib tmp
+    mkdir -p root/.config/git root/.config/oh-my-posh root/.config/direnv/lib root/.config/fish/functions tmp
     cp ${dotfile ".bashrc"} root/.bashrc
     cp ${dotfile ".bash_profile"} root/.bash_profile
     cp ${dotfile ".profile"} root/.profile
     cp ${configFile "git/config"} root/.config/git/config
     cp ${configFile "oh-my-posh/config.json"} root/.config/oh-my-posh/config.json
     cp ${configFile "direnv/lib/hm-nix-direnv.sh"} root/.config/direnv/lib/hm-nix-direnv.sh
+    cp ${configFile "fish/config.fish"} root/.config/fish/config.fish
+    cp ${configFile "fish/functions/cdp.fish"} root/.config/fish/functions/cdp.fish
     chmod -R u+w root
 
     # dockerTools.fakeNss (in `contents` above) lands /etc/passwd and

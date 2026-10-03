@@ -69,6 +69,20 @@
       # Principle IV: host and container share one closure).
       homeConfigurationsFor = forAllSystems (system: mkHomeConfiguration system [ ]);
 
+      # The published OCI image (`packages.<system>.oci-image` below) is
+      # built from base + the `fish` persona rather than bare
+      # `homeConfigurationsFor`, so the one published image can back both
+      # devcontainer configs (spec 021/022): the default one (bash, as
+      # every other profile has it) and the `-fish` one, which only
+      # switches the devcontainer's own default shell - personas are
+      # purely additive, so nothing about the bash experience changes
+      # for anyone who doesn't ask for fish. This needs every system
+      # `oci-image` itself does (unlike `personaConfigurations` below,
+      # deliberately pinned to one system for interactive persona
+      # testing), so it's its own `forAllSystems`, not a reuse of that
+      # x86_64-linux-only attribute.
+      homeConfigurationsForImage = forAllSystems (system: mkHomeConfiguration system [ ./home/profiles/fish.nix ]);
+
       # Persona configurations are pinned to x86_64-linux, same rationale
       # as `default` below: engineers on another platform substitute that
       # system's own attribute (or fork a persona module for their
@@ -154,7 +168,7 @@
         ported // {
           oci-image = import ./oci {
             inherit pkgs;
-            homeConfig = homeConfigurationsFor.${system};
+            homeConfig = homeConfigurationsForImage.${system};
           };
         }
         # init-firewall (iptables/ipset) declares itself unsupported on

@@ -123,6 +123,12 @@ something a package list should decide on your behalf. Activating the `fish` per
 `fish` and a matching config available; a separate, deliberate `chsh` step (<<personas>>) is what
 actually makes it yours.
 
+The published container image (<<container-ci>>) bundles the `fish` persona too, so one image can
+back both devcontainer configs (the default one and a `-fish` one that just opens into fish
+instead) without publishing a second image. That doesn't change the answer above: a real host
+install still only gets fish through `ws-persona activate fish`, and the default devcontainer
+still opens into bash, exactly as this section describes.
+
 [[why-ws-repos]]
 === Why `ws-repos`, not `mgit`, and why the file suffix still says `.mgit`
 

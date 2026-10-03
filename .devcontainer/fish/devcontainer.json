@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "Workspaces Host v3 (fish)",
+  // Same published image as .devcontainer/devcontainer.json - nothing
+  // extra to build or publish. Devcontainer tooling never actually runs
+  // the image's own Cmd as the interactive terminal (it overrides the
+  // entrypoint to keep the container alive, then opens each terminal
+  // through its own exec mechanism), so which shell greets you is a
+  // config-level choice below, not an image-level one. The image
+  // already has fish - base + the fish persona, purely additive, see
+  // specs/022-fish-devcontainer/spec.md.
+  "image": "ghcr.io/intellectual-frontiers/workspaces-host-v3:latest",
+  "remoteUser": "root",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  // $SHELL is what most shell-launching tools (VS Code's integrated
+  // terminal included, absent a more specific override) fall back to.
+  "remoteEnv": {
+    "SHELL": "/bin/fish"
+  },
+  // Belt and suspenders: VS Code's own explicit terminal-profile setting,
+  // for anything that doesn't honor $SHELL.
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "fish"
+      }
+    }
+  },
+  "postCreateCommand": "fish -lc 'doctor || true'"
+}

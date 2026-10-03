@@ -74,6 +74,21 @@ Want this same environment as the devcontainer for a *different* project, not th
 Copy the `image` line into that project's own `.devcontainer/devcontainer.json` -- there's nothing
 else to add.
 
+Prefer fish? `.devcontainer/fish/devcontainer.json` opens the exact same published image -- no
+second image to build or publish -- and just sets the devcontainer's own default shell to fish
+(`remoteEnv.SHELL` plus VS Code's own terminal-profile setting). The image already has fish: the
+published image is built from the base profile plus the `fish` persona (<<personas>>), purely
+additive like every persona, so nothing about the default (bash) devcontainer changes. Pick it
+explicitly with the CLI's `--config` flag:
+
+[source,shell]
+----
+$ npx @devcontainers/cli up --workspace-folder . --config .devcontainer/fish/devcontainer.json
+----
+
+A real host install still only gets fish through `ws-persona activate fish` (<<personas>>) -- this
+is purely about which shell a devcontainer opens into, not a second way to turn fish on.
+
 === Using it in a real pipeline
 
 Because the image is built from the same flake output as `homeConfigurations.default`, a CI job
