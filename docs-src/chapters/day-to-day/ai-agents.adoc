@@ -3,8 +3,9 @@
 
 === Setting up AI coding agents
 
-Every profile installs `nodejs`, `aider-chat`, `python3`, and `uv`, ready to go. The fast-moving
-hosted CLIs install with their own `npm install -g`:
+Every profile installs `nodejs`, `aider-chat`, `python3`, `uv`, a matching set of Playwright
+browser binaries, and (on Linux) `chromium`, ready to go. The fast-moving hosted CLIs install with
+their own `npm install -g`:
 
 [source,shell]
 ----
@@ -15,7 +16,14 @@ $ npm install -g @google/gemini-cli          # provides: gemini
 
 `python3`/`uv` are there for the other half of the ecosystem: most MCP servers an agent's own
 `.mcp.json` references are Python packages launched with `uvx <package>`, no separate install step
-needed, the same way `npx` works for a Node-based one. No persona required for that to work.
+needed, the same way `npx` works for a Node-based one. The Playwright browser binaries and
+`chromium` are there for browser-automation MCP servers specifically -- Playwright MCP, the
+official Puppeteer MCP server, and others built the same way -- so the first time you add one, it
+finds a browser already on this machine (`PLAYWRIGHT_BROWSERS_PATH`, and on Linux
+`PUPPETEER_EXECUTABLE_PATH`, point at it) instead of downloading its own. `chromium` itself is
+Linux-only -- nixpkgs doesn't build it for macOS -- so on macOS a Puppeteer-based server still
+downloads its own browser the first time; a Playwright-based one doesn't, on either platform. No
+persona required for any of this to work.
 
 Give one its key by adding it to your credentials file (<<your-name-email-and-any-api-keys>>) and
 running `workspaces-host-update`. Each CLI's key is scoped to that one invocation, never exported

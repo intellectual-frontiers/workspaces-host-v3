@@ -54,6 +54,8 @@ Configure the remote itself with `rclone config` first, the same as any other `r
 * *`shellcheck`*: a linter for the language most of this repository's own tooling is written in.
 * *`duckdb`*: a local analytical database, for ad hoc work with CSV/Parquet/SQL without standing
   up a server.
+* *`sqlite3`*: for poking at a plain SQLite `.db` file by hand -- several official MCP reference
+  servers expect one to already be there (<<ai-agents>>).
 * *SSH agent auto-start*: a new login shell loads your key automatically.
 * *`cdp`*: jumps to the current git repo's top-level directory.
 

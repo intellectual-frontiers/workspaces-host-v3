@@ -55,14 +55,23 @@ a different kind of gap: this repository's own tooling (`doctor`, `ws-repos`,
 belongs in every profile, not only for someone actively contributing to this repository. Both join
 the base profile alongside `wget`/`rclone`/`git-chglog`/`make`/`tree`.
 
+### Fifth revision: `sqlite3`
+
+Workspaces Host v3 is built to support AI-native workflows specifically, and several official MCP
+reference servers expect a plain SQLite database file to already exist or be inspectable by hand -
+the `sqlite3` CLI is the everyday tool for that, the same relationship `duckdb` (spec 014) has to
+ad hoc CSV/Parquet work. The Python-based reference server itself only needs the `sqlite3` module
+Python already ships with, not this binary, but an engineer debugging what that server sees still
+reaches for the CLI. It joins the base profile alongside the others in this spec.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Everyday utilities just work (Priority: P3)
 
-An engineer reaches for `wget`, `git-chglog`, `rclone`, `make`, `tree`, `curl`, or `shellcheck` and
-finds them already on `PATH` in the base profile, the same as every other tool it installs; an
-engineer doing agent-ops/automation work activates that persona and finds `gopass`/`deno` there
-too.
+An engineer reaches for `wget`, `git-chglog`, `rclone`, `make`, `tree`, `curl`, `shellcheck`, or
+`sqlite3` and finds them already on `PATH` in the base profile, the same as every other tool it
+installs; an engineer doing agent-ops/automation work activates that persona and finds
+`gopass`/`deno` there too.
 
 **Independent Test**: On an activated profile, run each tool's `--version`/`--help` and confirm
 it resolves with no separate install step.
@@ -70,7 +79,7 @@ it resolves with no separate install step.
 **Acceptance Scenarios**:
 
 1. **Given** an activated base profile, **When** the engineer runs any of `wget`, `git-chglog`,
-   `rclone`, `make`, `tree`, `curl`, `shellcheck`, **Then** each is on `PATH`.
+   `rclone`, `make`, `tree`, `curl`, `shellcheck`, `sqlite3`, **Then** each is on `PATH`.
 2. **Given** an activated `agent-ops` persona, **When** the engineer runs `gopass` or `deno`,
    **Then** each is on `PATH`.
 
@@ -103,9 +112,9 @@ confirm `ssh-add -l` lists a key with no manual step.
 ### Functional Requirements
 
 - **FR-001**: The base profile MUST install `wget`, `rclone`, `git-chglog`, GNU `make`, `tree`,
-  `curl`, and `shellcheck` directly in `home.packages` (not merely as a build-time dependency of
-  another package). The `agent-ops` persona (spec 014) MUST install `gopass` and `deno` the same
-  way.
+  `curl`, `shellcheck`, and `sqlite3` directly in `home.packages` (not merely as a build-time
+  dependency of another package). The `agent-ops` persona (spec 014) MUST install `gopass` and
+  `deno` the same way.
 - **FR-002**: The `agent-ops` persona MUST alias `deno-run` to `deno run -A` and `deno-test` to
   `deno test -A`.
 - **FR-003**: The base profile MUST alias `cdp` to change to the current git repository's
@@ -114,15 +123,17 @@ confirm `ssh-add -l` lists a key with no manual step.
   among `~/.ssh/id_ed25519`, `~/.ssh/id_rsa` (in that order) if the agent has no keys loaded yet,
   and MUST do nothing if neither exists.
 - **FR-005**: The environment health check (spec 004) MUST report `wget`, `git-chglog`, `rclone`,
-  `make`, `tree`, `curl`, and `shellcheck` on `PATH` as part of its base-profile checks, and
-  `gopass`/`deno` as an informational WARN (not FAIL) when the `agent-ops` persona isn't active.
+  `make`, `tree`, `curl`, `shellcheck`, and `sqlite3` on `PATH` as part of its base-profile checks,
+  and `gopass`/`deno` as an informational WARN (not FAIL) when the `agent-ops` persona isn't
+  active.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: All five tools are usable with no manual install step — three immediately after
-  base-profile activation, `gopass`/`deno` immediately after activating the `agent-ops` persona.
+- **SC-001**: Every tool FR-001 lists is usable with no manual install step — the base-profile ones
+  immediately after base-profile activation, `gopass`/`deno` immediately after activating the
+  `agent-ops` persona.
 - **SC-002**: An engineer with an existing SSH key never has to manually start `ssh-agent` for a
   normal session.
 

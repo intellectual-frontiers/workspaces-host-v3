@@ -75,5 +75,14 @@ in
     # python3/uv (its other two packages) moved to the base profile -
     # see spec 014's "the data persona is removed" revision.
     duckdb
+
+    # The `sqlite3` CLI (spec 015 fifth revision): pairs with `duckdb`
+    # for ad hoc inspection of a `.db` file, and several official MCP
+    # reference servers (e.g. the sqlite one) expect a plain SQLite
+    # database to already be on disk - this is the everyday tool for
+    # creating/poking at one by hand, even though the Python-based
+    # server itself only needs the `sqlite3` module Python already
+    # ships with, not this binary.
+    sqlite
   ]);
 }

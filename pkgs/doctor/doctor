@@ -422,6 +422,21 @@ check_ai_cli aider "aider" "ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GOOG
 # its own credential, so a plain check_cmd, not check_ai_cli.
 check_cmd python3
 check_cmd uv
+# chromium/playwright-driver.browsers: the matching runtime for
+# browser-automation MCP servers (Playwright MCP, Puppeteer MCP), so
+# one doesn't fall back to downloading its own Chromium on first use.
+# `chromium` itself is nixpkgs-Linux-only (it's built from source
+# there, unlike `playwright-driver.browsers`' prebuilt-per-platform
+# archives), so it's a hard check_cmd on Linux but not expected at all
+# on Darwin - same split `osqueryi` below already uses.
+if [ "$(uname -s)" = "Linux" ]; then
+    check_cmd chromium
+fi
+if [ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ] && [ -d "$PLAYWRIGHT_BROWSERS_PATH" ]; then
+    pass "PLAYWRIGHT_BROWSERS_PATH is set and valid ($PLAYWRIGHT_BROWSERS_PATH)"
+else
+    warn "PLAYWRIGHT_BROWSERS_PATH is not set or not valid (did home-manager switch run?)"
+fi
 if command -v gh >/dev/null 2>&1; then
     if gh extension list 2>/dev/null | grep -qi copilot; then
         pass "GitHub Copilot CLI extension is installed (gh extension list)"
@@ -431,7 +446,7 @@ if command -v gh >/dev/null 2>&1; then
 fi
 
 section "Ported CLI tools (home.packages)" 1 "🧰"
-for c in rg fd jq bat eza tree gitleaks ws-repos ws-persona specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook make curl shellcheck duckdb; do
+for c in rg fd jq bat eza tree gitleaks ws-repos ws-persona specify backlog scaffold-agent-harness sensitivectl git-xargs workspaces-host-update wget rclone git-chglog lefthook make curl shellcheck duckdb sqlite3; do
     check_cmd "$c"
 done
 

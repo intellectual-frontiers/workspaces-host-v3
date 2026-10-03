@@ -100,6 +100,14 @@ single question: does every engineer need this, or only someone doing a specific
 That question is Constitution Principle V, simplicity over completeness, applied directly (see
 <<add-a-tool-or-persona>> for how that decision plays out in practice).
 
+`chromium` and the Playwright browser binaries (<<ai-agents>>) look like an exception -- they're
+larger than everything else the base profile installs combined -- but they answer the same
+question the same way: this repository exists specifically to provision AI-native sandboxes, and a
+browser-automation MCP server is as ordinary a part of that ecosystem as a `uvx`-launched Python
+one. Gating something every engineer doing AI-agent work eventually reaches for behind a persona
+they'd have to already know exists isn't simplicity, it's just a worse version of the same gap
+`nodejs`/`python3`/`uv` close for the rest of the MCP ecosystem.
+
 [[why-fish]]
 === Why fish is a persona, not the default
 

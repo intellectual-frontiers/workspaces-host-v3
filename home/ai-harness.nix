@@ -117,15 +117,56 @@ in
   # persona is removed" revision) - `uv`/`python3` moved here, and its
   # other package, `duckdb`, moved to home/tools.nix's everyday-tools
   # group, since neither needed a persona to justify gating them.
+  #
+  # `playwright-driver.browsers` (spec 008 FR-007): a browser-automation
+  # MCP server (Playwright MCP, the Puppeteer MCP server, and others
+  # like them) is as central to this ecosystem as a `uvx`/`npx`-launched
+  # one, but needs an actual browser binary, not just a language
+  # runtime - without one already on this machine, its first launch
+  # downloads its own ~170MB+ Chromium, every time a fresh sandbox is
+  # built. `home.sessionVariables` below points the Playwright-style
+  # download path at this pinned package instead, so that download
+  # never has to happen. Unlike every other package in this file,
+  # nixpkgs' own `playwright-driver` fetches prebuilt, per-platform
+  # browser archives rather than building Chromium from source, so (and
+  # this is the one case in this repo where that matters) it's actually
+  # available on all four systems this flake targets, Darwin included.
   home.packages = with pkgs; [
     nodejs
     aider-chat
     python3
     uv
+    playwright-driver.browsers
     openssh
     gh
     glab
-  ];
+  ]
+  # Plain `chromium` (for `PUPPETEER_EXECUTABLE_PATH` below) IS built
+  # from source, and nixpkgs only carries that build for Linux (checked
+  # against this flake's own pinned nixpkgs: `meta.platforms` lists
+  # only Linux variants, no Darwin at all) - so, same as `osqueryi`
+  # (doctor's compliance-persona check) and `init-firewall`, it's
+  # Linux-only here too, rather than breaking evaluation on Darwin for
+  # every engineer, only some of whom even use a Puppeteer-based MCP
+  # server.
+  ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.chromium ];
+
+  # PLAYWRIGHT_BROWSERS_PATH/PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: nixpkgs'
+  # own documented pattern for `playwright-driver.browsers`, pinned to
+  # the exact browser revision the `playwright` package nixpkgs carries
+  # expects - set unconditionally, since the package above is available
+  # on every system. PUPPETEER_EXECUTABLE_PATH/PUPPETEER_SKIP_DOWNLOAD
+  # is the same idea for Puppeteer (and anything built on it, including
+  # the official Puppeteer MCP server), but only where `chromium` above
+  # actually installed - Darwin falls back to Puppeteer's own download
+  # until nixpkgs packages Chromium there too.
+  home.sessionVariables = {
+    PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+  } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+    PUPPETEER_EXECUTABLE_PATH = "${pkgs.chromium}/bin/chromium";
+    PUPPETEER_SKIP_DOWNLOAD = "true";
+  };
 
   programs.bash.initExtra = lib.concatStrings (map
     ({ name, vars, skipFirstArgs ? [ ] }: wrapCli name vars skipFirstArgs)

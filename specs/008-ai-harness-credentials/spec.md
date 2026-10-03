@@ -26,6 +26,26 @@ exactly the gap `nodejs` already closed on the other side. Both moved into `home
 alongside `nodejs`/`aider-chat` (FR-006 below); the `data` persona kept only `duckdb`, the package
 actually specific to data engineering/analysis (spec 014 FR-004).
 
+### Follow-up: browser automation as a base-profile shared runtime (2026)
+
+Workspaces Host v3 is built specifically to support AI-native workflows, and browser-automation MCP
+servers (Playwright MCP, the official Puppeteer MCP server, and others built the same way) are as
+common in that ecosystem as the `uvx`/`npx`-launched ones FR-006 and FR-001 already cover - they
+just need an actual browser binary, not only a language runtime. Left unaddressed, a server like
+this downloads its own Chromium (170MB or more) on first use, every time a fresh sandbox is built,
+silently, with no guarantee the download even succeeds from a restricted network. `chromium` and
+`playwright-driver.browsers` (FR-007 below) close that gap the same way `nodejs`/`python3`/`uv`
+already closed theirs: installed in the base profile, with `PUPPETEER_EXECUTABLE_PATH`/
+`PLAYWRIGHT_BROWSERS_PATH` (and their matching `_SKIP_DOWNLOAD` variables) pointed at them, so the
+first launch of a browser-automation MCP server finds its browser already there instead of
+fetching one. `playwright-driver.browsers` fetches prebuilt, per-platform browser archives, so it's
+genuinely available on all four systems this flake targets; `chromium` is built from source in
+nixpkgs, and that build only exists for Linux (checked against this flake's own pinned nixpkgs -
+`meta.platforms` lists no Darwin variant), so it - and `PUPPETEER_EXECUTABLE_PATH` with it - is
+Linux-only, the same split `osqueryi`/`init-firewall` already have elsewhere in this flake. A
+Playwright-based MCP server gets the full benefit on every system; a Puppeteer-based one gets it on
+Linux and falls back to its own download on Darwin until nixpkgs packages Chromium there too.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An agent CLI gets its key, nothing else does (Priority: P1)
@@ -82,12 +102,20 @@ inspect a plain interactive shell's environment and confirm the key is absent.
   servers need (launched via `uvx <package>`, no separate install step), not gated behind any
   persona (the `data` persona this originally moved them out of no longer exists at all - see
   spec 014's "the `data` persona is removed" revision).
+- **FR-007**: The base profile MUST install `playwright-driver.browsers` unconditionally on every
+  system, and `chromium` unconditionally on every system where nixpkgs packages it (Linux; it is
+  not available on Darwin). It MUST set `PLAYWRIGHT_BROWSERS_PATH`/`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`
+  unconditionally and `PUPPETEER_EXECUTABLE_PATH`/`PUPPETEER_SKIP_DOWNLOAD` wherever `chromium` is
+  installed, so a browser-automation MCP server (Playwright MCP, the Puppeteer MCP server) uses
+  them instead of downloading its own Chromium on first launch.
 
 ### Key Entities
 
 - **`llm`**: a provider-agnostic CLI for prompting LLMs, with its own independent key storage.
 - **`python3`/`uv`**: the shared runtime most MCP servers depend on, installed unconditionally in
   the base profile alongside `nodejs`.
+- **`chromium`/`playwright-driver.browsers`**: the matching shared browser runtime for
+  browser-automation MCP servers, installed unconditionally alongside the above.
 
 ## Success Criteria *(mandatory)*
 
