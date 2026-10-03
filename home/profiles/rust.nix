@@ -1,23 +1,44 @@
 { pkgs, config, ... }:
 
+let
+  # Named once so both `home.packages` and `RUST_SRC_PATH` below refer
+  # to the exact same build - two separate
+  # `pkgs.rust-bin.stable.latest.minimal.override { ... }` calls
+  # wouldn't necessarily evaluate to the same derivation.
+  #
+  # `.minimal`, not `.default`: rust-overlay's `default` profile (its
+  # name for rustup's own "default" profile) bundles `rust-docs` - the
+  # full rendered HTML standard-library documentation, confirmed
+  # directly to add real weight to the built image (the published image
+  # has no browser to read it in anyway) - for no benefit over
+  # rust-analyzer's own hover docs, which read source, not this bundle.
+  # `.minimal.override` starts from rustc+cargo+rust-std alone and adds
+  # back only the components this persona actually needs.
+  rustToolchain = pkgs.rust-bin.stable.latest.minimal.override {
+    extensions = [ "clippy" "rustfmt" "rust-src" "rust-analyzer" ];
+  };
+in
 {
-  # Rust toolchain (addendum to spec 029): nixpkgs' own pinned rustc/
-  # cargo/clippy/rustfmt already clear the >=1.85 floor edition 2024
-  # needs - this flake's pinned nixos-25.05 revision ships 1.86.0,
-  # checked directly (`nix eval`) rather than assumed - so this persona
-  # uses nixpkgs' own packages instead of an imperative installer
-  # (rustup, which manages its own toolchains outside Nix entirely -
-  # Constitution Principle I) or a second flake input (rust-overlay/
-  # fenix) pinning a toolchain nixpkgs already provides new enough.
-  # `rust-analyzer` comes from the same pinned nixpkgs revision, so it
-  # never drifts out of sync with the rustc it's analyzing.
-  home.packages = (with pkgs; [
-    rustc
-    cargo
-    clippy
-    rustfmt
-    rust-analyzer
-  ]) ++ [
+  # Rust toolchain (spec 029, amended): this flake's pinned nixpkgs
+  # revision ships rustc 1.86.0, which clears the >=1.85 floor edition
+  # 2024 needs in the abstract - but `www.intellectualfrontiers.com`'s
+  # own, real `Cargo.lock` pins `oxrdf`/`oxttl` versions that need
+  # rustc 1.87, found by actually running `cargo test --locked` against
+  # that repo, not assumed from its own declared `rust-version` alone.
+  # nixpkgs' pinned revision genuinely isn't new enough, so - per this
+  # persona's own design - `rust-overlay` (flake.nix's `rust-overlay`
+  # input, locked by `flake.lock` like every other input here) supplies
+  # a current `stable` release instead of an imperative installer
+  # (rustup - Constitution Principle I). `.default` is rust-overlay's
+  # own bundled profile (rustc, cargo, clippy, rustfmt, the standard
+  # library) in one derivation; `.override` adds the `rust-src`
+  # component rust-analyzer needs and the matching `rust-analyzer`
+  # component itself, so it's never out of sync with the rustc it's
+  # analyzing the way pulling nixpkgs' own, separately-versioned
+  # `rust-analyzer` package would risk.
+  home.packages = [
+    rustToolchain
+  ] ++ [
     # The native build toolchain a `reqwest`+rustls dependency tree
     # actually needs: `aws-lc-sys` and `ring` both compile C/assembly at
     # `cargo build` time, not merely link a prebuilt library - confirmed
@@ -47,10 +68,10 @@
     # variable in whatever shell this profile ends up running under.
     CARGO_HOME = "${config.home.homeDirectory}/.cargo";
     # rust-analyzer (and anything else wanting the standard library's
-    # own source, not just its compiled rlib) reads this - nixpkgs' own
-    # `rustPlatform.rustLibSrc` is exactly the pinned rust-src nixpkgs
-    # already carries for this same rustc revision, not a second
-    # download or a `rustup component add rust-src` step.
-    RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
+    # own source, not just its compiled rlib) reads this - pointed at
+    # the `rust-src` component on `rustToolchain` itself (above), the
+    # exact same version as the rustc it's analyzing, not nixpkgs' own,
+    # separately-versioned rust-src.
+    RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
   };
 }

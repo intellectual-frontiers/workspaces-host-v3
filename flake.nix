@@ -12,9 +12,31 @@
       url = "git+https://github.com/nix-community/home-manager?ref=release-25.05&shallow=1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # The `rust` persona's one exception to "nixpkgs' own packages, no
+    # second toolchain source" (addendum to spec 029): this flake's
+    # pinned nixpkgs revision ships rustc 1.86.0, which clears the
+    # >=1.85 edition-2024 floor in the abstract, but
+    # `www.intellectualfrontiers.com`'s own, real `Cargo.lock` pins
+    # `oxrdf`/`oxttl` versions that need rustc 1.87 - confirmed directly
+    # by actually running `cargo test --locked` against that repo's
+    # checkout, not assumed from its `rust-version` field alone. Rather
+    # than bumping this whole flake's nixpkgs pin (every other package
+    # this flake provides would move with it) for one persona's
+    # toolchain, `rust-overlay` provides prebuilt, individually
+    # versioned rustc releases - `inputs.nixpkgs.follows` keeps it from
+    # pulling in a second nixpkgs copy, and `flake.lock` pins its own
+    # revision exactly like every other input here (not rustup, which
+    # manages toolchains entirely outside Nix - Constitution Principle
+    # I). `git+https`, not `github:`, matches this flake's own existing
+    # input style for `nixpkgs`/`home-manager` above.
+    rust-overlay = {
+      url = "git+https://github.com/oxalica/rust-overlay?shallow=1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager }:
+  outputs = { self, nixpkgs, home-manager, rust-overlay }:
     let
       # Manual per-system iteration rather than a flake-utils dependency:
       # keeps this flake's own input set minimal.
@@ -27,6 +49,7 @@
       pkgsFor = system: import nixpkgs {
         inherit system;
         config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "cnquery" ];
+        overlays = [ rust-overlay.overlays.default ];
       };
 
       # Per-persona profiles (spec 014): each adds a small, focused package
