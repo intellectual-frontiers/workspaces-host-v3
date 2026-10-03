@@ -114,7 +114,19 @@ confirms each got a native-architecture image, not an emulated one.
 
 - `media` (spec 026) is intentionally excluded from both images (see that spec's own Edge Cases) -
   this spec's "both images" always means `oci-image`/`oci-image-press`, never a third.
+  **Superseded by spec 029**: that line was about `media` specifically, not a hard cap on the
+  image count - spec 029 adds a genuine third image (`oci-image-rust`), built and published the
+  same way, for a persona unrelated to `media`'s own exclusion reasons.
 - The per-architecture intermediate tags (`sha-<short>-amd64`/`sha-<short>-arm64`) are an
   implementation detail of the publish pipeline, not a documented, human-facing interface - a
   consumer always uses the plain `latest`/`sha-<short-sha>` tag, which resolves correctly either
   way via the manifest list.
+
+## Amendment (spec 029): a third image
+
+Spec 029 added a third published image (`workspaces-host-v3-rust`, base + fish + the `rust`
+persona) built and published the same way this spec describes - the build matrix in
+`.github/workflows/container-image.yml` grew from four legs (2 images x 2 architectures) to six (3
+images x 2 architectures), and `publish-manifest` grew its own matrix to match. Every FR above
+still holds; where they say "both images" or "the two images," read that as "every published
+image" instead.

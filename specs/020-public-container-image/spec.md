@@ -149,3 +149,11 @@ simply works on either architecture instead of silently returning an amd64 image
 emulation on an Apple Silicon Mac. See specs/027-dual-image-multiarch-publish/spec.md for the
 publish-pipeline mechanics (the build-matrix-plus-manifest-merge shape, and why GitHub's free
 `ubuntu-24.04-arm` hosted runner makes this a native build, not cross-compilation).
+
+## Amendment (spec 029): a third image
+
+Spec 029 added a third image, `ghcr.io/intellectual-frontiers/workspaces-host-v3-rust` (base +
+fish + the `rust` persona: a stable Rust toolchain plus the native C/CMake toolchain its heaviest
+dependency graphs need), published the same way and needing the same one-time GHCR visibility step
+on its own first publish. The tag contract is unchanged in shape: `latest` and `sha-<short-sha>`,
+each a multi-arch manifest list, for this image too.

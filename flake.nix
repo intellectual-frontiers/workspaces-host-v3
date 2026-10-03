@@ -41,6 +41,7 @@
         fish = ./home/profiles/fish.nix;
         press = ./home/profiles/press.nix;
         media = ./home/profiles/media.nix;
+        rust = ./home/profiles/rust.nix;
       };
 
       mkHomeConfiguration = system: extraModules:
@@ -118,6 +119,15 @@
       # AsciiDoc/LaTeX/EPUB tooling can pull a purpose-built image instead
       # of installing press's (large) closure into every container.
       homeConfigurationsForPressImage = forAllSystems (system: mkImageHomeConfiguration system [ ./home/profiles/fish.nix ./home/profiles/press.nix ]);
+
+      # A third published image (addendum to spec 029): base + fish +
+      # the `rust` persona (a stable Rust toolchain plus the native
+      # build toolchain its heaviest dependency graphs need), for an IF
+      # repository whose own stack is Rust - same reasoning as
+      # `homeConfigurationsForPressImage` above (ship the heavy, opt-in
+      # persona as its own image rather than growing the base one every
+      # repo pulls regardless of language).
+      homeConfigurationsForRustImage = forAllSystems (system: mkImageHomeConfiguration system [ ./home/profiles/fish.nix ./home/profiles/rust.nix ]);
 
       # Persona configurations are pinned to x86_64-linux, same rationale
       # as `default` below: engineers on another platform substitute that
@@ -210,6 +220,11 @@
             inherit pkgs;
             homeConfig = homeConfigurationsForPressImage.${system};
             imageName = "workspaces-host-press";
+          };
+          oci-image-rust = import ./oci {
+            inherit pkgs;
+            homeConfig = homeConfigurationsForRustImage.${system};
+            imageName = "workspaces-host-rust";
           };
         }
         # init-firewall (iptables/ipset) declares itself unsupported on

@@ -36,6 +36,10 @@ book and paper typesetting
 
 |`media`
 |faster-whisper (local audio transcription) + ffmpeg
+
+|`rust`
+|rustc/cargo/clippy/rustfmt/rust-analyzer, plus a C toolchain (cc/cmake/pkg-config/perl) for
+crates with native dependencies
 |===
 
 Personas are additive and they combine: everything the base profile gives you is still there, plus

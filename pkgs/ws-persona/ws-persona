@@ -63,6 +63,7 @@ networking:tailscale:Tailscale, Nebula
 fish:fish:fish shell with matching aliases/prompt (making it your login shell is a separate, manual step)
 press:xelatex:asciidoctor+epub3, texlive (xelatex/latexmk), poppler/qpdf/librsvg, JRE, epubcheck - book and paper typesetting
 media:ffmpeg:faster-whisper (local audio transcription) + ffmpeg
+rust:rustc:rustc/cargo/clippy/rustfmt/rust-analyzer, plus a C toolchain (cc/cmake/pkg-config/perl) for native crate dependencies
 EOF
 }
 

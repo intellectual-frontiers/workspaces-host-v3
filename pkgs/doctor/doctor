@@ -516,6 +516,23 @@ if command -v python3 >/dev/null 2>&1; then
     fi
 fi
 
+section "Rust toolchain (optional persona: rust)" 1 "🦀"
+optional_cmd rustc rust
+optional_cmd cargo rust
+optional_cmd cargo-clippy rust
+optional_cmd rustfmt rust
+optional_cmd rust-analyzer rust
+optional_cmd cc rust
+optional_cmd cmake rust
+optional_cmd pkg-config rust
+if command -v cargo >/dev/null 2>&1; then
+    if [ -n "${CARGO_HOME:-}" ] && { [ -d "$CARGO_HOME" ] && [ -w "$CARGO_HOME" ] || mkdir -p "$CARGO_HOME" 2>/dev/null; }; then
+        pass "\$CARGO_HOME ($CARGO_HOME) is set and writable"
+    else
+        warn "\$CARGO_HOME is not set to a writable directory (did home-manager switch run?)"
+    fi
+fi
+
 section "Alternative shell (optional persona: fish)" 1 "🐠"
 optional_cmd fish fish
 if command -v fish >/dev/null 2>&1; then

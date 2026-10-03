@@ -12,6 +12,7 @@ flowchart TD
   Flake["flake.nix<br>(one evaluated config)"] --> Host["your host profile"]
   Flake --> Image["oci-image<br>(base + fish)"]
   Flake --> Press["oci-image-press<br>(+ press persona)"]
+  Flake --> Rust["oci-image-rust<br>(+ rust persona)"]
   Flake --> Sandboxed["oci-image-sandboxed<br>(+ firewall, non-root)"]
   Flake --> CI["CI checks"]
 ....
@@ -26,6 +27,7 @@ $ docker run -it workspaces-host:latest
 
 $ nix build .#oci-image-sandboxed   # + default-deny network egress allowlist, non-root user
 $ nix build .#oci-image-press       # + the press persona (AsciiDoc/LaTeX/EPUB typesetting)
+$ nix build .#oci-image-rust        # + the rust persona (Rust + native C/CMake toolchain)
 ----
 
 The sandboxed variant runs `init-firewall` as root, verifies its own allowlist, then drops to a
@@ -35,12 +37,14 @@ autonomous AI-agent session with no human watching each command.
 === Pulling the published image instead of building it
 
 Because this repository is public, a GitHub Actions workflow (`.github/workflows/container-image.
-yml`) publishes two images to the GitHub Container Registry on every push to `main` that touches
-`home/`, `pkgs/`, `oci/`, or the flake itself: `workspaces-host-v3` (base + fish) and
+yml`) publishes three images to the GitHub Container Registry on every push to `main` that touches
+`home/`, `pkgs/`, `oci/`, or the flake itself: `workspaces-host-v3` (base + fish),
 `workspaces-host-v3-press` (the same, plus the `press` persona -- <<personas>> -- for AsciiDoc/
-LaTeX/EPUB typesetting, as its own image so pulling the base one never costs you a TeX Live
-download). Each gets a `latest` tag and a `sha-<short-sha>` tag for pinning to an exact build.
-Pulling either skips the Nix build (and the git clone) entirely:
+LaTeX/EPUB typesetting), and `workspaces-host-v3-rust` (the same, plus the `rust` persona -- a
+stable Rust toolchain and the native C/CMake toolchain its heaviest crate graphs need) -- each its
+own image, so pulling the base one never costs you a TeX Live or Rust-toolchain download. Each gets
+a `latest` tag and a `sha-<short-sha>` tag for pinning to an exact build. Pulling any of them skips
+the Nix build (and the git clone) entirely:
 
 [source,shell]
 ----
@@ -48,10 +52,11 @@ $ docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
 $ docker run -it ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
 
 $ docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3-press:latest
+$ docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3-rust:latest
 ----
 
-Both images publish for `linux/amd64` and `linux/arm64` from the same workflow run, as a single
-multi-arch tag each -- `docker pull` picks the architecture matching your own machine
+All three images publish for `linux/amd64` and `linux/arm64` from the same workflow run, as a
+single multi-arch tag each -- `docker pull` picks the architecture matching your own machine
 automatically, no `--platform` flag needed. This matters in practice: a non-technical engineer on
 an Apple Silicon Mac gets a native arm64 image, not an amd64 one running under slow emulation.
 

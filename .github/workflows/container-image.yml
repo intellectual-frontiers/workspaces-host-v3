@@ -1,11 +1,13 @@
 name: Container Image
 
-# Publishes the same OCI images `nix build .#oci-image`/`.#oci-image-press` produce (specs 005/020/
-# 025/027, Constitution Principle IV: container parity, not a hand-maintained Dockerfile) to the
-# GitHub Container Registry, so anyone - a human testing a change, or an AI agent spinning up a
-# disposable sandbox - can `docker pull` this repository's exact closure instead of building it
-# from source. Two images (base+fish, and base+fish+press), each for linux/amd64 and linux/arm64 -
-# see specs/020-public-container-image/spec.md and specs/027-dual-image-multiarch-publish/spec.md.
+# Publishes the same OCI images `nix build .#oci-image`/`.#oci-image-press`/`.#oci-image-rust`
+# produce (specs 005/020/025/027/029, Constitution Principle IV: container parity, not a
+# hand-maintained Dockerfile) to the GitHub Container Registry, so anyone - a human testing a
+# change, or an AI agent spinning up a disposable sandbox - can `docker pull` this repository's
+# exact closure instead of building it from source. Three images (base+fish, base+fish+press, and
+# base+fish+rust), each for linux/amd64 and linux/arm64 - see
+# specs/020-public-container-image/spec.md, specs/027-dual-image-multiarch-publish/spec.md, and
+# specs/029-rust-toolchain-persona-image/spec.md.
 
 on:
   push:
@@ -28,7 +30,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Four build legs (2 images x 2 architectures). `ubuntu-24.04-arm` is a
+  # Six build legs (3 images x 2 architectures). `ubuntu-24.04-arm` is a
   # free, GA, GitHub-hosted arm64 runner for public repositories (no
   # cross-compilation or QEMU emulation) - `nix build .#<attr>` on it
   # resolves `packages.aarch64-linux.<attr>` automatically (the Nix CLI
@@ -61,6 +63,16 @@ jobs:
             flake_attr: oci-image-press
             internal_name: workspaces-host-press
             repo_suffix: "-press"
+          - runner: ubuntu-latest
+            arch: amd64
+            flake_attr: oci-image-rust
+            internal_name: workspaces-host-rust
+            repo_suffix: "-rust"
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            flake_attr: oci-image-rust
+            internal_name: workspaces-host-rust
+            repo_suffix: "-rust"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        repo_suffix: [ "", "-press" ]
+        repo_suffix: [ "", "-press", "-rust" ]
     steps:
       - uses: actions/checkout@v4
 
