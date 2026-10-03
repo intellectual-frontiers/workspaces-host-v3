@@ -12,6 +12,8 @@ Bash, on purpose. It's what every tutorial already assumes. A few things are add
 * *Smarter `cd`*: `z <part of a path>` jumps there by frecency.
 * *Modern replacements*, all optional: `eza` for `ls`, `bat` for `cat`, `rg` for `grep`, `fd` for
   `find`. `ll`/`ls`/`cat` are already aliased; everything else keeps its own name.
+* *`tree`*: a directory listing at a glance, without reaching for `eza --tree` or `fd` piped
+  through something else.
 
 Typing feels slower than you'd expect? <<first-day>> covers why, and the two fixes -- one of which
 is switching to the `fish` persona.

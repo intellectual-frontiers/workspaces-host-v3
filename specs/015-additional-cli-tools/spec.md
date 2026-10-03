@@ -37,12 +37,19 @@ other projects an engineer clones still ship a `Makefile`, and running `make` ag
 shouldn't require a manual install step any more than `wget` or `git-chglog` do. `make` joins the
 base profile alongside them.
 
+### Third revision: `tree`
+
+A small, standalone addition with the same rationale as `make`: `tree` is a directory listing
+every engineer reaches for at some point, not specific to any persona's concern, and not safely
+assumed to already be on a bare OS image the way `ls`/`find` are. It joins the base profile's
+everyday-tools group.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Everyday utilities just work (Priority: P3)
 
-An engineer reaches for `wget`, `git-chglog`, `rclone`, or `make` and finds them already on `PATH`
-in the base profile, the same as every other tool it installs; an engineer doing agent-ops/
+An engineer reaches for `wget`, `git-chglog`, `rclone`, `make`, or `tree` and finds them already on
+`PATH` in the base profile, the same as every other tool it installs; an engineer doing agent-ops/
 automation work activates that persona and finds `gopass`/`deno` there too.
 
 **Independent Test**: On an activated profile, run each tool's `--version`/`--help` and confirm
@@ -51,7 +58,7 @@ it resolves with no separate install step.
 **Acceptance Scenarios**:
 
 1. **Given** an activated base profile, **When** the engineer runs any of `wget`, `git-chglog`,
-   `rclone`, `make`, **Then** each is on `PATH`.
+   `rclone`, `make`, `tree`, **Then** each is on `PATH`.
 2. **Given** an activated `agent-ops` persona, **When** the engineer runs `gopass` or `deno`,
    **Then** each is on `PATH`.
 
@@ -83,7 +90,7 @@ confirm `ssh-add -l` lists a key with no manual step.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install `wget`, `rclone`, `git-chglog`, and GNU `make`
+- **FR-001**: The base profile MUST install `wget`, `rclone`, `git-chglog`, GNU `make`, and `tree`
   directly in `home.packages` (not merely as a build-time dependency of another package). The
   `agent-ops` persona (spec 014) MUST install `gopass` and `deno` the same way.
 - **FR-002**: The `agent-ops` persona MUST alias `deno-run` to `deno run -A` and `deno-test` to
@@ -94,8 +101,8 @@ confirm `ssh-add -l` lists a key with no manual step.
   among `~/.ssh/id_ed25519`, `~/.ssh/id_rsa` (in that order) if the agent has no keys loaded yet,
   and MUST do nothing if neither exists.
 - **FR-005**: The environment health check (spec 004) MUST report `wget`, `git-chglog`, `rclone`,
-  and `make` on `PATH` as part of its base-profile checks, and `gopass`/`deno` as an informational
-  WARN (not FAIL) when the `agent-ops` persona isn't active.
+  `make`, and `tree` on `PATH` as part of its base-profile checks, and `gopass`/`deno` as an
+  informational WARN (not FAIL) when the `agent-ops` persona isn't active.
 
 ## Success Criteria *(mandatory)*
 

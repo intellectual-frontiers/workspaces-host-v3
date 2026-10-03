@@ -34,6 +34,7 @@ in
     jq
     bat
     eza
+    tree
     blesh
     # GNU Make - not assumed to exist on the base OS image the way it
     # might on a dev machine with build-essential already installed, so
