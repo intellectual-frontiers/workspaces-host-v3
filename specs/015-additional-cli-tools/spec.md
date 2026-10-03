@@ -44,13 +44,25 @@ every engineer reaches for at some point, not specific to any persona's concern,
 assumed to already be on a bare OS image the way `ls`/`find` are. It joins the base profile's
 everyday-tools group.
 
+### Fourth revision: `curl` and `shellcheck`
+
+A review of this spec's own gap-closing rationale turned up two more: `curl` is required to
+bootstrap `install.sh` itself, so it's always present on any machine that can run this flake at
+all, but nothing pinned a version for it afterward the way every other tool here is pinned - it
+was the one exception quietly floating with whatever the base OS happened to ship. `shellcheck` is
+a different kind of gap: this repository's own tooling (`doctor`, `ws-repos`,
+`workspaces-host-update`, `install.sh`) is almost entirely bash, so a linter for that language
+belongs in every profile, not only for someone actively contributing to this repository. Both join
+the base profile alongside `wget`/`rclone`/`git-chglog`/`make`/`tree`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Everyday utilities just work (Priority: P3)
 
-An engineer reaches for `wget`, `git-chglog`, `rclone`, `make`, or `tree` and finds them already on
-`PATH` in the base profile, the same as every other tool it installs; an engineer doing agent-ops/
-automation work activates that persona and finds `gopass`/`deno` there too.
+An engineer reaches for `wget`, `git-chglog`, `rclone`, `make`, `tree`, `curl`, or `shellcheck` and
+finds them already on `PATH` in the base profile, the same as every other tool it installs; an
+engineer doing agent-ops/automation work activates that persona and finds `gopass`/`deno` there
+too.
 
 **Independent Test**: On an activated profile, run each tool's `--version`/`--help` and confirm
 it resolves with no separate install step.
@@ -58,7 +70,7 @@ it resolves with no separate install step.
 **Acceptance Scenarios**:
 
 1. **Given** an activated base profile, **When** the engineer runs any of `wget`, `git-chglog`,
-   `rclone`, `make`, `tree`, **Then** each is on `PATH`.
+   `rclone`, `make`, `tree`, `curl`, `shellcheck`, **Then** each is on `PATH`.
 2. **Given** an activated `agent-ops` persona, **When** the engineer runs `gopass` or `deno`,
    **Then** each is on `PATH`.
 
@@ -90,9 +102,10 @@ confirm `ssh-add -l` lists a key with no manual step.
 
 ### Functional Requirements
 
-- **FR-001**: The base profile MUST install `wget`, `rclone`, `git-chglog`, GNU `make`, and `tree`
-  directly in `home.packages` (not merely as a build-time dependency of another package). The
-  `agent-ops` persona (spec 014) MUST install `gopass` and `deno` the same way.
+- **FR-001**: The base profile MUST install `wget`, `rclone`, `git-chglog`, GNU `make`, `tree`,
+  `curl`, and `shellcheck` directly in `home.packages` (not merely as a build-time dependency of
+  another package). The `agent-ops` persona (spec 014) MUST install `gopass` and `deno` the same
+  way.
 - **FR-002**: The `agent-ops` persona MUST alias `deno-run` to `deno run -A` and `deno-test` to
   `deno test -A`.
 - **FR-003**: The base profile MUST alias `cdp` to change to the current git repository's
@@ -101,8 +114,8 @@ confirm `ssh-add -l` lists a key with no manual step.
   among `~/.ssh/id_ed25519`, `~/.ssh/id_rsa` (in that order) if the agent has no keys loaded yet,
   and MUST do nothing if neither exists.
 - **FR-005**: The environment health check (spec 004) MUST report `wget`, `git-chglog`, `rclone`,
-  `make`, and `tree` on `PATH` as part of its base-profile checks, and `gopass`/`deno` as an
-  informational WARN (not FAIL) when the `agent-ops` persona isn't active.
+  `make`, `tree`, `curl`, and `shellcheck` on `PATH` as part of its base-profile checks, and
+  `gopass`/`deno` as an informational WARN (not FAIL) when the `agent-ops` persona isn't active.
 
 ## Success Criteria *(mandatory)*
 

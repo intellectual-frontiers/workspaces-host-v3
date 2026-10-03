@@ -47,9 +47,11 @@ Configure the remote itself with `rclone config` first, the same as any other `r
 
 === Everything else
 
-* *`wget`, `rclone`*: a plain fetcher and a directly-runnable `rclone`.
+* *`wget`, `rclone`, `curl`*: three ways to fetch something, pinned to a reproducible version
+  rather than floating with whatever the base OS shipped.
 * *`git-chglog`*: generate a `CHANGELOG.md` from your commit history.
 * *`make`*: GNU Make, pinned here rather than assumed from the base OS image.
+* *`shellcheck`*: a linter for the language most of this repository's own tooling is written in.
 * *SSH agent auto-start*: a new login shell loads your key automatically.
 * *`cdp`*: jumps to the current git repo's top-level directory.
 

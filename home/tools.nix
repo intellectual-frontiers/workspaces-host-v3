@@ -40,6 +40,16 @@ in
     # might on a dev machine with build-essential already installed, so
     # it's pinned here like every other tool this flake provisions.
     gnumake
+    # curl: install.sh itself needs it to bootstrap, so it's always on
+    # the machine before Nix ever runs, but nothing pinned its version
+    # afterward - unlike every other tool here, it was floating with
+    # whatever the base OS happened to ship.
+    curl
+    # shellcheck: this repo's own tooling (doctor, ws-repos,
+    # workspaces-host-update, install.sh) is almost entirely bash, so a
+    # linter for that language belongs in every profile, not just for
+    # someone actively contributing.
+    shellcheck
     # Scans a repo for anything that looks like a committed secret -
     # `gitleaks detect --source . -v` - the practical backstop for
     # "keeping credentials out of git history" (README) alongside a
