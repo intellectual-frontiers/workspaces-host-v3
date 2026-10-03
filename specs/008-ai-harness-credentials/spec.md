@@ -46,6 +46,15 @@ Linux-only, the same split `osqueryi`/`init-firewall` already have elsewhere in 
 Playwright-based MCP server gets the full benefit on every system; a Puppeteer-based one gets it on
 Linux and falls back to its own download on Darwin until nixpkgs packages Chromium there too.
 
+### Follow-up: the `playwright` CLI itself (2026)
+
+The previous revision provisioned the *browsers* a Playwright-based MCP server drives, but not
+Playwright's own CLI (`playwright codegen`, `playwright test`, the trace viewer) for an engineer or
+agent who wants to drive a browser directly rather than through an MCP server - the same gap
+`aider-chat` closes for "a CLI AI tool that just works" versus only provisioning a runtime.
+nixpkgs packages it directly as `playwright-test` (FR-007 below, extended), and - unlike
+`chromium`/`playwright-driver` - keeps it version-locked to the exact `playwright-driver.browsers`
+revision already installed, so there's no separate drift to track.
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An agent CLI gets its key, nothing else does (Priority: P1)
@@ -107,7 +116,9 @@ inspect a plain interactive shell's environment and confirm the key is absent.
   not available on Darwin). It MUST set `PLAYWRIGHT_BROWSERS_PATH`/`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`
   unconditionally and `PUPPETEER_EXECUTABLE_PATH`/`PUPPETEER_SKIP_DOWNLOAD` wherever `chromium` is
   installed, so a browser-automation MCP server (Playwright MCP, the Puppeteer MCP server) uses
-  them instead of downloading its own Chromium on first launch.
+  them instead of downloading its own Chromium on first launch. It MUST also install
+  `playwright-test` unconditionally (the `playwright` CLI), version-locked by nixpkgs to the same
+  revision as `playwright-driver.browsers`.
 
 ### Key Entities
 
@@ -116,6 +127,8 @@ inspect a plain interactive shell's environment and confirm the key is absent.
   the base profile alongside `nodejs`.
 - **`chromium`/`playwright-driver.browsers`**: the matching shared browser runtime for
   browser-automation MCP servers, installed unconditionally alongside the above.
+- **`playwright-test`**: provides the `playwright` CLI itself (codegen, test runner, trace
+  viewer), for driving a browser directly rather than only through an MCP server.
 
 ## Success Criteria *(mandatory)*
 

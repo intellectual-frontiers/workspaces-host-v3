@@ -11,6 +11,21 @@ someone forgot to update. Pull a commit, rebuild, and you get the exact same res
 small set of "personas" add extra tools on top for backend, mobile, agent-ops, compliance, and
 networking work, so the base install stays small and everyone gets only what they actually need.
 
+## Try it without installing anything
+
+This repository publishes its container image to the GitHub Container Registry on every change,
+built from the exact same Nix closure as the host profile (no separate Dockerfile to drift). Pull
+it to test a change, or to give an AI agent a disposable sandbox with no git clone or Nix install
+first:
+
+```shell
+docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
+docker run -it ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
+```
+
+See the full documentation's "Container and CI Parity" chapter for pinning to an exact commit
+(`:sha-<short-sha>`) and using it in a pipeline.
+
 ## Full documentation
 
 **[intellectual-frontiers.github.io/workspaces-host-v3](https://intellectual-frontiers.github.io/workspaces-host-v3/)**

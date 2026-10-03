@@ -30,6 +30,28 @@ The sandboxed variant runs `init-firewall` as root, verifies its own allowlist, 
 non-root user before handing off to the workload -- the shape you'd actually want for an
 autonomous AI-agent session with no human watching each command.
 
+=== Pulling the published image instead of building it
+
+Because this repository is public, a GitHub Actions workflow (`.github/workflows/container-image.
+yml`) publishes the same `oci-image` to the GitHub Container Registry on every push to `main` that
+touches `home/`, `pkgs/`, `oci/`, or the flake itself -- `latest`, plus a `sha-<short-sha>` tag
+for pinning to an exact build. Pulling it skips the Nix build (and the git clone) entirely:
+
+[source,shell]
+----
+$ docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
+$ docker run -it ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
+----
+
+This is for exactly the two audiences "ease testing" implies: a human who wants to try this
+environment or test a change without installing Nix first, and an AI agent that wants a disposable
+sandbox already matching this repository's exact tool versions:
+
+[source,shell]
+----
+$ docker run --rm ghcr.io/intellectual-frontiers/workspaces-host-v3:latest doctor --all
+----
+
 === Using it in a real pipeline
 
 Because the image is built from the same flake output as `homeConfigurations.default`, a CI job

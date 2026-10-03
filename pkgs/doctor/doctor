@@ -432,6 +432,7 @@ check_cmd uv
 if [ "$(uname -s)" = "Linux" ]; then
     check_cmd chromium
 fi
+check_cmd playwright
 if [ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ] && [ -d "$PLAYWRIGHT_BROWSERS_PATH" ]; then
     pass "PLAYWRIGHT_BROWSERS_PATH is set and valid ($PLAYWRIGHT_BROWSERS_PATH)"
 else

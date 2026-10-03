@@ -3,9 +3,9 @@
 
 === Setting up AI coding agents
 
-Every profile installs `nodejs`, `aider-chat`, `python3`, `uv`, a matching set of Playwright
-browser binaries, and (on Linux) `chromium`, ready to go. The fast-moving hosted CLIs install with
-their own `npm install -g`:
+Every profile installs `nodejs`, `aider-chat`, `python3`, `uv`, the `playwright` CLI, a matching
+set of Playwright browser binaries, and (on Linux) `chromium`, ready to go. The fast-moving hosted
+CLIs install with their own `npm install -g`:
 
 [source,shell]
 ----
@@ -22,8 +22,10 @@ official Puppeteer MCP server, and others built the same way -- so the first tim
 finds a browser already on this machine (`PLAYWRIGHT_BROWSERS_PATH`, and on Linux
 `PUPPETEER_EXECUTABLE_PATH`, point at it) instead of downloading its own. `chromium` itself is
 Linux-only -- nixpkgs doesn't build it for macOS -- so on macOS a Puppeteer-based server still
-downloads its own browser the first time; a Playwright-based one doesn't, on either platform. No
-persona required for any of this to work.
+downloads its own browser the first time; a Playwright-based one doesn't, on either platform. The
+`playwright` CLI itself (`playwright codegen`, `playwright test`) is there too, for driving a
+browser directly instead of only through an MCP server, version-locked by nixpkgs to the exact
+browser revision already installed. No persona required for any of this to work.
 
 Give one its key by adding it to your credentials file (<<your-name-email-and-any-api-keys>>) and
 running `workspaces-host-update`. Each CLI's key is scoped to that one invocation, never exported

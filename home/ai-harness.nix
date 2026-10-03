@@ -131,12 +131,20 @@ in
   # browser archives rather than building Chromium from source, so (and
   # this is the one case in this repo where that matters) it's actually
   # available on all four systems this flake targets, Darwin included.
+  #
+  # `playwright-test` provides the actual `playwright` CLI (codegen,
+  # `playwright test`, trace viewer, ...), genuinely nixpkgs-packaged
+  # like `aider-chat` above, not merely an engine something else drives
+  # - and nixpkgs keeps it version-locked to `playwright-driver` itself
+  # (both 1.52.0 as of this writing), so it always talks to the exact
+  # browser revision `playwright-driver.browsers` actually has.
   home.packages = with pkgs; [
     nodejs
     aider-chat
     python3
     uv
     playwright-driver.browsers
+    playwright-test
     openssh
     gh
     glab
