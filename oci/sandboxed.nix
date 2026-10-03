@@ -40,6 +40,12 @@ pkgs.dockerTools.buildLayeredImage {
   contents = cfg.home.packages ++ (with pkgs; [
     bashInteractive
     coreutils
+    # gnugrep/gawk: every real host this profile installs onto already
+    # has them as part of its base OS; this image has no base OS at all
+    # (see oci/default.nix's own comment - the same gap, found the same
+    # way, applies here).
+    gnugrep
+    gawk
     cacert
     iptables
     ipset

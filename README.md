@@ -23,6 +23,10 @@ docker pull ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
 docker run -it ghcr.io/intellectual-frontiers/workspaces-host-v3:latest
 ```
 
+Or open this repository itself in a devcontainer -- `.devcontainer/devcontainer.json` points at
+the same published image, so VS Code, GitHub Codespaces, and the `devcontainer` CLI all pick it up
+with zero configuration ("Reopen in Container" is the whole setup step).
+
 See the full documentation's "Container and CI Parity" chapter for pinning to an exact commit
 (`:sha-<short-sha>`) and using it in a pipeline.
 

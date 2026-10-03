@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "Workspaces Host v3",
+  // The published image (spec 020) is the exact same closure
+  // `nix build .#oci-image` produces locally - pulling it is what makes
+  // this instant: no Nix install, no build step, on any OS a container
+  // runtime supports. See specs/021-devcontainer-support/spec.md.
+  "image": "ghcr.io/intellectual-frontiers/workspaces-host-v3:latest",
+  // The image has no non-root user baked in (oci/default.nix sets none),
+  // so this is explicit rather than relying on whatever the image/tool
+  // default happens to be.
+  "remoteUser": "root",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  // `bash -lc`, not a bare command: home-manager's shell config (PATH,
+  // aliases, the WORKSPACES_HOST_REPO variable `doctor` itself checks)
+  // only loads through the .bash_profile -> .bashrc chain a login shell
+  // runs - the same reason `docker run -it ... bash -l` is what
+  // container-ci.adoc documents, not a plain `docker run ... bash`.
+  "postCreateCommand": "bash -lc 'doctor || true'"
+}

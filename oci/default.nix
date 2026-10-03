@@ -15,10 +15,18 @@ pkgs.dockerTools.buildLayeredImage {
   # Same closure as the host profile: the exact package set home-manager
   # decided this profile needs (bash, oh-my-posh, direnv, git, ws-repos,
   # doctor, and the core CLI toolset), plus cacert/bash/coreutils for a
-  # usable minimal container.
+  # usable minimal container. gnugrep/gawk close a real gap coreutils
+  # doesn't cover: every real host this profile installs onto already
+  # has them as part of its base OS, so nothing in home.packages installs
+  # them either, but this image has no base OS at all - found by actually
+  # running `doctor` inside a built container (spec 021's devcontainer
+  # work), which hit bare "grep: command not found"/"awk: command not
+  # found" without them.
   contents = cfg.home.packages ++ (with pkgs; [
     bashInteractive
     coreutils
+    gnugrep
+    gawk
     cacert
     dockerTools.fakeNss
   ]);
@@ -32,6 +40,20 @@ pkgs.dockerTools.buildLayeredImage {
     cp ${configFile "oh-my-posh/config.json"} root/.config/oh-my-posh/config.json
     cp ${configFile "direnv/lib/hm-nix-direnv.sh"} root/.config/direnv/lib/hm-nix-direnv.sh
     chmod -R u+w root
+
+    # dockerTools.fakeNss (in `contents` above) lands /etc/passwd and
+    # /etc/group as symlinks into the Nix store, same as every other
+    # package's files in a buildLayeredImage - fine for anything reading
+    # them through the ordinary filesystem, but some container tooling
+    # resolves paths with its own secure, containment-checking open
+    # rather than the kernel's normal symlink-following one (found via
+    # the devcontainers CLI's exec shim, spec 021: it refused to read a
+    # symlink target under /nix/store, reporting "path escapes from
+    # parent"). Materializing them as real, non-symlink files sidesteps
+    # that outright.
+    rm -f etc/passwd etc/group
+    cp ${pkgs.dockerTools.fakeNss}/etc/passwd etc/passwd
+    cp ${pkgs.dockerTools.fakeNss}/etc/group etc/group
   '';
 
   config = {

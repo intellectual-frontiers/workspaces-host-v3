@@ -52,6 +52,28 @@ sandbox already matching this repository's exact tool versions:
 $ docker run --rm ghcr.io/intellectual-frontiers/workspaces-host-v3:latest doctor --all
 ----
 
+=== Opening this repository as a devcontainer
+
+`.devcontainer/devcontainer.json` at the repository root points its `image` property at the same
+published tag, so VS Code, GitHub Codespaces, or the standalone `devcontainer` CLI all pick it up
+with zero configuration -- "Reopen in Container" (or its Codespaces equivalent) is the entire
+setup step, no Nix install, no local build:
+
+[source,shell]
+----
+$ npx @devcontainers/cli up --workspace-folder .
+----
+
+It sets `remoteUser`/`workspaceFolder` explicitly (the image itself defines neither a non-root
+user nor a devcontainer-shaped working directory -- that's deliberately kept out of `oci/
+default.nix`, which stays focused on being a plain, correct OCI image) and runs `doctor` via
+`postCreateCommand` through a login shell, so you see an authoritative health check the moment the
+container is up.
+
+Want this same environment as the devcontainer for a *different* project, not this repository?
+Copy the `image` line into that project's own `.devcontainer/devcontainer.json` -- there's nothing
+else to add.
+
 === Using it in a real pipeline
 
 Because the image is built from the same flake output as `homeConfigurations.default`, a CI job
