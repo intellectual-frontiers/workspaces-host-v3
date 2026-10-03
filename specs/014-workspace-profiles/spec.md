@@ -76,6 +76,19 @@ build`/`home-manager switch` themselves. `doctor`'s login-shell check (spec 004 
 hardened at the same time to verify the shell binary the path names still actually exists, not
 just that the string matches, closing the false-PASS hole directly.
 
+### Follow-up: `python3`/`uv` move to the base profile (2026)
+
+An engineer pointed out that `python3` existed only behind the `data` persona, while a growing
+share of MCP servers an AI coding agent's own `.mcp.json` references are Python packages launched
+via `uvx <package>` - no separate install step, the same way `npx` works for a Node-based one
+(spec 008 already provisions `nodejs` unconditionally for exactly that reason on the Node side).
+Gating the Python half of that same ecosystem behind a persona meant an engineer had to already
+know this repository has a `data` persona, and activate it, before an ordinary MCP server would
+work - a worse version of the same gap spec 008's `nodejs` already closed. `python3` and `uv`
+moved into `home/ai-harness.nix` alongside `nodejs`/`aider-chat` (now covered by spec 008 FR-006,
+not this spec); the `data` persona (FR-004 below) keeps only `duckdb`, the one package actually
+specific to data engineering/analysis rather than general agent tooling.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Activate a specialized profile for my role (Priority: P2)
@@ -84,11 +97,11 @@ An engineer doing backend/data/mobile/agent-ops work wants the extra tools their
 needs, on top of everything the base profile already gives them, without those tools being
 forced on every engineer who doesn't need them.
 
-**Independent Test**: Build and activate `homeConfigurations.current-data`; confirm `uv`/`duckdb`
-are present in addition to everything the base profile installs. Separately: `ws-persona
-activate fish`, `ws-persona activate backend`, then build `homeConfigurations.current`; confirm
-both persona's tools (`fish` and `mvn`/`redis-cli`/`docker-compose`) are present together in one
-build.
+**Independent Test**: Build and activate `homeConfigurations.current-data`; confirm `duckdb` is
+present in addition to everything the base profile installs (`python3`/`uv` included - see spec
+008 FR-006). Separately: `ws-persona activate fish`, `ws-persona activate backend`, then build
+`homeConfigurations.current`; confirm both persona's tools (`fish` and
+`mvn`/`redis-cli`/`docker-compose`) are present together in one build.
 
 **Acceptance Scenarios**:
 
@@ -206,7 +219,9 @@ aliases bash gets, and that no other engineer's `default`/`current` activation c
 - **FR-003**: The `backend` persona MUST add `postgresql` (client), `redis`, `docker-compose`,
   `httpie`, and (per spec 007's own newbie-simplification follow-up) the Java/Postgres toolchain:
   a pinned JDK/Maven and the `pgpass` CLI, by importing `home/java.nix` and `home/postgres.nix`.
-- **FR-004**: The `data` persona MUST add `python3`, `uv`, and `duckdb`.
+- **FR-004**: The `data` persona MUST add `duckdb`. (`python3` and `uv` moved to the base profile
+  - see spec 008 FR-006 - since they're shared agent-harness infrastructure, not specific to data
+  work.)
 - **FR-005**: The `mobile` persona MUST add `android-tools` (`adb`/`fastboot`) and `watchman`.
 - **FR-006**: The `agent-ops` persona MUST add `act` (`gh` is already in the shared base via
   spec 008's `home/ai-harness.nix`, so it is not duplicated here), plus (per specs 008/011/015's

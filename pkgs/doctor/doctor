@@ -417,6 +417,11 @@ check_ai_cli claude "Claude Code" "ANTHROPIC_API_KEY"
 check_ai_cli codex "OpenAI Codex CLI" "OPENAI_API_KEY"
 check_ai_cli gemini "Gemini CLI" "GEMINI_API_KEY GOOGLE_API_KEY"
 check_ai_cli aider "aider" "ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY"
+# python3/uv: the shared runtime most MCP servers need (uvx-launched
+# Python packages), base-profile like nodejs - not an agent CLI with
+# its own credential, so a plain check_cmd, not check_ai_cli.
+check_cmd python3
+check_cmd uv
 if command -v gh >/dev/null 2>&1; then
     if gh extension list 2>/dev/null | grep -qi copilot; then
         pass "GitHub Copilot CLI extension is installed (gh extension list)"

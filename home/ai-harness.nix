@@ -106,9 +106,23 @@ in
   # one `npm install -g` command upstream already documents - see
   # README's "Setting up AI harness credentials" section for the exact
   # commands and the safe way to give each one its API key.
+  #
+  # `python3` and `uv` are the same kind of shared runtime, for the
+  # other half of the agent ecosystem: most MCP servers an agent's own
+  # `.mcp.json` references (the official reference servers included -
+  # fetch, git, sqlite, ...) are Python packages launched via `uvx
+  # <package>`, with no separate install step of their own, the same
+  # way `npx` works for a Node-based one. That needs `uv` (which
+  # provides `uvx`) and a Python interpreter on PATH unconditionally,
+  # not gated behind the `data` persona (home/profiles/data.nix keeps
+  # only `duckdb`, the one piece of that persona actually specific to
+  # data work) - an engineer shouldn't have to know this repo has a
+  # `data` persona just to get an MCP server working.
   home.packages = with pkgs; [
     nodejs
     aider-chat
+    python3
+    uv
     openssh
     gh
     glab

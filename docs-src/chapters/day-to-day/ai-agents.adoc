@@ -3,8 +3,8 @@
 
 === Setting up AI coding agents
 
-Every profile installs `nodejs` and `aider-chat`, ready to go. The fast-moving hosted CLIs install
-with their own `npm install -g`:
+Every profile installs `nodejs`, `aider-chat`, `python3`, and `uv`, ready to go. The fast-moving
+hosted CLIs install with their own `npm install -g`:
 
 [source,shell]
 ----
@@ -12,6 +12,10 @@ $ npm install -g @anthropic-ai/claude-code   # provides: claude
 $ npm install -g @openai/codex               # provides: codex
 $ npm install -g @google/gemini-cli          # provides: gemini
 ----
+
+`python3`/`uv` are there for the other half of the ecosystem: most MCP servers an agent's own
+`.mcp.json` references are Python packages launched with `uvx <package>`, no separate install step
+needed, the same way `npx` works for a Node-based one. No persona required for that to work.
 
 Give one its key by adding it to your credentials file (<<your-name-email-and-any-api-keys>>) and
 running `workspaces-host-update`. Each CLI's key is scoped to that one invocation, never exported

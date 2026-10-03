@@ -9,6 +9,23 @@
 **Input**: User description: "Scoped provisioning of AI coding agent (Claude Code, Codex, etc.)
 credentials so an agent's own API keys follow the same never-unscoped secrets model"
 
+## Background
+
+### Follow-up: `python3`/`uv` as a base-profile shared runtime (2026)
+
+`nodejs` was already provisioned unconditionally here (FR-001's own rationale: Claude Code/Codex/
+Gemini CLI ship too fast to vendor as Nix derivations, so their shared runtime is pinned instead,
+and installing the actual CLI is one `npm install -g`). The same gap existed on the Python side
+and was easy to miss, since nothing in this spec's FRs ever named it: most MCP servers an agent's
+own `.mcp.json` references - the official reference servers included (fetch, git, sqlite, ...) -
+are Python packages launched with `uvx <package>`, the same no-install-step pattern `npx` gives a
+Node-based one. `python3` and `uv` (which provides `uvx`) had only ever lived behind the `data`
+persona (spec 014), which meant an ordinary MCP server silently didn't work until an engineer
+happened to know this repository has a `data` persona and activated it - a worse version of
+exactly the gap `nodejs` already closed on the other side. Both moved into `home/ai-harness.nix`
+alongside `nodejs`/`aider-chat` (FR-006 below); the `data` persona kept only `duckdb`, the package
+actually specific to data engineering/analysis (spec 014 FR-004).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An agent CLI gets its key, nothing else does (Priority: P1)
@@ -60,10 +77,16 @@ inspect a plain interactive shell's environment and confirm the key is absent.
   newbie-simplification pass (see spec 014's own follow-up): `aider-chat` already covers "a
   provider-agnostic AI CLI that just works" for every profile, so `llm` stays available without
   being a second always-on default.
+- **FR-006**: The base profile MUST install `python3` and `uv` unconditionally, the same way
+  FR-001's `nodejs` is installed unconditionally for the hosted CLIs — the shared runtime most MCP
+  servers need (launched via `uvx <package>`, no separate install step), not gated behind the
+  `data` persona (spec 014 FR-004, which keeps only `duckdb`).
 
 ### Key Entities
 
 - **`llm`**: a provider-agnostic CLI for prompting LLMs, with its own independent key storage.
+- **`python3`/`uv`**: the shared runtime most MCP servers depend on, installed unconditionally in
+  the base profile alongside `nodejs`.
 
 ## Success Criteria *(mandatory)*
 
