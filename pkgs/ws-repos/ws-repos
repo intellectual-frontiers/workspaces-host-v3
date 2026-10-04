@@ -45,15 +45,20 @@ usage() {
 ${c_bold}Usage:${c_reset} ws-repos <command> [args...]
 
 Commands:
-  ensure                 Clone-or-pull every repo in \$WS_REPOS_CONFIG into
+  ensure                 Clone-or-update every repo in \$WS_REPOS_CONFIG into
                           \$WORKSPACES_HOME, following the
                           <git-host>/<org>/.../<repo> convention. Symlinks
                           any $WS_REPOS_VSCODE_WS_PATTERN files found inside
                           each repo to the workspace root, and recursively
                           ensures any repos referenced by that workspace
                           file's "folders" (VS Code multi-root "monorepo").
-                          Exits non-zero, naming each repo and git's own
-                          reason, if any clone or pull fails.
+                          An existing clone is only ever fast-forwarded:
+                          one with uncommitted changes, local commits that
+                          diverge from upstream, or no upstream is left as
+                          it was and named in the summary, and an adopted
+                          checkout (below) is only fetched. Exits non-zero,
+                          naming each repo and git's own reason, if any
+                          clone or update fails.
   adopt [PATH]            Take a checkout opened outside \$WORKSPACES_HOME
                           (Codespaces and volume devcontainers always open
                           /workspaces/<repo>) into the layout instead of
@@ -97,7 +102,7 @@ Config file format (\$WS_REPOS_CONFIG):
 "fresh": true deletes and re-clones an already-cloned repo instead of
 pulling. It is refused for a repo that is a symlink (an adopted
 checkout): deleting the link would leave the real checkout and clone a
-second copy, so that repo is pulled instead. Set NO_COLOR=1 to disable
+second copy, so that repo is fetched instead. Set NO_COLOR=1 to disable
 status's color output.
 EOF
 }
@@ -109,7 +114,10 @@ SUMMARY_FILE=$(mktemp)
 # pipelines (subshells), where a variable set would never reach
 # cmd_ensure's closing summary.
 FAILED_FILE=$(mktemp)
-trap 'rm -f "$HANDLED_FILE" "$SUMMARY_FILE" "$FAILED_FILE"' EXIT INT TERM
+# One "<repo>\t<why>" line per repo deliberately left as it was (spec
+# 036): local work ensure must not touch. Not a failure.
+SKIPPED_FILE=$(mktemp)
+trap 'rm -f "$HANDLED_FILE" "$SUMMARY_FILE" "$FAILED_FILE" "$SKIPPED_FILE"' EXIT INT TERM
 
 is_handled() {
     grep -qxF "$1" "$HANDLED_FILE" 2>/dev/null
@@ -128,6 +136,62 @@ record_failure() {
     if [ -n "${WS_REPOS_FAILED_FILE:-}" ]; then
         printf '%s\n' "$1" >>"$WS_REPOS_FAILED_FILE"
     fi
+}
+
+# record_skip REPO WHY: a repo ensure left alone on purpose, for the
+# closing summary; $WS_REPOS_SKIPPED_FILE gets "<repo>: <why>" for
+# ws-start's own summary, the same way $WS_REPOS_FAILED_FILE does.
+record_skip() {
+    echo "ws-repos: $1: $2" >&2
+    printf '%s\t%s\n' "$1" "$2" >>"$SKIPPED_FILE"
+    if [ -n "${WS_REPOS_SKIPPED_FILE:-}" ]; then
+        printf '%s: %s\n' "$1" "$2" >>"$WS_REPOS_SKIPPED_FILE"
+    fi
+}
+
+# update_repo REPO ABS: bring an existing clone up to date without ever
+# risking local work (spec 036). `git pull` was wrong here: this
+# profile's git config makes it a rebase with autostash, so a reattach
+# with unpushed commits that conflicted upstream left the working copy
+# mid-rebase. Instead: fetch, then fast-forward only, and only when the
+# working tree is clean and the branch hasn't diverged. Anything else is
+# reported and left exactly as it was.
+update_repo() {
+    ur_repo="$1"
+    ur_abs="$2"
+    # A symlinked repo is an adopted checkout - the working copy an
+    # editor opened and someone is editing right now. Fetch it so
+    # `status` is current; never touch its working tree or branch.
+    if [ -L "$ur_abs" ]; then
+        echo "ws-repos: $ur_repo is the checkout the editor opened ($(readlink "$ur_abs")) - fetching only" >&2
+        if run_git "$ur_repo" fetch -C "$ur_abs" fetch --quiet; then
+            record_skip "$ur_repo" "the checkout the editor opened - fetched, working tree not updated"
+            return 0
+        fi
+        return 1
+    fi
+    if [ -n "$(git -C "$ur_abs" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+        record_skip "$ur_repo" "has uncommitted changes, not updated"
+        return 0
+    fi
+    run_git "$ur_repo" fetch -C "$ur_abs" fetch --quiet || return 1
+    if ! git -C "$ur_abs" rev-parse --verify --quiet '@{u}' >/dev/null 2>&1; then
+        record_skip "$ur_repo" "no upstream branch (detached HEAD, or a branch that tracks nothing), not updated"
+        return 0
+    fi
+    ur_counts=$(git -C "$ur_abs" rev-list --left-right --count '@{u}...HEAD' 2>/dev/null || printf '0\t0')
+    ur_behind=$(printf '%s' "$ur_counts" | cut -f1)
+    ur_ahead=$(printf '%s' "$ur_counts" | cut -f2)
+    if [ "$ur_behind" = 0 ]; then
+        return 0
+    fi
+    if [ "$ur_ahead" != 0 ]; then
+        record_skip "$ur_repo" "has $ur_ahead local commit(s) and is $ur_behind behind upstream (diverged), not updated"
+        return 0
+    fi
+    # Fast-forward only: git refuses rather than merging, and refuses
+    # rather than overwriting an untracked file, leaving the tree as is.
+    run_git "$ur_repo" fast-forward -C "$ur_abs" merge --ff-only --quiet '@{u}'
 }
 
 # run_git REPO WHAT GIT_ARGS...: runs git, passing its stderr through
@@ -264,15 +328,15 @@ ensure_repo() {
             # `rm -rf` on the link would remove only the link, and the
             # clone below would then make the second copy adopt exists
             # to prevent - so refuse, and pull the real checkout instead.
-            echo "ws-repos: $repo_path is a link to $(readlink "$abs") (an adopted checkout) - refusing \"fresh\", which would delete only the link and clone a second copy; pulling it instead (re-clone $(readlink "$abs") yourself if you need a fresh copy)" >&2
+            echo "ws-repos: $repo_path is a link to $(readlink "$abs") (an adopted checkout) - refusing \"fresh\", which would delete only the link and clone a second copy; updating it instead (re-clone $(readlink "$abs") yourself if you need a fresh copy)" >&2
             fresh=false
         fi
         if [ "$fresh" = "true" ]; then
             echo "ws-repos: $repo_path found, forcing re-clone (removing $abs)" >&2
             rm -rf "$abs"
         else
-            echo "ws-repos: $repo_path found, pulling latest" >&2
-            if run_git "$repo_path" pull -C "$abs" pull --quiet; then
+            echo "ws-repos: $repo_path found, updating (fast-forward only)" >&2
+            if update_repo "$repo_path" "$abs"; then
                 resolve_workspace_deps "$abs"
             fi
             return 0
@@ -303,6 +367,12 @@ cmd_ensure() {
         ensure_repo "$repo" "$fresh"
     done
 
+    if [ -s "$SKIPPED_FILE" ]; then
+        echo "ws-repos ensure: $(wc -l <"$SKIPPED_FILE" | tr -d ' ') repo(s) left as they were:" >&2
+        while IFS="$(printf '\t')" read -r repo why; do
+            echo "ws-repos ensure:   - $repo: $why" >&2
+        done <"$SKIPPED_FILE"
+    fi
     if [ -s "$FAILED_FILE" ]; then
         echo "ws-repos ensure: $(wc -l <"$FAILED_FILE" | tr -d ' ') repo(s) failed:" >&2
         while IFS="$(printf '\t')" read -r repo reason; do

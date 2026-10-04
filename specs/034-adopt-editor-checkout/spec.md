@@ -26,7 +26,7 @@ I chose a subcommand over inlining it in `ws-start`: it's useful by hand too (a 
 cloned to the wrong place), and `ws-repos` already owns the layout and the config.
 
 Links go two directions. `~/workspaces/<host>/<org>/<repo>` points at the checkout, so `ensure`
-finds it (`[ -d ]` follows the link) and pulls it. `<parent>/<other-repo>` points into the layout,
+finds it (`[ -d ]` follows the link) and fetches it (spec 036: never updates its working tree). `<parent>/<other-repo>` points into the layout,
 so `../<other-repo>` resolves from the checkout. That second direction matters: tools resolve `..`
 against the checkout's physical path, so a link that only existed under `~/workspaces` would be no
 help.
@@ -36,7 +36,7 @@ vanished from it. Rather than `find -L` (which also wanders into every `node_mod
 needs loop guarding), `status` and `inspect` list each symlink under `$WORKSPACES_HOME` that is
 itself a repo, and don't follow links any further. `fresh` on such a link is refused: `rm -rf` on
 it removes only the link, and the clone after it makes the duplicate `adopt` exists to prevent.
-`ensure` pulls it instead and says why.
+`ensure` fetches it instead and says why.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -54,7 +54,7 @@ lists all of them.
    `ws-repos adopt` runs in it, **Then** the canonical path becomes a link to it and each other
    listed repo gets a link beside it.
 2. **Given** the same, **When** `ws-start` runs, **Then** it adopts before `ensure`, and `ensure`
-   pulls the checkout instead of cloning it.
+   fetches the checkout instead of cloning it.
 3. **Given** a checkout already at its canonical path, or not listed, **When** `adopt` runs,
    **Then** it changes nothing.
 4. **Given** something already exists at a path `adopt` would link, **When** it runs, **Then** it
@@ -62,7 +62,7 @@ lists all of them.
 5. **Given** an adopted repo, **When** `ws-repos status` or `inspect` runs, **Then** it includes
    that repo.
 6. **Given** an adopted repo with `"fresh": true`, **When** `ensure` runs, **Then** it refuses the
-   re-clone, pulls the checkout, and says so.
+   re-clone, fetches the checkout, and says so.
 
 ## Requirements *(mandatory)*
 
@@ -82,7 +82,7 @@ lists all of them.
   a git checkout.
 - **FR-006**: `ws-repos status` and `inspect` MUST include repos reached through a symlink under
   `$WORKSPACES_HOME`, without following symlinks recursively.
-- **FR-007**: `ensure` MUST refuse `"fresh": true` for a repo whose path is a symlink, pull it
+- **FR-007**: `ensure` MUST refuse `"fresh": true` for a repo whose path is a symlink, fetch it
   instead, and say which it did.
 
 ## Success Criteria *(mandatory)*

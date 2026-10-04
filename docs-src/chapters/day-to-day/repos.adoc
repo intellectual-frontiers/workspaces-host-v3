@@ -9,7 +9,7 @@ as you actually use, not just one. Wondering about the name? <<why-ws-repos>> ex
 [source,shell]
 ----
 $ nano ~/workspaces/ws-repos.json   # { "repos": [{ "repo": "github.com/org/repo" }] }
-$ ws-repos ensure                    # clone-or-pull everything listed
+$ ws-repos ensure                    # clone, or fast-forward, everything listed
 $ ws-repos status                    # up to date/needs a pull/dirty/untracked/locked/stash
 $ ws-repos inspect                   # list git hosts and repos referenced by workspace files
 ----
@@ -63,10 +63,24 @@ repo's history was rewritten upstream and a plain pull would conflict:
 
 Remove the flag (or the whole entry) once you've re-cloned; it isn't meant to stay set
 permanently. `ws-repos` refuses `fresh` on a repo that is a symlink (an adopted checkout, below):
-deleting the link would leave the real checkout where it is and clone a second copy. It pulls that
+deleting the link would leave the real checkout where it is and clone a second copy. It fetches that
 repo instead and tells you so; re-clone the real checkout yourself if you need to.
 
-=== When a clone or pull fails
+=== `ensure` never rewrites your local work
+
+An existing clone is only ever fast-forwarded: `ensure` fetches, then moves the branch forward if
+nothing local is in the way. It doesn't use `git pull`, because this profile's git config makes
+`pull` a rebase with autostash, and on a repo with unpushed commits that conflict upstream that
+stops halfway and leaves the working copy mid-rebase. That's a bad thing for a routine command to
+do to whatever you're in the middle of.
+
+So `ensure` leaves a repo exactly as it was, and names it in its summary, when it has uncommitted
+changes to tracked files, when it has local commits and upstream moved too (diverged), or when its
+branch tracks no upstream. A checkout you adopted (below) is only fetched, never updated: it's the
+copy you're editing. Rebase or merge those yourself when you're ready; `ws-repos status` shows
+which ones need it.
+
+=== When a clone or update fails
 
 `ensure` keeps going past a failure, so one bad entry doesn't stop the rest, but it exits non-zero
 at the end and lists each failed repo with git's own reason. That reason is the part worth reading:
@@ -84,8 +98,8 @@ repo a second time, and `../.github` doesn't exist beside it.
 `ws-repos adopt [PATH]` fixes that without moving anything. Run inside a checkout that's listed in
 `ws-repos.json` but isn't in the layout, it:
 
-. makes `~/workspaces/<host>/<org>/<repo>` a symlink to the checkout, so `ensure` pulls it through
-  the link instead of cloning it again;
+. makes `~/workspaces/<host>/<org>/<repo>` a symlink to the checkout, so `ensure` finds it through
+  the link and fetches it instead of cloning it again;
 . makes `<parent of the checkout>/<repo-name>` a symlink to `~/workspaces/<host>/<org>/<repo-name>`
   for every other listed repo, so `../<repo>` resolves from the checkout. The link goes this
   direction because tools resolve `..` against the checkout's real path, not the link's.

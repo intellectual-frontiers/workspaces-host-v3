@@ -142,7 +142,9 @@ before anyone has attached to it, so there's no GitHub login yet to clone a priv
 
 It's idempotent: attach again, and every step is a near-instant no-op. Clones never stop at a
 username prompt (`GIT_TERMINAL_PROMPT=0`): a private repo before login fails at once with git's own
-reason. If any repo failed, the closing summary names each one and `ws-start` exits non-zero; when
+reason. It never rebases, merges, or stashes anything: the checkout you opened is only fetched,
+and a repo with uncommitted changes or diverged local commits is left as it was and named in the
+summary as "not updated". If any repo failed, the closing summary names each one and `ws-start` exits non-zero; when
 login didn't complete, it says that `gh auth login` and then `ws-start` is the fix. A different IF
 repository's own `devcontainer.json` copies this pattern directly:
 

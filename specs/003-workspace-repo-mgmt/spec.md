@@ -155,7 +155,8 @@ authentication problem, for each of GitHub, GitLab, and a self-hosted GitLab ins
 - **FR-001**: A single `ws-repos` command MUST provide `ensure`, `status`, and `inspect`
   subcommands, installed on `PATH` by the base profile (spec 001). Spec 034 adds a fourth,
   `adopt`, and makes `status`/`inspect` include repos reached through a symlink; spec 033 makes
-  `ensure` exit non-zero, with git's own reason, when any clone or pull fails.
+  `ensure` exit non-zero, with git's own reason, when any clone or update fails; spec 036
+  replaces `ensure`'s pull with fetch + fast-forward only.
 - **FR-002**: `ws-repos ensure` MUST clone a repo listed in the workspace config (default
   `~/workspaces/ws-repos.json`) to its predictable path under `~/workspaces` if absent, or pull it
   if already present, unless that entry is explicitly marked for a fresh reclone.

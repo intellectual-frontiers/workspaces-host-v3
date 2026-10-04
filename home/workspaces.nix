@@ -48,10 +48,10 @@ everything, your GitHub/GitLab authentication included, actually works.
 
 | Command | What it does |
 | --- | --- |
-| `ws-repos ensure` | Clone every new repo in `ws-repos.json`. Pull every repo already cloned. |
+| `ws-repos ensure` | Clone every new repo in `ws-repos.json`. Fast-forward every repo already cloned; one with uncommitted changes or diverged commits is left alone and named. |
 | `ws-repos status` | Show dirty, untracked, ahead, behind, locked, and stashed state for every repo here. |
 | `ws-repos inspect` | List every git host and repo referenced by a `*.mgit.code-workspace` file here. |
-| `ws-repos adopt` | Link a checkout opened outside this folder (a Codespace's `/workspaces/<repo>`) into this layout, so `ensure` pulls it instead of cloning a second copy. |
+| `ws-repos adopt` | Link a checkout opened outside this folder (a Codespace's `/workspaces/<repo>`) into this layout, so `ensure` fetches it instead of cloning a second copy, and never touches its working tree. |
 | `doctor` | Check the essentials: Nix, shell, git, credentials, GitHub/GitLab auth, `ws-repos`. |
 | `doctor --all` | Check everything else too: every tool, every persona-specific check. |
 | `gh auth login` | Authenticate git and the `gh` CLI against github.com. Run once, for private GitHub repos. |
