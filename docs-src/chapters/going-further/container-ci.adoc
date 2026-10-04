@@ -79,6 +79,16 @@ devcontainer feature that thinks there is fails worse than one that doesn't reco
 `doctor` reads it too: inside an image, a missing `nix` is a `WARN` (the image ships the profile's
 closure, not Nix), not the `FAIL` it is on a host.
 
+Generic Linux binaries run here too. A manylinux wheel's bundled executable (`playwright`'s
+`driver/node` is the one that found this) names `/lib64/ld-linux-x86-64.so.2` as its interpreter,
+which a Nix image doesn't have. Every image puts https://github.com/nix-community/nix-ld[nix-ld]
+at that path and sets `NIX_LD`/`NIX_LD_LIBRARY_PATH`, so such a binary starts with a common set of
+libraries (libstdc++, zlib, OpenSSL, curl, glib, and the rest in `oci/default.nix`). A wheel loaded
+into one of the image's own interpreters never goes through nix-ld, so `LD_LIBRARY_PATH` carries
+the small set those need: libstdc++, libgcc_s, zlib, and fribidi, harfbuzz and freetype for
+Pillow's raqm text layout. I kept it that short on purpose, because `LD_LIBRARY_PATH` outranks a
+Nix binary's own library path. `doctor` checks the loader, `NIX_LD`, and libstdc++ in an image.
+
 === Opening this repository as a devcontainer
 
 `.devcontainer/devcontainer.json` at the repository root points its `image` property at the same

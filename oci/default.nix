@@ -52,6 +52,47 @@ let
     VARIANT_ID=${if flavor == "" then "base" else flavor}
     HOME_URL="https://github.com/intellectual-frontiers/workspaces-host-v3"
   '';
+
+  # Generic Linux binaries and wheels (spec 037). The image has no FHS
+  # loader and no ld.so.cache, so a manylinux wheel's `driver/node` fails
+  # with ENOENT (its ELF interpreter does not exist), and a wheel that
+  # dlopens a system library finds none. Two pieces fix that:
+  #
+  # - nix-ld sits at the loader path generic ELF files name. It starts
+  #   NIX_LD (the image's glibc loader) with NIX_LD_LIBRARY_PATH, so such
+  #   a binary gets `genericLibs` and nothing else, and no nix-built
+  #   program's library choice changes.
+  # - LD_LIBRARY_PATH holds the small `dlopenLibs` set. A wheel loaded
+  #   into a nix-built interpreter (the image's python, ruby, node) never
+  #   passes through nix-ld, so only this variable reaches its dlopen
+  #   calls: libstdc++/libgcc_s for greenlet and friends, zlib, and
+  #   fribidi/harfbuzz/freetype for Pillow's raqm text layout.
+  #
+  # The loader path is the one generic binaries of that architecture
+  # name.
+  isAarch64 = pkgs.stdenv.hostPlatform.isAarch64;
+  loaderName = if isAarch64 then "ld-linux-aarch64.so.1" else "ld-linux-x86-64.so.2";
+  loaderDir = if isAarch64 then "lib" else "lib64";
+  dlopenLibs = with pkgs; [
+    stdenv.cc.cc.lib # libstdc++.so.6, libgcc_s.so.1
+    zlib
+    fribidi
+    harfbuzz
+    freetype
+  ];
+  genericLibs = dlopenLibs ++ (with pkgs; [
+    zstd
+    bzip2
+    xz
+    openssl
+    curl
+    expat
+    libffi
+    glib
+    ncurses
+    libxml2
+    util-linux.lib # libuuid
+  ]);
 in
 pkgs.dockerTools.buildLayeredImage {
   name = imageName;
@@ -138,6 +179,12 @@ pkgs.dockerTools.buildLayeredImage {
     mkdir -p usr/lib
     cp ${osRelease} etc/os-release
     cp ${osRelease} usr/lib/os-release
+
+    # nix-ld at the loader path generic ELF files name (spec 037). A
+    # symlink is fine here: it is resolved by the kernel's exec, which
+    # follows it into /nix/store.
+    mkdir -p ${loaderDir}
+    ln -s ${pkgs.nix-ld}/libexec/nix-ld ${loaderDir}/${loaderName}
   '';
 
   config = {
@@ -145,6 +192,9 @@ pkgs.dockerTools.buildLayeredImage {
       "HOME=/root"
       "USER=root"
       "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+      "NIX_LD=${pkgs.glibc}/lib/${loaderName}"
+      "NIX_LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath genericLibs}"
+      "LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath dlopenLibs}"
     ];
     # `-l`: a login shell, guaranteeing the .bash_profile -> .bashrc
     # sourcing chain runs regardless of how the container is invoked.

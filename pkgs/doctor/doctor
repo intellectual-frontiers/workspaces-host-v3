@@ -276,6 +276,29 @@ if command -v uv >/dev/null 2>&1; then
     fi
 fi
 
+# Spec 037: the published images carry nix-ld at the loader path generic
+# Linux binaries name, so a manylinux wheel's bundled executable runs.
+# Only an image sets NIX_LD; a host has its own loader.
+if [ -n "${NIX_LD:-}" ]; then
+    section "Generic Linux binaries (nix-ld)" 0 "🧬"
+    generic_loader=$(ls /lib64/ld-linux-x86-64.so.2 /lib/ld-linux-aarch64.so.1 2>/dev/null | head -n1)
+    if [ -n "$generic_loader" ] && [ -x "$generic_loader" ]; then
+        pass "$generic_loader exists (nix-ld), so a generic ELF binary with that interpreter can start"
+    else
+        fail "no executable at /lib64/ld-linux-x86-64.so.2 (or /lib/ld-linux-aarch64.so.1) - a manylinux wheel's bundled binary fails with ENOENT"
+    fi
+    if [ -x "$NIX_LD" ]; then
+        pass "NIX_LD points at the glibc loader ($NIX_LD)"
+    else
+        fail "NIX_LD ($NIX_LD) is not an executable file - nix-ld has nothing to hand control to"
+    fi
+    if printf '%s' "${LD_LIBRARY_PATH:-}" | tr ':' '\n' | while read -r d; do ls "$d"/libstdc++.so.6 2>/dev/null; done | grep -q .; then
+        pass "libstdc++.so.6 is on LD_LIBRARY_PATH, so a uv-installed wheel (greenlet, numpy) can load it"
+    else
+        fail "libstdc++.so.6 is not on LD_LIBRARY_PATH - a wheel that needs it stops with ImportError"
+    fi
+fi
+
 section "Credentials file (~/.config/workspaces-host/credentials)" 0 "🔐"
 credentials_file="${XDG_CONFIG_HOME:-$HOME/.config}/workspaces-host/credentials"
 if [ -f "$credentials_file" ]; then

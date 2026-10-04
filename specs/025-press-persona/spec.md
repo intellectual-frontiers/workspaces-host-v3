@@ -79,7 +79,8 @@ Means section below succeeds.
 ### Functional Requirements
 
 - **FR-001**: A new `press` persona (`home/profiles/press.nix`) MUST provide
-  `asciidoctor-with-extensions`, a `texlive.combine` with `scheme-basic`, `collection-xetex`,
+  `asciidoctor-with-extensions` (wrapped with `GEM_PATH` set to its gem set, spec 037, so it prints
+  nothing on stderr), a `texlive.combine` with `scheme-basic`, `collection-xetex`,
   `collection-latexextra`, `collection-fontsrecommended`, `collection-mathscience`, and `latexmk`,
   plus `poppler_utils`, `qpdf`, `librsvg`, `fontconfig`, `jre_headless`, and `epubcheck`.
 - **FR-002**: `press` MUST be registered in `flake.nix`'s `personaModules` and `pkgs/ws-persona`'s
