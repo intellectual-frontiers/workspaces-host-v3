@@ -153,5 +153,44 @@ in
     # server itself only needs the `sqlite3` module Python already
     # ships with, not this binary.
     sqlite
-  ]);
+
+    # ImageMagick (spec 032), built with WebP (nixpkgs' default for
+    # `imagemagick`; `doctor` checks the format list rather than assume
+    # it), plus libwebp's own `cwebp`/`dwebp`: an image pipeline that
+    # resizes and re-encodes a brand's imagery needs both, and none of
+    # it is persona-sized.
+    imagemagick
+    libwebp
+  ])
+  # A standard Unix userland (spec 030). Every real Linux host already
+  # has these from its base OS; a container image built from this
+  # profile has no base OS at all, so a build script's first `sed`,
+  # `tar` or `ps` failed there with "command not found". Listing them
+  # here, rather than only in oci/default.nix, keeps host and image on
+  # one closure (Constitution Principle IV). Linux only: macOS ships
+  # BSD versions of all but `xz`, and a GNU `sed`/`find`/`tar` ahead of
+  # them on PATH would quietly change how every existing script on a
+  # Mac behaves (`sed -i ''`, for one). `hostname-debian`, not
+  # `inetutils`: inetutils also brings an unprivileged `ping`/
+  # `traceroute` that would shadow the host's working setuid ones.
+  ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux (with pkgs; [
+    gnused
+    findutils
+    diffutils
+    gnupatch
+    gnutar
+    gzip
+    unzip
+    zip
+    bzip2
+    file
+    less
+    which
+    procps
+    hostname-debian
+    ncurses
+    rsync
+    bc
+  ])
+  ++ [ pkgs.xz ];
 }

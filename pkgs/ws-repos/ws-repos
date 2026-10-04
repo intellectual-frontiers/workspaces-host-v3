@@ -52,6 +52,17 @@ Commands:
                           each repo to the workspace root, and recursively
                           ensures any repos referenced by that workspace
                           file's "folders" (VS Code multi-root "monorepo").
+                          Exits non-zero, naming each repo and git's own
+                          reason, if any clone or pull fails.
+  adopt [PATH]            Take a checkout opened outside \$WORKSPACES_HOME
+                          (Codespaces and volume devcontainers always open
+                          /workspaces/<repo>) into the layout instead of
+                          cloning it a second time: links
+                          \$WORKSPACES_HOME/<host>/<org>/<repo> to it, and
+                          links every other configured repo beside it so
+                          ../<repo> resolves. PATH defaults to the current
+                          directory; a checkout not listed in
+                          \$WS_REPOS_CONFIG is left alone.
   status [DEPTH]          Fetch and report git status (up to date/needs a
                           pull/dirty/ahead/untracked/no-upstream), plus a
                           stuck index.lock and stash count, across every
@@ -84,13 +95,21 @@ Config file format (\$WS_REPOS_CONFIG):
   }
 
 "fresh": true deletes and re-clones an already-cloned repo instead of
-pulling. Set NO_COLOR=1 to disable status's color output.
+pulling. It is refused for a repo that is a symlink (an adopted
+checkout): deleting the link would leave the real checkout and clone a
+second copy, so that repo is pulled instead. Set NO_COLOR=1 to disable
+status's color output.
 EOF
 }
 
 HANDLED_FILE=$(mktemp)
 SUMMARY_FILE=$(mktemp)
-trap 'rm -f "$HANDLED_FILE" "$SUMMARY_FILE"' EXIT INT TERM
+# One "<repo>\t<git's reason>" line per repo that failed to clone or
+# pull. A file, not a variable: ensure_repo runs inside `jq | while`
+# pipelines (subshells), where a variable set would never reach
+# cmd_ensure's closing summary.
+FAILED_FILE=$(mktemp)
+trap 'rm -f "$HANDLED_FILE" "$SUMMARY_FILE" "$FAILED_FILE"' EXIT INT TERM
 
 is_handled() {
     grep -qxF "$1" "$HANDLED_FILE" 2>/dev/null
@@ -98,6 +117,94 @@ is_handled() {
 
 mark_handled() {
     printf '%s\n' "$1" >>"$HANDLED_FILE"
+}
+
+# record_failure REPO REASON: remembers a failed clone/pull for
+# cmd_ensure's summary and exit status. $WS_REPOS_FAILED_FILE, when set,
+# also gets the bare repo name - how ws-start names the failures in its
+# own summary without parsing this tool's output.
+record_failure() {
+    printf '%s\t%s\n' "$1" "$2" >>"$FAILED_FILE"
+    if [ -n "${WS_REPOS_FAILED_FILE:-}" ]; then
+        printf '%s\n' "$1" >>"$WS_REPOS_FAILED_FILE"
+    fi
+}
+
+# run_git REPO WHAT GIT_ARGS...: runs git, passing its stderr through
+# (indented) so its own reason is visible where it happened, and on
+# failure records that reason - every non-blank stderr line, joined -
+# rather than a guess at the cause: "could not read Username" (no
+# login), "Repository not found" (no access, or a typo) and "Could not
+# resolve host" (offline) each need a different fix.
+run_git() {
+    rg_repo="$1"
+    rg_what="$2"
+    shift 2
+    rg_err=$(mktemp)
+    if git "$@" 2>"$rg_err"; then
+        sed 's/^/ws-repos:     /' "$rg_err" >&2
+        rm -f "$rg_err"
+        return 0
+    fi
+    sed 's/^/ws-repos:     /' "$rg_err" >&2
+    rg_reason=$(grep -v '^[[:space:]]*$' "$rg_err" | paste -sd ' ' -)
+    rm -f "$rg_err"
+    [ -n "$rg_reason" ] || rg_reason="git exited non-zero with no message"
+    echo "ws-repos: $rg_what failed for $rg_repo: $rg_reason" >&2
+    record_failure "$rg_repo" "$rg_what failed: $rg_reason"
+    return 1
+}
+
+# repo_id_from_url URL: <host>/<org>/.../<repo> from a git remote URL -
+# https with or without credentials ("https://x-access-token:...@host/..."),
+# ssh:// (port dropped), or scp-style "git@host:org/repo" - the same
+# names ensure clones under $WORKSPACES_HOME. Parameter expansion only.
+repo_id_from_url() {
+    u="${1%/}"
+    u="${u%.git}"
+    case "$u" in
+    *://*)
+        u="${u#*://}"
+        case "${u%%/*}" in *@*) u="${u#*@}" ;; esac
+        ;;
+    *@*:*)
+        u="${u#*@}"
+        u="${u%%:*}/${u#*:}"
+        ;;
+    esac
+    host="${u%%/*}"
+    printf '%s/%s\n' "${host%:*}" "${u#*/}"
+}
+
+# physical_path PATH: PATH with every symlink resolved, the final
+# component included (empty if it doesn't exist).
+physical_path() {
+    if [ -d "$1" ]; then
+        (cd "$1" 2>/dev/null && pwd -P)
+    fi
+}
+
+# list_repo_dirs DEPTH: every repo under $WORKSPACES_HOME, one path per
+# line. A plain `find -name .git` never descends through a symlink, and
+# an adopted checkout (cmd_adopt) is exactly that - so every symlink that
+# is itself a repo is listed too, without following links any further
+# (so no loop to guard against).
+list_repo_dirs() {
+    {
+        find "$WORKSPACES_HOME" -maxdepth "$1" -name .git -type d 2>/dev/null | while IFS= read -r gitdir; do
+            dirname "$gitdir"
+        done
+        list_repo_links "$1"
+    } | sort -u
+}
+
+# list_repo_links DEPTH: just the symlinked repos list_repo_dirs adds.
+list_repo_links() {
+    find "$WORKSPACES_HOME" -maxdepth "$1" -type l 2>/dev/null | while IFS= read -r link; do
+        if [ -d "$link/.git" ]; then
+            printf '%s\n' "$link"
+        fi
+    done
 }
 
 # strip_jsonc FILE: a best-effort JSONC -> JSON filter (drops whole-line
@@ -123,10 +230,14 @@ strip_jsonc() {
 # skipped rather than passed through as a literal path.
 resolve_workspace_deps() {
     abs="$1"
-    find "$abs" -type f -name "$WS_REPOS_VSCODE_WS_PATTERN" 2>/dev/null | while IFS= read -r wsfile; do
+    # "$abs/", not "$abs": find does not descend into a starting point
+    # that is itself a symlink (an adopted checkout) without it. `-s`
+    # keeps the link's logical path, so the workspace-file link points
+    # through $WORKSPACES_HOME/<host>/<org>/<repo>, not around it.
+    find "$abs/" -type f -name "$WS_REPOS_VSCODE_WS_PATTERN" 2>/dev/null | while IFS= read -r wsfile; do
         name=$(basename "$wsfile")
         target="$WORKSPACES_HOME/$name"
-        rel=$(realpath --relative-to="$WORKSPACES_HOME" "$wsfile")
+        rel=$(realpath -s --relative-to="$WORKSPACES_HOME" "$wsfile")
         echo "ws-repos:   symlinking $name -> $rel" >&2
         rm -f "$target"
         ln -s "$rel" "$target"
@@ -149,15 +260,20 @@ ensure_repo() {
     mark_handled "$abs"
 
     if [ -d "$abs" ]; then
+        if [ "$fresh" = "true" ] && [ -L "$abs" ]; then
+            # `rm -rf` on the link would remove only the link, and the
+            # clone below would then make the second copy adopt exists
+            # to prevent - so refuse, and pull the real checkout instead.
+            echo "ws-repos: $repo_path is a link to $(readlink "$abs") (an adopted checkout) - refusing \"fresh\", which would delete only the link and clone a second copy; pulling it instead (re-clone $(readlink "$abs") yourself if you need a fresh copy)" >&2
+            fresh=false
+        fi
         if [ "$fresh" = "true" ]; then
             echo "ws-repos: $repo_path found, forcing re-clone (removing $abs)" >&2
             rm -rf "$abs"
         else
             echo "ws-repos: $repo_path found, pulling latest" >&2
-            if git -C "$abs" pull --quiet; then
+            if run_git "$repo_path" pull -C "$abs" pull --quiet; then
                 resolve_workspace_deps "$abs"
-            else
-                echo "ws-repos: pull failed for $repo_path" >&2
             fi
             return 0
         fi
@@ -165,10 +281,8 @@ ensure_repo() {
 
     mkdir -p "$(dirname "$abs")"
     echo "ws-repos: $repo_path not found, cloning" >&2
-    if git clone --quiet "https://$repo_path" "$abs"; then
+    if run_git "$repo_path" clone clone --quiet "https://$repo_path" "$abs"; then
         resolve_workspace_deps "$abs"
-    else
-        echo "ws-repos: clone failed for $repo_path (not a valid managed git URL?)" >&2
     fi
 }
 
@@ -178,10 +292,85 @@ cmd_ensure() {
         exit 1
     }
     mkdir -p "$WORKSPACES_HOME"
-    jq -c '.repos[]' "$WS_REPOS_CONFIG" | while IFS= read -r entry; do
+    entries=$(jq -c '.repos[]' "$WS_REPOS_CONFIG") || {
+        echo "ws-repos: could not read .repos[] from $WS_REPOS_CONFIG - see 'ws-repos --help' for the format" >&2
+        exit 1
+    }
+    printf '%s\n' "$entries" | while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
         repo=$(printf '%s' "$entry" | jq -r '.repo')
         fresh=$(printf '%s' "$entry" | jq -r '.fresh // false')
         ensure_repo "$repo" "$fresh"
+    done
+
+    if [ -s "$FAILED_FILE" ]; then
+        echo "ws-repos ensure: $(wc -l <"$FAILED_FILE" | tr -d ' ') repo(s) failed:" >&2
+        while IFS="$(printf '\t')" read -r repo reason; do
+            echo "ws-repos ensure:   - $repo: $reason" >&2
+        done <"$FAILED_FILE"
+        exit 1
+    fi
+    echo "ws-repos ensure: ok" >&2
+}
+
+# cmd_adopt [PATH]: see usage. Only shell, git and jq, so it works in an
+# image with nothing else; idempotent, and it never moves, deletes or
+# clones anything - it only adds links where nothing exists yet.
+cmd_adopt() {
+    [ -f "$WS_REPOS_CONFIG" ] || {
+        echo "ws-repos adopt: no config at $WS_REPOS_CONFIG - see 'ws-repos --help' for the format" >&2
+        exit 1
+    }
+    start="${1:-$PWD}"
+    here=$(git -C "$start" rev-parse --show-toplevel 2>/dev/null) || {
+        echo "ws-repos adopt: $start is not inside a git checkout" >&2
+        exit 1
+    }
+    here=$(physical_path "$here")
+    url=$(git -C "$here" remote get-url origin 2>/dev/null) || {
+        echo "ws-repos adopt: $here has no 'origin' remote to name it by" >&2
+        exit 1
+    }
+    self=$(repo_id_from_url "$url")
+    if ! jq -e --arg r "$self" 'any(.repos[]; .repo == $r)' "$WS_REPOS_CONFIG" >/dev/null 2>&1; then
+        echo "ws-repos adopt: $self ($here) is not listed in $WS_REPOS_CONFIG - nothing to adopt" >&2
+        return 0
+    fi
+    canonical="$WORKSPACES_HOME/$self"
+
+    # The checkout already lives at its own place in the layout (its
+    # parent resolved physically, the last component not, so a link
+    # *at* that place doesn't count): nothing to do.
+    if [ "$(physical_path "$(dirname "$canonical")")/$(basename "$canonical")" = "$here" ]; then
+        echo "ws-repos adopt: $here is already $canonical - nothing to do" >&2
+        return 0
+    fi
+
+    if [ -L "$canonical" ] && [ "$(physical_path "$canonical")" = "$here" ]; then
+        echo "ws-repos adopt: $canonical already links to $here" >&2
+    elif [ -e "$canonical" ] || [ -L "$canonical" ]; then
+        echo "ws-repos adopt: $canonical already exists and is not a link to $here - leaving both alone (ensure will pull that one, not this checkout)" >&2
+    else
+        mkdir -p "$(dirname "$canonical")"
+        ln -s "$here" "$canonical"
+        echo "ws-repos adopt: $canonical -> $here" >&2
+    fi
+
+    # Links go from beside the checkout into the layout, not the other
+    # way round: tools resolve "../<repo>" against the checkout's
+    # physical path, so the link has to exist there.
+    parent=$(dirname "$here")
+    jq -r '.repos[].repo' "$WS_REPOS_CONFIG" | while IFS= read -r repo; do
+        [ -n "$repo" ] && [ "$repo" != "$self" ] || continue
+        beside="$parent/${repo##*/}"
+        if [ -L "$beside" ] && [ "$(readlink "$beside")" = "$WORKSPACES_HOME/$repo" ]; then
+            continue
+        elif [ -e "$beside" ] || [ -L "$beside" ]; then
+            echo "ws-repos adopt: $beside already exists - leaving it alone" >&2
+        else
+            ln -s "$WORKSPACES_HOME/$repo" "$beside"
+            echo "ws-repos adopt: $beside -> $WORKSPACES_HOME/$repo" >&2
+        fi
     done
 }
 
@@ -190,7 +379,7 @@ cmd_ensure() {
 # $SUMMARY_FILE for cmd_status's closing tally.
 report_repo_status() {
     repo="$1"
-    display_path=$(realpath --relative-to="$PWD" "$repo" 2>/dev/null || printf '%s' "$repo")
+    display_path=$(realpath -s --relative-to="$PWD" "$repo" 2>/dev/null || printf '%s' "$repo")
     branch=$(git -C "$repo" symbolic-ref --short -q HEAD || echo "(detached)")
 
     locked=false
@@ -290,8 +479,8 @@ report_repo_status() {
 cmd_status() {
     depth="${1:-6}"
     : >"$SUMMARY_FILE"
-    find "$WORKSPACES_HOME" -maxdepth "$depth" -name .git -type d 2>/dev/null | while IFS= read -r gitdir; do
-        report_repo_status "$(dirname "$gitdir")"
+    list_repo_dirs "$depth" | while IFS= read -r repo_dir; do
+        report_repo_status "$repo_dir"
     done
 
     total=$(wc -l <"$SUMMARY_FILE" | tr -d ' ')
@@ -308,11 +497,18 @@ cmd_status() {
 
 cmd_inspect() {
     repos=$(mktemp)
-    find "$WORKSPACES_HOME" -type f -name "$WS_REPOS_VSCODE_WS_PATTERN" 2>/dev/null | while IFS= read -r wsfile; do
+    # Symlinked (adopted) repos searched explicitly, same reason as
+    # list_repo_dirs.
+    {
+        find "$WORKSPACES_HOME" -type f -name "$WS_REPOS_VSCODE_WS_PATTERN" 2>/dev/null
+        list_repo_links 6 | while IFS= read -r link; do
+            find "$link/" -type f -name "$WS_REPOS_VSCODE_WS_PATTERN" 2>/dev/null
+        done
+    } | while IFS= read -r wsfile; do
         # "." means "the repo this workspace file itself lives in"
         # (upstream mgit.ts's own convention) - resolve it to that repo's
         # actual path instead of reporting the literal ".".
-        self_repo=$(dirname "$(realpath --relative-to="$WORKSPACES_HOME" "$wsfile")")
+        self_repo=$(dirname "$(realpath -s --relative-to="$WORKSPACES_HOME" "$wsfile")")
         strip_jsonc "$wsfile" | jq -r '.folders[]?.path // empty' 2>/dev/null | while IFS= read -r p; do
             [ "$p" = "." ] && p="$self_repo"
             printf '%s\n' "$p"
@@ -334,6 +530,7 @@ cmd="$1"
 shift
 case "$cmd" in
 ensure) cmd_ensure "$@" ;;
+adopt) cmd_adopt "$@" ;;
 status) cmd_status "$@" ;;
 inspect) cmd_inspect "$@" ;;
 -h | --help) usage ;;

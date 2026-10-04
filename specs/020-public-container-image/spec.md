@@ -100,7 +100,10 @@ README, in language an agent reading either file would act on directly (the exac
   `flake.nix`, or `flake.lock`, plus on manual dispatch.
 - **FR-002**: Each publish MUST push two tags built from the same image: `latest` and
   `sha-<short-commit-sha>`, so a consumer can pin to an exact, reproducible build instead of only
-  ever tracking the moving `latest` tag.
+  ever tracking the moving `latest` tag. A manual (`workflow_dispatch`) publish from any branch
+  other than `main` MUST push only the `sha-` tag and leave `latest` where it is, so a commit can
+  be pinned and tested before it merges (spec 033-035's round of image changes were verified this
+  way).
 - **FR-003**: The workflow MUST authenticate to GHCR using the workflow's own `GITHUB_TOKEN`
   (`packages: write` permission) - no additional secret to provision or rotate.
 - **FR-004**: README MUST document the published image (pull command, what it is) in language

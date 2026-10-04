@@ -31,10 +31,16 @@
     # texlive-fonts-recommended/texlive-science packages cover (nixpkgs
     # names its own collections after upstream TeX Live's, not Debian's
     # package names, hence the different-looking attribute names below
-    # for the same actual content).
+    # for the same actual content). `collection-luatex` (spec 032) is
+    # Debian's texlive-luatex: LuaLaTeX itself plus `lualatex-math`,
+    # `luaotfload` and the rest of what makes `fontspec`/`unicode-math`
+    # work under LuaLaTeX, not only XeLaTeX - a print harness that
+    # compiles with `lualatex` stopped at "File `lualatex-math.sty' not
+    # found" without it.
     (pkgs.texlive.combine {
       inherit (pkgs.texlive)
         scheme-basic
+        collection-luatex
         collection-xetex
         collection-latexextra
         collection-fontsrecommended

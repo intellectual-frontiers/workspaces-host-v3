@@ -43,7 +43,9 @@ yml`) publishes three images to the GitHub Container Registry on every push to `
 LaTeX/EPUB typesetting), and `workspaces-host-v3-rust` (the same, plus the `rust` persona -- a
 stable Rust toolchain and the native C/CMake toolchain its heaviest crate graphs need) -- each its
 own image, so pulling the base one never costs you a TeX Live or Rust-toolchain download. Each gets
-a `latest` tag and a `sha-<short-sha>` tag for pinning to an exact build. Pulling any of them skips
+a `latest` tag and a `sha-<short-sha>` tag for pinning to an exact build. Running the workflow by
+hand on another branch publishes only that commit's `sha-` tag, so you can pin and test a change
+before it merges without moving `latest` for everyone. Pulling any of them skips
 the Nix build (and the git clone) entirely:
 
 [source,shell]
@@ -68,6 +70,14 @@ sandbox already matching this repository's exact tool versions:
 ----
 $ docker run --rm ghcr.io/intellectual-frontiers/workspaces-host-v3:latest doctor --all
 ----
+
+Each image has a minimal `/etc/os-release` (and the same file at `/usr/lib/os-release`):
+`ID=workspaces-host`, `VERSION_ID` set to the short commit it was built from (the same commit its
+`sha-` tag names), and `VARIANT_ID` set to `base`, `press`, or `rust`. The devcontainer CLI and VS
+Code both read it. It claims no `ID_LIKE` on purpose: there's no `apt` or `apk` in here, and a
+devcontainer feature that thinks there is fails worse than one that doesn't recognize the OS.
+`doctor` reads it too: inside an image, a missing `nix` is a `WARN` (the image ships the profile's
+closure, not Nix), not the `FAIL` it is on a host.
 
 === Opening this repository as a devcontainer
 
@@ -123,11 +133,18 @@ before anyone has attached to it, so there's no GitHub login yet to clone a priv
    flow works the same way in a plain terminal, VS Code's integrated terminal, and a Codespace (a
    Codespace already has a token, so this step is instant there). Once authenticated, it runs `gh
    auth setup-git` so plain `git clone`/`git push` against github.com use that same login.
-2. Runs `ws-repos ensure`, honoring `$WS_REPOS_CONFIG` exactly as `ws-repos` already does on its
+2. Runs `ws-repos adopt` on the checkout the editor opened, when that checkout is listed in
+   `$WS_REPOS_CONFIG` but isn't under `~/workspaces` -- always the case in a Codespace or a volume
+   devcontainer, which open `/workspaces/<repo>`. `~/workspaces/<host>/<org>/<repo>` becomes a link
+   to it and every other listed repo gets a link beside it, so `../.github` resolves (<<repos>>).
+3. Runs `ws-repos ensure`, honoring `$WS_REPOS_CONFIG` exactly as `ws-repos` already does on its
    own -- nothing new to configure in `ws-start` itself.
 
-It's idempotent: attach again, and both steps are near-instant no-ops. A different IF repository's
-own `devcontainer.json` copies this pattern directly:
+It's idempotent: attach again, and every step is a near-instant no-op. Clones never stop at a
+username prompt (`GIT_TERMINAL_PROMPT=0`): a private repo before login fails at once with git's own
+reason. If any repo failed, the closing summary names each one and `ws-start` exits non-zero; when
+login didn't complete, it says that `gh auth login` and then `ws-start` is the fix. A different IF
+repository's own `devcontainer.json` copies this pattern directly:
 
 [source,json]
 ----

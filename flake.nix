@@ -52,6 +52,13 @@
         overlays = [ rust-overlay.overlays.default ];
       };
 
+      # The short commit an image is built from, for its /etc/os-release
+      # VERSION_ID (spec 031): the same 7-character form CI's own
+      # `git rev-parse --short HEAD` tags the published image with
+      # (`sha-<short>`), so the two always name the same commit. A build
+      # from a dirty tree says so rather than claiming a clean commit.
+      imageRevision = self.shortRev or self.dirtyShortRev or "unknown";
+
       # Per-persona profiles (spec 014): each adds a small, focused package
       # set on top of the shared base (home/) - composable slices rather
       # than one global package list.
@@ -238,16 +245,19 @@
           oci-image = import ./oci {
             inherit pkgs;
             homeConfig = homeConfigurationsForImage.${system};
+            revision = imageRevision;
           };
           oci-image-press = import ./oci {
             inherit pkgs;
             homeConfig = homeConfigurationsForPressImage.${system};
             imageName = "workspaces-host-press";
+            revision = imageRevision;
           };
           oci-image-rust = import ./oci {
             inherit pkgs;
             homeConfig = homeConfigurationsForRustImage.${system};
             imageName = "workspaces-host-rust";
+            revision = imageRevision;
           };
         }
         # init-firewall (iptables/ipset) declares itself unsupported on

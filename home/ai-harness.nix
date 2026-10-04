@@ -116,7 +116,11 @@ in
   # persona is gone now (spec 014's own "the data persona is removed"
   # revision) - `uv` moved here, and its other package, `duckdb`, moved
   # to home/tools.nix's everyday-tools group, since neither needed a
-  # persona to justify gating them. `python3` itself - the interpreter
+  # persona to justify gating them. Spec 035 makes keeping it here a
+  # requirement, not a convenience: a repo's own command line may fetch
+  # hash-locked Python packages on first use through `uv`, into uv's own
+  # cache under $HOME (`~/.cache/uv`), never into the store's read-only
+  # interpreter, so every flavor has to carry it. `python3` itself - the interpreter
   # `uvx` needs - is provisioned by home/tools.nix instead (spec 024's
   # document/data toolchain `python3.withPackages` environment, which
   # this module's `uvx` use case shares rather than duplicates; two

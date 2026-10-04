@@ -73,12 +73,16 @@ prior `gh` login; confirm it prompts the device-flow login, then clones every re
 - **FR-001**: A new `ws-start` command (`pkgs/ws-start`) MUST check `gh auth status`; if not
   authenticated, run `gh auth login`, then (on success, or if already authenticated) run `gh auth
   setup-git` so git uses `gh`'s stored credentials.
+- **FR-001a** (spec 034): Before `ws-repos ensure`, `ws-start` MUST run `ws-repos adopt` when it
+  runs inside a git checkout, so a checkout an editor opened outside `~/workspaces` is linked into
+  the layout instead of cloned a second time.
 - **FR-002**: `ws-start` MUST run `ws-repos ensure` afterward, with no new configuration logic of
   its own - `ws-repos`'s existing `$WS_REPOS_CONFIG` handling already covers "point this at the
   repo's own `.devcontainer/ws-repos.json`."
 - **FR-003**: `ws-start` MUST be idempotent (safe to run on every attach, not only the first) and
-  end by printing exactly one summary line stating what it did and, if anything is incomplete,
-  what to do next.
+  end by printing one summary line stating what it did and, if anything is incomplete, what to do
+  next. Amended by spec 033: the summary names every repo that failed, a next-step line follows
+  it, and `ws-start` exits non-zero when `ensure` did.
 - **FR-004**: `ws-start` MUST be a base-profile tool (`home/tools.nix`), available on every flavor,
   not gated behind a persona.
 - **FR-005**: Both of this repository's own devcontainer configs (`.devcontainer/devcontainer.json`,

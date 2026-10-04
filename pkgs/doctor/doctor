@@ -129,6 +129,15 @@ optional_cmd() {
     fi
 }
 
+# The published OCI images (oci/default.nix) identify themselves in
+# /etc/os-release (spec 031). They carry this profile's closure but, by
+# design, no Nix of their own - so there a missing `nix` is the expected
+# state, not a broken install.
+IN_IMAGE=0
+if grep -qx 'ID=workspaces-host' /etc/os-release 2>/dev/null; then
+    IN_IMAGE=1
+fi
+
 printf '\n%s🩺 workspaces-host doctor%s\n' "$c_bold_magenta" "$c_reset"
 printf '%s%s%s\n' "$c_dim" "$RULE" "$c_reset"
 
@@ -141,6 +150,8 @@ if command -v nix >/dev/null 2>&1; then
     else
         fail "nix-command/flakes experimental features are not both enabled (see README's install instructions)"
     fi
+elif [ "$IN_IMAGE" = 1 ]; then
+    warn "nix is not on PATH - expected in this published image ($(grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2- | tr -d '"')), which ships the profile's closure but no Nix of its own"
 else
     fail "nix is NOT on PATH - none of the checks below can work without it"
 fi
@@ -221,6 +232,47 @@ if command -v git >/dev/null 2>&1; then
         else
             warn "delta is installed but not set as git's pager (did home-manager switch run?)"
         fi
+    fi
+fi
+
+# Spec 030: what a build script assumes any Unix has. Every real host
+# gets these from its own base OS; the published images get them from
+# the base profile (home/tools.nix), since they have no base OS at all.
+section "Standard Unix userland" 0 "🧱"
+missing_userland=""
+for c in sed find xargs diff cmp patch tar gzip unzip zip bzip2 xz file less which ps hostname tput rsync bc grep awk; do
+    command -v "$c" >/dev/null 2>&1 || missing_userland="$missing_userland $c"
+done
+if [ -z "$missing_userland" ]; then
+    pass "sed find xargs diff cmp patch tar gzip unzip zip bzip2 xz file less which ps hostname tput rsync bc grep awk are all on PATH"
+else
+    fail "missing from PATH:$missing_userland - a build script that uses any of them stops at 'command not found'"
+fi
+if [ -f /etc/os-release ] || [ -f /usr/lib/os-release ]; then
+    pass "/etc/os-release (or /usr/lib/os-release) exists (the devcontainer CLI and VS Code read it)"
+else
+    warn "neither /etc/os-release nor /usr/lib/os-release exists - the devcontainer CLI and VS Code read it to identify the OS"
+fi
+
+# Spec 032 and 035: base-profile tools every flavor carries, checked by
+# what they have to do, not only that they're on PATH.
+section "Images and Python packages (ImageMagick, WebP, uv)" 0 "🖼️ "
+for c in magick identify convert cwebp dwebp uv; do
+    check_cmd "$c"
+done
+if command -v magick >/dev/null 2>&1; then
+    if magick -list format 2>/dev/null | grep -q '^ *WEBP\*\{0,1\} .*rw'; then
+        pass "ImageMagick reads and writes WebP (magick -list format)"
+    else
+        fail "ImageMagick was built without WebP read/write support (magick -list format has no rw WEBP)"
+    fi
+fi
+if command -v uv >/dev/null 2>&1; then
+    uv_cache=$(uv cache dir 2>/dev/null || true)
+    if [ -n "$uv_cache" ] && mkdir -p "$uv_cache" 2>/dev/null && [ -w "$uv_cache" ]; then
+        pass "uv $(uv --version 2>/dev/null | cut -d' ' -f2) has a writable cache ($uv_cache)"
+    else
+        fail "uv's cache directory (${uv_cache:-unknown}) is not writable - 'uv run'/'uvx' cannot fetch a package; set UV_CACHE_DIR to a directory under \$HOME"
     fi
 fi
 
@@ -423,11 +475,12 @@ check_ai_cli claude "Claude Code" "ANTHROPIC_API_KEY"
 check_ai_cli codex "OpenAI Codex CLI" "OPENAI_API_KEY"
 check_ai_cli gemini "Gemini CLI" "GEMINI_API_KEY GOOGLE_API_KEY"
 check_ai_cli aider "aider" "ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GOOGLE_API_KEY"
-# python3/uv: the shared runtime most MCP servers need (uvx-launched
+# python3: the shared runtime most MCP servers need (uvx-launched
 # Python packages), base-profile like nodejs - not an agent CLI with
-# its own credential, so a plain check_cmd, not check_ai_cli.
+# its own credential, so a plain check_cmd, not check_ai_cli. `uv`
+# itself is checked in the essential "Images and Python packages"
+# section above (spec 035).
 check_cmd python3
-check_cmd uv
 # The base profile's document/data toolchain (spec 024, home/tools.nix):
 # one import line covering every package in it, so a single check
 # catches a collision or a missing one instead of needing one line per
@@ -493,11 +546,26 @@ fi
 section "Book/paper typesetting (optional persona: press)" 1 "📚"
 optional_cmd asciidoctor press
 optional_cmd xelatex press
+optional_cmd lualatex press
 optional_cmd latexmk press
 optional_cmd pdftotext press
 optional_cmd qpdf press
 optional_cmd rsvg-convert press
 optional_cmd epubcheck press
+# Spec 032: LuaLaTeX needs its own packages, not only the binary -
+# `lualatex` itself came with the XeLaTeX collections all along, and a
+# document still stopped at "File `lualatex-math.sty' not found".
+if command -v lualatex >/dev/null 2>&1 && command -v kpsewhich >/dev/null 2>&1; then
+    missing_sty=""
+    for f in lualatex-math.sty luaotfload.sty fontspec.sty unicode-math.sty; do
+        [ -n "$(kpsewhich "$f" 2>/dev/null)" ] || missing_sty="$missing_sty $f"
+    done
+    if [ -z "$missing_sty" ]; then
+        pass "LuaLaTeX packages found (lualatex-math, luaotfload, fontspec, unicode-math)"
+    else
+        fail "lualatex is installed but TeX cannot find:$missing_sty"
+    fi
+fi
 if command -v asciidoctor >/dev/null 2>&1; then
     if asciidoctor -r asciidoctor-epub3 --version >/dev/null 2>&1; then
         pass "asciidoctor -r asciidoctor-epub3 loads cleanly"

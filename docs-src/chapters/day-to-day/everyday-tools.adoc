@@ -56,6 +56,18 @@ Configure the remote itself with `rclone config` first, the same as any other `r
   up a server.
 * *`sqlite3`*: for poking at a plain SQLite `.db` file by hand -- several official MCP reference
   servers expect one to already be there (<<ai-agents>>).
+* *ImageMagick (`magick`/`identify`/`convert`) and `cwebp`/`dwebp`*: resize, inspect, and
+  re-encode images, WebP included. `doctor` checks ImageMagick can actually read and write WebP,
+  not just that it's installed.
+* *`uv`*: a repo's own command line can fetch hash-locked Python packages on first use (`uv run`,
+  `uvx`) into uv's cache under `~/.cache/uv`. Nothing goes into the profile's own Python, which is
+  read-only anyway.
+* *A standard Unix userland on Linux*: `sed`, `find`/`xargs`, `diff`/`cmp`, `patch`, `tar`, `gzip`,
+  `zip`/`unzip`, `bzip2`, `xz`, `file`, `less`, `which`, `ps`, `hostname`, `tput`, `rsync`, `bc`. A
+  real Linux machine already has these; the container images don't have a base OS, so without this
+  a build script's first `sed` failed with "command not found". On a Mac only `xz` is added: GNU
+  `sed` ahead of the BSD one would change how your existing scripts behave. `doctor` checks the
+  whole set either way.
 * *SSH agent auto-start*: a new login shell loads your key automatically.
 * *`cdp`*: jumps to the current git repo's top-level directory.
 

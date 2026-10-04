@@ -130,8 +130,14 @@ jobs:
           set -euo pipefail
           image="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')${{ matrix.repo_suffix }}"
           sha_short="$(git rev-parse --short HEAD)"
+          # `latest` follows main only: a workflow_dispatch run from another
+          # branch publishes just its `sha-` tag, so a commit can be pinned
+          # and tested before it merges without moving everyone's `latest`.
+          tags=(-t "$image:sha-$sha_short")
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            tags+=(-t "$image:latest")
+          fi
           docker buildx imagetools create \
-            -t "$image:latest" \
-            -t "$image:sha-$sha_short" \
+            "${tags[@]}" \
             "$image:sha-$sha_short-amd64" \
             "$image:sha-$sha_short-arm64"

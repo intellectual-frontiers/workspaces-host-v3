@@ -62,7 +62,39 @@ repo's history was rewritten upstream and a plain pull would conflict:
 ----
 
 Remove the flag (or the whole entry) once you've re-cloned; it isn't meant to stay set
-permanently.
+permanently. `ws-repos` refuses `fresh` on a repo that is a symlink (an adopted checkout, below):
+deleting the link would leave the real checkout where it is and clone a second copy. It pulls that
+repo instead and tells you so; re-clone the real checkout yourself if you need to.
+
+=== When a clone or pull fails
+
+`ensure` keeps going past a failure, so one bad entry doesn't stop the rest, but it exits non-zero
+at the end and lists each failed repo with git's own reason. That reason is the part worth reading:
+`could not read Username` means you aren't logged in (`gh auth login`), `Repository not found` means
+no access or a typo, and `Could not resolve host` means you're offline. Each needs a different fix,
+so `ws-repos` doesn't guess.
+
+=== Adopting a checkout an editor opened somewhere else
+
+The rule is one copy of each repo, at `~/workspaces/<host>/<org>/<repo>`. GitHub Codespaces and a
+devcontainer cloned into a volume break it: they always open the repo at `/workspaces/<repo>`, and
+Codespaces ignores bind mounts, so you can't move it. Run `ensure` there and it clones the opened
+repo a second time, and `../.github` doesn't exist beside it.
+
+`ws-repos adopt [PATH]` fixes that without moving anything. Run inside a checkout that's listed in
+`ws-repos.json` but isn't in the layout, it:
+
+. makes `~/workspaces/<host>/<org>/<repo>` a symlink to the checkout, so `ensure` pulls it through
+  the link instead of cloning it again;
+. makes `<parent of the checkout>/<repo-name>` a symlink to `~/workspaces/<host>/<org>/<repo-name>`
+  for every other listed repo, so `../<repo>` resolves from the checkout. The link goes this
+  direction because tools resolve `..` against the checkout's real path, not the link's.
+
+It reads `<host>/<org>/<repo>` from the checkout's `origin` URL (https with or without credentials
+in it, or ssh), never deletes or overwrites anything that's already there, and does nothing for a
+checkout that already lives in the layout. `ws-start` (<<container-ci>>) runs it for you on every
+attach. `status` and `inspect` both follow these links, so an adopted repo shows up there like any
+other.
 
 === Reading status across many repos at once
 

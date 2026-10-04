@@ -4,6 +4,10 @@
   # own internal docker name instead of colliding with the base image's
   # when both are `docker load`ed in the same CI job.
   imageName ? "workspaces-host"
+, # The short commit this image is built from (flake.nix's
+  # `imageRevision`), written to /etc/os-release as VERSION_ID (spec
+  # 031).
+  revision ? "unknown"
 }:
 
 let
@@ -30,6 +34,24 @@ let
     name = "${imageName}-packages";
     paths = cfg.home.packages;
   };
+
+  # /etc/os-release (spec 031): the devcontainer CLI reads it on `up`
+  # (logging "Command in container failed: (cat /etc/os-release || cat
+  # /usr/lib/os-release)" without it), and VS Code's server and
+  # devcontainer features read it too. This image is no distribution's,
+  # so it claims none: no ID_LIKE, which would send a feature script
+  # down an apt/apk/dnf path that cannot work here. `flavor` is the
+  # image name's suffix ("" for the base image, "press", "rust").
+  flavor = pkgs.lib.removePrefix "-" (pkgs.lib.removePrefix "workspaces-host" imageName);
+  osRelease = pkgs.writeText "os-release" ''
+    ID=workspaces-host
+    NAME="Workspaces Host v3"
+    VERSION_ID=${revision}
+    VERSION="${revision}${pkgs.lib.optionalString (flavor != "") " (${flavor})"}"
+    PRETTY_NAME="Workspaces Host v3${pkgs.lib.optionalString (flavor != "") " ${flavor}"} ${revision}"
+    VARIANT_ID=${if flavor == "" then "base" else flavor}
+    HOME_URL="https://github.com/intellectual-frontiers/workspaces-host-v3"
+  '';
 in
 pkgs.dockerTools.buildLayeredImage {
   name = imageName;
@@ -109,6 +131,13 @@ pkgs.dockerTools.buildLayeredImage {
     rm -f etc/passwd etc/group
     cp ${pkgs.dockerTools.fakeNss}/etc/passwd etc/passwd
     cp ${pkgs.dockerTools.fakeNss}/etc/group etc/group
+
+    # A real file at both places the os-release(5) spec names, for the
+    # same "path escapes from parent" reason as /etc/passwd above: a
+    # symlink into the store would not do (spec 031).
+    mkdir -p usr/lib
+    cp ${osRelease} etc/os-release
+    cp ${osRelease} usr/lib/os-release
   '';
 
   config = {

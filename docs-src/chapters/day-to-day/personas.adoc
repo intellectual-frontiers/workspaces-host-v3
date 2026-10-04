@@ -31,7 +31,7 @@ the full reasoning.
 |fish shell, with the same aliases and prompt bash gets
 
 |`press`
-|asciidoctor+epub3, texlive (XeLaTeX/latexmk), poppler/qpdf/librsvg, a headless JRE, epubcheck --
+|asciidoctor+epub3, texlive (XeLaTeX/LuaLaTeX/latexmk), poppler/qpdf/librsvg, a headless JRE, epubcheck --
 book and paper typesetting
 
 |`media`

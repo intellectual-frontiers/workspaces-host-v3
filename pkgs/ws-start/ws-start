@@ -9,16 +9,31 @@
 #      helper - the device flow it prints works in a plain terminal, a
 #      VS Code integrated terminal, and a Codespace alike; a Codespace
 #      already has a token, so this step is an instant no-op there.
-#   2. Run `ws-repos ensure` against the repo's own list - honors
+#   2. If it runs inside a git checkout listed in $WS_REPOS_CONFIG that
+#      is not already in the ~/workspaces layout (Codespaces and a
+#      volume devcontainer always open /workspaces/<repo>), run `ws-repos
+#      adopt` on it (spec 034): ~/workspaces/<host>/<org>/<repo> becomes
+#      a link to that checkout, so the next step pulls it instead of
+#      cloning a second copy, and every other listed repo gets a link
+#      beside it, so ../<repo> resolves.
+#   3. Run `ws-repos ensure` against the repo's own list - honors
 #      $WS_REPOS_CONFIG exactly as pkgs/ws-repos already does, so a
 #      devcontainer.json pointing it at its own
 #      `.devcontainer/ws-repos.json` just works with no extra logic here.
 #
-# Idempotent: a later attach re-runs the same two steps and finds nothing
-# to do (gh already authenticated, ws-repos ensure a no-op pull for
-# already-cloned repos) - safe to run on every attach, not just the
-# first.
+# Idempotent: a later attach re-runs the same steps and finds nothing to
+# do (gh already authenticated, the links already there, ws-repos ensure
+# a no-op pull for already-cloned repos) - safe to run on every attach,
+# not just the first. Exits non-zero if any repo failed to clone or pull
+# (spec 033), after a summary naming each one.
 set -u
+
+# Fail a clone that needs credentials at once, with git's own "could not
+# read Username" reason, instead of stopping at a prompt nobody may be
+# watching: a private repo before login is exactly that case, and the
+# summary below already says how to fix it.
+GIT_TERMINAL_PROMPT=0
+export GIT_TERMINAL_PROMPT
 
 echo "ws-start: checking GitHub authentication..."
 if gh auth status >/dev/null 2>&1; then
@@ -41,10 +56,31 @@ if gh auth status >/dev/null 2>&1; then
     gh auth setup-git >/dev/null 2>&1 || true
 fi
 
-echo "ws-start: running 'ws-repos ensure'..."
+failed=""
+status=0
 if command -v ws-repos >/dev/null 2>&1; then
-    ws_repos_result="ok"
-    ws-repos ensure || ws_repos_result="failed (see output above)"
+    # Adopt only a checkout that is listed but not yet in the layout;
+    # `ws-repos adopt` itself says "nothing to do" for the rest, so the
+    # one check here is just "is this a git checkout at all".
+    if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        echo "ws-start: running 'ws-repos adopt' on $(git rev-parse --show-toplevel)..."
+        ws-repos adopt || echo "ws-start: 'ws-repos adopt' did not complete (see above) - continuing"
+    fi
+
+    echo "ws-start: running 'ws-repos ensure'..."
+    failed_file=$(mktemp)
+    if WS_REPOS_FAILED_FILE="$failed_file" ws-repos ensure; then
+        ws_repos_result="ok"
+    else
+        status=1
+        failed=$(sort -u "$failed_file" | paste -sd ' ' -)
+        if [ -n "$failed" ]; then
+            ws_repos_result="failed for $failed"
+        else
+            ws_repos_result="failed (see output above)"
+        fi
+    fi
+    rm -f "$failed_file"
 else
     ws_repos_result="skipped (ws-repos not on PATH)"
 fi
@@ -52,5 +88,12 @@ fi
 echo
 echo "ws-start: done - GitHub auth: $gh_status; ws-repos ensure: $ws_repos_result"
 if [ "$gh_status" = "login did not complete" ]; then
-    echo "ws-start: run 'gh auth login' yourself when ready, then 'ws-start' again (or just 'ws-repos ensure')"
+    if [ -n "$failed" ]; then
+        echo "ws-start: not logged in to GitHub, so a private repo cannot clone - run 'gh auth login', then 'ws-start' again"
+    else
+        echo "ws-start: run 'gh auth login' yourself when ready, then 'ws-start' again (or just 'ws-repos ensure')"
+    fi
+elif [ "$status" != 0 ]; then
+    echo "ws-start: fix the cause git gave above for each failed repo, then run 'ws-start' again"
 fi
+exit "$status"
